@@ -15,6 +15,14 @@ All infrastructure is abstracted behind provider-agnostic interfaces:
 - Domain and service projects have ZERO cloud SDK knowledge
 - Azure/AWS/GCP implementations live only in Infrastructure
 
+## Service Data Access — API as the Boundary
+
+- **Default rule:** Services (background workers, CRON jobs, etc.) always access data through the API via HTTP endpoints, not directly through database repositories.
+- **Rationale:** Any service can be moved to a different host, cloud, or network segment — all it needs is an API URL and credentials. No database ports, connection strings, or network-level DB access required.
+- **Internal endpoints:** The API may expose internal/service-to-service endpoints (e.g., `/api/internal/...`) for operations that aren't part of the public API surface. These can be "thick" operations that do multiple DB steps in one call to reduce chattiness.
+- **Exception process:** If direct DB access seems genuinely warranted for a specific case (performance, atomicity, or other technical reason), raise it with the project owner before proceeding. Explain the trade-off and get explicit approval. The default answer is "build an API endpoint."
+- **Existing code:** If a service already uses direct DB access, do not partially convert it. Leave it as-is until a dedicated conversion ticket is created. Conversions are all-or-nothing per service — never mix direct DB and API calls within the same service.
+
 ## Project Layering
 
 Every project follows this layered structure:
