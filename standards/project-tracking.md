@@ -32,7 +32,7 @@
 - **Bug** (`bug` label) — something broken that needs fixing
 - **Task** (`task` label) — non-code work (config, testing, infrastructure, docs)
 
-Templates should be in `.github/ISSUE_TEMPLATE/` (story.md, bug.md, task.md).
+Templates should be in `.github/ISSUE_TEMPLATE/` (story.md, bug.md, task.md). Reusable templates are in `templates/issue-templates/`. Copy them to your project's `.github/ISSUE_TEMPLATE/` and replace `{PREFIX}` with your project's Story ID prefix.
 
 ## Board Automations
 
