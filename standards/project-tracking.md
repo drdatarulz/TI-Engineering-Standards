@@ -54,12 +54,20 @@ Apply GTD labels as needed for workflow management:
 2. If nothing is In Progress, check **Up Next** for the highest-priority item.
 3. Run `gh issue list --repo {owner}/{repo} --state open --label story` to see open stories.
 
-## Creating a Story
+## Creating Issues
+
+When creating issues and adding them to the project board, always set custom fields as part of the same workflow — don't leave them for manual assignment.
+
+1. Create the issue via `gh issue create`.
+2. Add to the project board via `gh project item-add`.
+3. **Immediately set custom fields** (Type, Priority, Component, etc.) via `gh project item-edit` — the board automations only set Status to Inbox, all other fields must be set explicitly.
+
+### Creating a Story
 
 1. Determine next Story ID: check existing stories and increment.
 2. Create the issue using the story template — fill in title as `{PREFIX}-XXX: Short description`, acceptance criteria, plan, and test coverage.
-3. The issue auto-lands in **Inbox** on the board. Move it to **Up Next** or **In Progress**.
-4. Set custom fields.
+3. Add to the project board and set custom fields (Type=Story, Priority, Component, Story ID).
+4. Move to **Up Next** or **In Progress**.
 
 ## Working on a Story
 
