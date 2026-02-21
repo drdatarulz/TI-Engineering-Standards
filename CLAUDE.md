@@ -27,12 +27,16 @@ Read each of these files — they contain the engineering rules and conventions 
 | File | Scope |
 |------|-------|
 | [standards/architecture.md](standards/architecture.md) | Dependency inversion, interface-first design, project layering |
-| [standards/dotnet.md](standards/dotnet.md) | .NET runtime, Minimal APIs, Dapper, DbUp, DI conventions |
-| [standards/testing.md](standards/testing.md) | Testing philosophy, frameworks, naming, fakes, CI/CD tiers |
+| [standards/configuration.md](standards/configuration.md) | Options pattern, config layering, environment variables |
 | [standards/database.md](standards/database.md) | SQL Server conventions, primary keys, timestamps, migrations |
 | [standards/documentation.md](standards/documentation.md) | XML docs, architecture docs (dual-format md + draw.io) |
+| [standards/dotnet.md](standards/dotnet.md) | .NET runtime, Minimal APIs, Dapper, DbUp, DI conventions |
+| [standards/error-handling.md](standards/error-handling.md) | Error responses, HTTP status codes, validation, pagination |
 | [standards/git-workflow.md](standards/git-workflow.md) | Branching, commits, PR process |
+| [standards/logging.md](standards/logging.md) | Serilog, log levels, correlation IDs, health checks |
 | [standards/project-tracking.md](standards/project-tracking.md) | GitHub Projects v2 workflow, issue types, board structure |
+| [standards/security.md](standards/security.md) | Auth, input validation, CORS, rate limiting, secrets |
+| [standards/testing.md](standards/testing.md) | Testing philosophy, frameworks, naming, fakes, CI/CD tiers |
 | [standards/ui.md](standards/ui.md) | Blazor WebAssembly, MudBlazor, frontend patterns |
 
 ---
