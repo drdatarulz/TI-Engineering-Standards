@@ -15,6 +15,20 @@
 - Commit messages should be concise and describe the "why" not just the "what"
 - Always commit utility scripts (SQL scripts, cleanup scripts, etc.) even if not part of the current task
 
+## Git Hooks
+
+All projects use `.githooks/` (committed to the repo) for shared git hooks.
+
+**Setup (required after clone):**
+
+```bash
+git config --local core.hooksPath .githooks
+```
+
+### commit-msg
+
+Rejects any commit message containing a `Co-Authored-By` trailer per TI Engineering Standards.
+
 ## Passwords and Secrets
 
 - Do NOT use `!` in passwords or secrets — bash interprets `!` as history expansion, making them unusable in shell commands
