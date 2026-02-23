@@ -3,6 +3,7 @@
 ## Tool
 
 - **GitHub Projects v2** — single source of truth for all work tracking
+- **GitHub Issues** as the backing items — issues auto-land on the board via the **Auto-add to project** workflow
 - Do NOT track work in markdown files
 
 ## Board Columns (Status)
@@ -37,6 +38,7 @@ Templates should be in `.github/ISSUE_TEMPLATE/` (story.md, bug.md, task.md). Re
 ## Board Automations
 
 Enable these automations on every project board:
+- **Auto-add to project** — new issues from the repo auto-land on the board (configure via project Settings → Workflows)
 - Item added → Inbox
 - Item closed → Done
 - PR merged → Done
@@ -56,17 +58,18 @@ Apply GTD labels as needed for workflow management:
 
 ## Creating Issues
 
-When creating issues and adding them to the project board, always set custom fields as part of the same workflow — don't leave them for manual assignment.
+When creating issues, they auto-land on the board via the Auto-add workflow. Always set custom fields immediately after creation — don't leave them for manual assignment.
 
 1. Create the issue via `gh issue create`.
-2. Add to the project board via `gh project item-add`.
-3. **Immediately set custom fields** (Type, Priority, Component, etc.) via `gh project item-edit` — the board automations only set Status to Inbox, all other fields must be set explicitly.
+2. The issue auto-lands on the board in **Inbox**.
+3. **Immediately set custom fields** (Type, Priority, Component, Story ID) via `gh project item-edit` — the board automations only set Status to Inbox, all other fields must be set explicitly.
+4. Store the project ID and field IDs in your project's `CLAUDE.md` for quick reference.
 
 ### Creating a Story
 
 1. Determine next Story ID: check existing stories and increment.
 2. Create the issue using the story template — fill in title as `{PREFIX}-XXX: Short description`, acceptance criteria, plan, and test coverage.
-3. Add to the project board and set custom fields (Type=Story, Priority, Component, Story ID).
+3. The issue auto-lands on the board. Set custom fields (Type=Story, Priority, Component, Story ID).
 4. Move to **Up Next** or **In Progress**.
 
 ## Working on a Story
