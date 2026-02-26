@@ -12,6 +12,17 @@ When starting a session on **any project**, follow this protocol:
 2. **If not found**, clone it: `git clone https://github.com/drdatarulz/TI-Engineering-Standards.git ../TI-Engineering-Standards/`
 3. **If found**, pull latest: `cd ../TI-Engineering-Standards && git pull --ff-only && cd -`
 4. **Read this file** and the referenced standards files below before starting work.
+5. **Sync skills**: Copy shared skills into the project (skipping any that already exist locally):
+   ```bash
+   mkdir -p .claude/skills
+   for skill_dir in ../TI-Engineering-Standards/skills/*/; do
+     skill_name=$(basename "$skill_dir")
+     if [ ! -d ".claude/skills/$skill_name" ]; then
+       cp -r "$skill_dir" ".claude/skills/$skill_name"
+     fi
+   done
+   ```
+   Local skills in `.claude/skills/` take precedence — if a project has a customized version, it won't be overwritten.
 
 When the user asks to update a standard:
 - Update the relevant file in this repo
@@ -38,6 +49,18 @@ Read each of these files — they contain the engineering rules and conventions 
 | [standards/security.md](standards/security.md) | Auth, input validation, CORS, rate limiting, secrets |
 | [standards/testing.md](standards/testing.md) | Testing philosophy, frameworks, naming, fakes, CI/CD tiers |
 | [standards/ui.md](standards/ui.md) | Blazor WebAssembly, MudBlazor, frontend patterns |
+
+---
+
+## Skills (Claude Code)
+
+Shared skills live in `skills/` and are auto-copied to each project's `.claude/skills/` during sync. Projects can override any skill by placing a customized version in their own `.claude/skills/` directory.
+
+| Skill | Purpose |
+|-------|---------|
+| [skills/implement-ticket](skills/implement-ticket/SKILL.md) | Implement a single ticket — loads context, applies constraints, builds/tests, commits, reports |
+| [skills/orchestrate](skills/orchestrate/SKILL.md) | Sequentially implement multiple tickets via subagents — pre-flight, board updates, merging |
+| [skills/refine-story](skills/refine-story/SKILL.md) | Refine a GitHub issue into an implementation-ready spec — explores codebase, resolves gaps interactively |
 
 ---
 
