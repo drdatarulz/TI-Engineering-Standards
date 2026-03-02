@@ -125,7 +125,14 @@ Use the build and test commands from the project's `CLAUDE.md`:
 - Commit message format: `{STORY_ID}: Concise description of why this change was made`
 - Do NOT push the branch
 
-### 6. REPORT
+### 6. LABEL FOR TESTING
+When STATUS is **Complete**, add the `needs testing` label to the GitHub issue:
+```bash
+gh issue edit {ISSUE_NUMBER} --add-label "needs testing"
+```
+Skip this step if STATUS is Partial or Blocked.
+
+### 7. REPORT
 
 Return your results in this exact format:
 
