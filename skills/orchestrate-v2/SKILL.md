@@ -50,7 +50,7 @@ Store `REPO_OWNER` and `REPO_NAME` — you'll use them for all commands.
    - If not: `git clone https://github.com/drdatarulz/TI-Engineering-Standards.git ../TI-Engineering-Standards/`
 2. Read `../TI-Engineering-Standards/CLAUDE.md` (skim — subagents get the details)
 3. Read `CLAUDE.md` — extract:
-   - **Build command** (e.g., `dotnet build AgentZula.slnx`)
+   - **Build command** (e.g., `dotnet build {ProjectName}.sln`)
    - **Test commands** (unit + integration)
    - **Story ID prefix**
    - **Branch naming pattern**

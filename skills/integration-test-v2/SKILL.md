@@ -51,12 +51,11 @@ gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}
 
 ### 1d. Read existing integration test patterns
 
-Read these files to understand the established patterns:
+Find and read the project's integration test fixtures and existing tests to understand the established patterns:
 
-- `tests/AgentZula.Integration.Tests/Fixtures/DatabaseFixture.cs`
-- `tests/AgentZula.Integration.Tests/Fixtures/DatabaseCollection.cs`
-- At least 2 existing test files in `tests/AgentZula.Integration.Tests/Repositories/` to understand naming, setup, and assertion patterns
-- Any existing endpoint tests in `tests/AgentZula.Integration.Tests/Endpoints/`
+- The `DatabaseFixture` and `DatabaseCollection` classes (typically in a `Fixtures/` folder within the integration test project)
+- At least 2 existing test files to understand naming, setup, and assertion patterns
+- Any existing endpoint tests
 
 ## Step 2: Plan Tests
 
@@ -90,7 +89,7 @@ Follow these patterns exactly:
 ```csharp
 using FluentAssertions;
 
-namespace AgentZula.Integration.Tests.Repositories;
+namespace {ProjectName}.Integration.Tests.Repositories;
 
 [Collection(DatabaseCollection.Name)]
 public class {ClassName}Tests
@@ -128,21 +127,11 @@ public class {ClassName}Tests
 
 ## Step 4: Build & Test
 
-### 4a. Build the full solution
-```bash
-dotnet build AgentZula.slnx
-```
+Use the build and test commands from the project's `CLAUDE.md`:
 
-### 4b. Run all unit tests (regression check)
-```bash
-dotnet test tests/AgentZula.Api.Tests/
-dotnet test tests/AgentZula.Agent.Tests/
-```
-
-### 4c. Run integration tests
-```bash
-dotnet test tests/AgentZula.Integration.Tests/
-```
+1. Build the full solution
+2. Run all unit tests (regression check)
+3. Run integration tests
 
 If any tests fail, fix them. You have **3 attempts** to fix failing tests before reporting as partial.
 
