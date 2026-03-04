@@ -4,19 +4,42 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 
 ## Available Skills
 
+### v1 Pipeline
+
 | Skill | Invocation | Description |
 |-------|-----------|-------------|
 | **[implement-ticket](implement-ticket/SKILL.md)** | `/implement-ticket 42` | Implement a single ticket — loads standards, explores codebase, builds/tests, commits, and reports status |
 | **[orchestrate](orchestrate/SKILL.md)** | `/orchestrate supervised TX-101, TX-102` | Sequentially implement multiple tickets via subagents with pre-flight checks, board updates, and merging |
 | **[refine-story](refine-story/SKILL.md)** | `/refine-story TX-101` | Refine a GitHub issue into an implementation-ready spec by exploring the codebase and resolving gaps interactively |
 
+### v2 Pipeline (PR-based with review gates)
+
+| Skill | Invocation | Description |
+|-------|-----------|-------------|
+| **[refine-story-v2](refine-story-v2/SKILL.md)** | `/refine-story-v2 TX-101` | Refine a GitHub issue into an implementation-ready spec. Supports orchestrator mode (auto-decisions, issue comments) and standalone mode (interactive) |
+| **[implement-ticket-v2](implement-ticket-v2/SKILL.md)** | `/implement-ticket-v2 42` | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode to address review feedback on an existing PR |
+| **[engineering-review-v2](engineering-review-v2/SKILL.md)** | `/engineering-review-v2 42` | Review a PR against TI Engineering Standards. Two modes: implementation (code review) and integration-tests (test quality review). Posts line-level PR comments or approves |
+| **[integration-test-v2](integration-test-v2/SKILL.md)** | `/integration-test-v2 TX-101` | Write integration tests for a merged implementation. Branches from main, follows Testcontainers patterns, creates PR. Supports FIX mode for review feedback |
+| **[orchestrate-v2](orchestrate-v2/SKILL.md)** | `/orchestrate-v2 supervised TX-101, TX-102` | PR-based pipeline orchestrator. Refine → Implement (PR) → Review loop → Integration Tests (PR) → Review loop → Merge → Close |
+
 ## How They Fit Together
 
-These skills map to phases in the agentic development workflow:
+### v1 Pipeline
 
 1. **refine-story** — Phase 4 (Story Decomposition & Refinement)
 2. **orchestrate** — Phase 5 (Orchestrated Development)
 3. **implement-ticket** — Phase 5 inner loop (spawned by orchestrate for each ticket)
+
+### v2 Pipeline
+
+The v2 pipeline adds PR-based review gates and integration test stages:
+
+1. **refine-story-v2** — Refine issue spec (orchestrator or standalone mode)
+2. **implement-ticket-v2** — Implement and create PR
+3. **engineering-review-v2** — Review PR against standards (up to 3 iterations with implement-ticket-v2 fix mode)
+4. **integration-test-v2** — Write integration tests on a separate PR
+5. **engineering-review-v2** — Review integration test PR (up to 3 iterations with integration-test-v2 fix mode)
+6. **orchestrate-v2** — Orchestrates the full pipeline per ticket, manages board updates and review loops
 
 See the full workflow: **[Agentic Development Workflow Diagram](https://htmlpreview.github.io/?https://github.com/drdatarulz/TI-Engineering-Standards/blob/main/workflow/workflow-diagram.html)**
 
