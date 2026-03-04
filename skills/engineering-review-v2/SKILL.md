@@ -69,124 +69,39 @@ For each file changed in the PR, read the complete file (not just the diff) to u
 
 ### Implementation Mode Checklist
 
-Check every changed file against these categories:
+Run through every rule in the 12 standards files you loaded in Step 0. For each changed file, check against these categories. Flag any violation.
 
-**Architecture:**
-- [ ] Domain project has zero NuGet/project dependencies
-- [ ] No cloud SDKs (Azure/AWS/GCP) outside Infrastructure project
-- [ ] Interfaces live in Domain, implementations in Infrastructure
-- [ ] Interface names describe behavior, not technology
-- [ ] No infrastructure types (`DbConnection`, `HttpClient`, etc.) in interfaces
-- [ ] Built-in DI only — no third-party IoC
-- [ ] Minimal APIs only — no MVC controllers
+- **Architecture** — `standards/architecture.md`
+- **API Design** — `standards/api-design.md`
+- **Data Access** — `standards/database.md`, `standards/dotnet.md`
+- **Testing** — `standards/testing.md`
+- **Error Handling** — `standards/error-handling.md`
+- **Logging** — `standards/logging.md`
+- **Configuration** — `standards/configuration.md`
+- **Security** — `standards/security.md`
+- **Git** — `standards/git-workflow.md`
+- **Build** — Full solution builds with 0 errors, all unit tests pass
 
-**API Patterns:**
-- [ ] Endpoints use Minimal API pattern
-- [ ] Error responses use `ErrorResponse` record (`{ Error, Detail? }`)
-- [ ] Correct HTTP status codes (200 GET, 201 POST w/ Location, 204 PUT/DELETE, 400 validation, 404 not found)
-- [ ] List endpoints use pagination envelope (`{ items, totalCount, page, pageSize }`)
-- [ ] Default page size 25, max 100
-
-**Data Access:**
-- [ ] Dapper only — no EF, LINQ-to-SQL, or other ORMs
-- [ ] INT IDENTITY(1,1) primary keys — no GUIDs
-- [ ] DATETIME2 + SYSUTCDATETIME() — no DATETIME/GETDATE()
-- [ ] DbUp forward-only migrations — no down migrations
-- [ ] SQL naming: Tables PascalCase plural, Columns PascalCase, FKs `FK_{Child}_{Parent}`, etc.
-- [ ] NVARCHAR(4000) max — no NVARCHAR(MAX)
-
-**Testing:**
-- [ ] xUnit + FluentAssertions only
-- [ ] NO mocking frameworks (Moq, NSubstitute, FakeItEasy)
-- [ ] Hand-rolled fakes in `*.Fakes` project
-- [ ] Test naming: `Snake_case_describing_behavior` on `{ClassUnderTest}Tests`
-- [ ] Tests written alongside implementation (not missing)
-- [ ] Unit tests use fakes, not real infrastructure
-- [ ] Infrastructure/SQL tests are in integration test project
-
-**Error Handling:**
-- [ ] No Problem Details / RFC 9457
-- [ ] Consistent `ErrorResponse` usage across all error paths
-
-**Logging:**
-- [ ] Serilog structured logging with named placeholders
-- [ ] No string interpolation in log messages
-- [ ] No secrets or PII logged
-
-**Configuration:**
-- [ ] Options pattern for configuration
-- [ ] Sensible defaults documented
-
-**Security:**
-- [ ] No hardcoded secrets, connection strings, or tokens
-- [ ] No `!` in secret values
-
-**Git:**
-- [ ] No `Co-Authored-By` trailers
-- [ ] Specific file staging (not `git add .`)
-
-**Build:**
-- [ ] Full solution builds with 0 errors
-- [ ] All unit tests pass
+Also check the project's `CLAUDE.md` for project-specific rules that go beyond the standards.
 
 ### Integration-Tests Mode Checklist
 
-**Test Framework:**
-- [ ] xUnit + FluentAssertions only
-- [ ] NO mocking frameworks
+Run through `standards/testing.md` with focus on integration test rules. For each test file, check:
 
-**Testcontainers Pattern:**
-- [ ] Uses `[Collection(DatabaseCollection.Name)]` on test classes
-- [ ] Injects `DatabaseFixture` via constructor
-- [ ] Uses `CreateOpenConnectionAsync()` for connections
-
-**Data Isolation:**
-- [ ] Each test seeds its own unique data
-- [ ] Tests do not depend on data from other tests
-- [ ] Unique identifiers in test data prevent cross-test interference
-
-**Test Naming:**
-- [ ] Method names use `Snake_case_describing_behavior`
-- [ ] Test class named `{ClassUnderTest}Tests`
-
-**Coverage Adequacy:**
-- [ ] Happy path covered for each new repository method/endpoint
-- [ ] Edge cases covered (empty results, not found, boundary values)
-- [ ] Error scenarios covered where applicable
-
-**Scope Boundaries:**
-- [ ] Tests exercise real SQL/infrastructure, not fakes
-- [ ] No overlap with unit test scenarios (fakes vs. real infrastructure)
-
-**Build:**
-- [ ] Full solution builds with 0 errors
-- [ ] All integration tests pass (may take several minutes)
-- [ ] All unit tests still pass
+- **Framework** — xUnit + FluentAssertions only, no mocking frameworks
+- **Testcontainers patterns** — collection fixtures, connection factories, data isolation
+- **Test naming** — `Snake_case_describing_behavior` on `{ClassUnderTest}Tests`
+- **Coverage** — happy path, edge cases, error scenarios for each new method
+- **Scope** — tests exercise real infrastructure (not fakes), no overlap with unit tests
+- **Build** — Full solution builds, all integration + unit tests pass
 
 ## Step 3: Build & Test
 
-Regardless of what the diff review found, always verify the build:
+Regardless of what the diff review found, always verify the build. Use the build and test commands from the project's `CLAUDE.md`.
 
-```bash
-dotnet build AgentZula.slnx
-```
+For **implementation mode**, build the full solution and run all unit test projects.
 
-For **implementation mode**, run unit tests:
-```bash
-dotnet test tests/AgentZula.Api.Tests/
-dotnet test tests/AgentZula.Agent.Tests/
-```
-
-For **integration-tests mode**, run integration tests:
-```bash
-dotnet test tests/AgentZula.Integration.Tests/
-```
-
-Also run unit tests to confirm no regressions:
-```bash
-dotnet test tests/AgentZula.Api.Tests/
-dotnet test tests/AgentZula.Agent.Tests/
-```
+For **integration-tests mode**, build the full solution, run all integration tests, and also run unit tests to confirm no regressions.
 
 ## Step 4: Post Review
 

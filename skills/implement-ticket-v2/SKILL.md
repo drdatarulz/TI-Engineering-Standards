@@ -50,52 +50,9 @@ Before writing any code, read and internalize these files:
 
 Do NOT write any code until all three steps are complete.
 
-## Critical Constraints (Non-Negotiable)
+## Critical Constraints Reminder
 
-These are inlined because they are the most commonly violated rules. All rules in the standards files also apply, but violating ANY of these is a hard failure.
-
-### Architecture
-- **Domain has ZERO dependencies** — no NuGet packages, no project references
-- **Dapper only** — NO Entity Framework, NO LINQ-to-SQL, NO other ORMs
-- **Minimal APIs only** — NO MVC controllers
-- **Built-in DI only** — NO third-party IoC containers (Autofac, etc.)
-- **Services access data through the API** via HTTP client repos — not directly through DB repositories (unless existing code already uses direct access — don't partially convert)
-- **Interfaces live in Domain** — concrete implementations live in Infrastructure
-- **Interface names describe behavior, not technology** — `IEmailQueue` not `IAzureStorageQueue`
-- **Infrastructure types NEVER in interfaces** — `DbConnection`, `HttpClient`, `SmtpClient`, `SslStream`, `TcpClient` appear ONLY in concrete classes in Infrastructure
-- **No cloud SDKs outside Infrastructure** — Azure/AWS/GCP references belong only in Infrastructure
-
-### Testing
-- **xUnit + FluentAssertions** — the only test frameworks
-- **NO mocking frameworks — EVER** — NO Moq, NO NSubstitute, NO FakeItEasy
-- **Hand-rolled fakes only** — explicit classes in the `*.Fakes` project implementing the interface
-- **Test naming**: `Snake_case_describing_behavior` as method names on a class named `{ClassUnderTest}Tests`
-- **Write tests alongside implementation**, not after — every new endpoint and behavior gets tests
-- **Dapper SQL and infrastructure go in integration tests**, not unit tests — unit tests use fakes
-
-### Git
-- **NO `Co-Authored-By` trailers** in commit messages
-- **Commit message = concise "why"**, not just "what"
-- **Stage specific files** — never `git add .` or `git add -A`
-- **No `!` in passwords or secrets** — bash interprets `!` as history expansion
-- **Always commit utility scripts** — SQL scripts, cleanup scripts in `scripts/` get committed even if not part of the current task
-
-### Database
-- **INT IDENTITY(1,1) primary keys** — NO GUIDs
-- **DATETIME2 + SYSUTCDATETIME()** — NO DATETIME, NO GETDATE()
-- **DbUp forward-only** — NO down migrations, ever
-- **NVARCHAR(4000)** max for address fields — NO NVARCHAR(MAX)
-- **Naming conventions** — Tables: PascalCase plural. Columns: PascalCase. FKs: `FK_{Child}_{Parent}`. UQs: `UQ_{Table}_{Col}`. CKs: `CK_{Table}_{Col}`. Indexes: `IX_{Table}_{Col}`
-
-### Error Handling (API endpoints)
-- **`ErrorResponse` record** — all errors use `{ Error: string, Detail: string? }`. No Problem Details / RFC 9457
-- **HTTP status codes** — 200 GET, 201 POST (with Location header), 204 PUT/DELETE, 400 validation (ErrorResponse), 403 auth (no body, Results.Forbid()), 404 (no body)
-- **Pagination envelope** — `{ items, totalCount, page, pageSize }` on all list endpoints. Default 25, max 100
-
-### Logging
-- **Serilog structured logging** — named placeholders `{EmailId}`, never string interpolation
-- **Standard properties** — `{CorrelationId}`, `{UserId}`, `{EmailId}`, `{Count}`, `{Elapsed}`, `{Status}`
-- **Never log secrets or PII** — no connection strings, passwords, tokens, full email bodies
+All rules from the 12 standards files apply — you loaded them in the Context Loading step above. The most commonly violated rules involve: Domain zero-dependency, Dapper-only, no mocking frameworks, hand-rolled fakes, no Co-Authored-By. When in doubt, re-check the standards files.
 
 ## Implementation Workflow (Initial Mode)
 

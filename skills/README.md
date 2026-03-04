@@ -4,13 +4,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 
 ## Available Skills
 
-### v1 Pipeline
-
-| Skill | Invocation | Description |
-|-------|-----------|-------------|
-| **[implement-ticket](implement-ticket/SKILL.md)** | `/implement-ticket 42` | Implement a single ticket — loads standards, explores codebase, builds/tests, commits, and reports status |
-| **[orchestrate](orchestrate/SKILL.md)** | `/orchestrate supervised TX-101, TX-102` | Sequentially implement multiple tickets via subagents with pre-flight checks, board updates, and merging |
-| **[refine-story](refine-story/SKILL.md)** | `/refine-story TX-101` | Refine a GitHub issue into an implementation-ready spec by exploring the codebase and resolving gaps interactively |
+> **Deprecated:** v1 skills (`implement-ticket`, `orchestrate`, `refine-story`) remain in this directory for historical reference but are no longer actively maintained. Use the v2 pipeline below.
 
 ### v2 Pipeline (PR-based with review gates)
 
@@ -24,15 +18,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 
 ## How They Fit Together
 
-### v1 Pipeline
-
-1. **refine-story** — Phase 4 (Story Decomposition & Refinement)
-2. **orchestrate** — Phase 5 (Orchestrated Development)
-3. **implement-ticket** — Phase 5 inner loop (spawned by orchestrate for each ticket)
-
-### v2 Pipeline
-
-The v2 pipeline adds PR-based review gates and integration test stages:
+The v2 pipeline uses PR-based review gates and integration test stages:
 
 1. **refine-story-v2** — Refine issue spec (orchestrator or standalone mode)
 2. **implement-ticket-v2** — Implement and create PR

@@ -59,9 +59,13 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 
 | Skill | Purpose |
 |-------|---------|
-| [skills/implement-ticket](skills/implement-ticket/SKILL.md) | Implement a single ticket — loads context, applies constraints, builds/tests, commits, reports |
-| [skills/orchestrate](skills/orchestrate/SKILL.md) | Sequentially implement multiple tickets via subagents — pre-flight, board updates, merging |
-| [skills/refine-story](skills/refine-story/SKILL.md) | Refine a GitHub issue into an implementation-ready spec — explores codebase, resolves gaps interactively |
+| [skills/refine-story-v2](skills/refine-story-v2/SKILL.md) | Refine a GitHub issue into an implementation-ready spec. Orchestrator and standalone modes |
+| [skills/implement-ticket-v2](skills/implement-ticket-v2/SKILL.md) | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode |
+| [skills/engineering-review-v2](skills/engineering-review-v2/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
+| [skills/integration-test-v2](skills/integration-test-v2/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
+| [skills/orchestrate-v2](skills/orchestrate-v2/SKILL.md) | PR-based pipeline orchestrator. Refine, implement, review, test, merge |
+
+> **Note:** Deprecated v1 skills (`implement-ticket`, `orchestrate`, `refine-story`) remain in `skills/` for historical reference but are no longer actively maintained.
 
 ---
 
