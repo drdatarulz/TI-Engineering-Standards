@@ -172,8 +172,20 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 3b. Process review result
 
+**Post a dedicated issue comment for every review result** — this creates a real-time audit trail on the issue.
+
 **If `STATUS: Approved`:**
-- Post issue comment: "Implementation review approved after {N} iteration(s). Merging PR #{PR_NUMBER}."
+- Post issue comment:
+  ```
+  ## Implementation Review — Approved
+
+  **PR:** #{PR_NUMBER}
+  **Iterations:** {N}
+  **Violations:** 0
+  **Suggestions:** {count}
+
+  Review passed all standards checks. Merging.
+  ```
 - Merge the PR:
   ```bash
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
@@ -183,7 +195,17 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - Continue to Stage 4
 
 **If `STATUS: ChangesRequested` and iteration < 3:**
-- Post issue comment: "Review iteration {N}: {VIOLATIONS} issues found. Sending back for fixes. See PR #{PR_NUMBER} comments."
+- Post issue comment:
+  ```
+  ## Implementation Review — Changes Requested
+
+  **PR:** #{PR_NUMBER}
+  **Iteration:** {N} of 3
+  **Violations:** {count}
+  **Suggestions:** {count}
+
+  Issues found — sending back for fixes. See PR #{PR_NUMBER} for inline comments.
+  ```
 - Spawn implement-ticket-v2 in FIX mode:
   - `{FIX_MODE}` → `true`
   - `{PR_NUMBER}` → the implementation PR number
@@ -192,7 +214,16 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - After fix completes, loop back to 3a with incremented iteration
 
 **If `STATUS: ChangesRequested` and iteration >= 3:**
-- Post issue comment: "Review loop exhausted after 3 iterations. Moving to Waiting/Blocked for manual attention."
+- Post issue comment:
+  ```
+  ## Implementation Review — Exhausted
+
+  **PR:** #{PR_NUMBER}
+  **Iterations:** 3 (max reached)
+  **Unresolved violations:** {count}
+
+  Review loop exhausted. Moving to Waiting/Blocked for manual attention.
+  ```
 - Move issue to Waiting/Blocked on the project board
 - Skip this ticket
 
@@ -247,8 +278,20 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 5b. Process review result
 
+**Post a dedicated issue comment for every review result** — this creates a real-time audit trail on the issue.
+
 **If `STATUS: Approved`:**
-- Post issue comment: "Integration test review approved after {N} iteration(s). Merging PR #{PR_NUMBER}."
+- Post issue comment:
+  ```
+  ## Integration Test Review — Approved
+
+  **PR:** #{PR_NUMBER}
+  **Iterations:** {N}
+  **Violations:** 0
+  **Suggestions:** {count}
+
+  Review passed all standards checks. Merging.
+  ```
 - Merge the PR:
   ```bash
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
@@ -258,7 +301,17 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - Continue to Stage 6
 
 **If `STATUS: ChangesRequested` and iteration < 3:**
-- Post issue comment: "Integration test review iteration {N}: {VIOLATIONS} issues found. Sending back for fixes."
+- Post issue comment:
+  ```
+  ## Integration Test Review — Changes Requested
+
+  **PR:** #{PR_NUMBER}
+  **Iteration:** {N} of 3
+  **Violations:** {count}
+  **Suggestions:** {count}
+
+  Issues found — sending back for fixes. See PR #{PR_NUMBER} for inline comments.
+  ```
 - Spawn integration-test in FIX mode:
   - `{FIX_MODE}` → `true`
   - `{PR_NUMBER}` → the integration test PR number
@@ -267,7 +320,16 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - After fix completes, loop back to 5a with incremented iteration
 
 **If `STATUS: ChangesRequested` and iteration >= 3:**
-- Post issue comment: "Integration test review loop exhausted after 3 iterations. Moving to Waiting/Blocked."
+- Post issue comment:
+  ```
+  ## Integration Test Review — Exhausted
+
+  **PR:** #{PR_NUMBER}
+  **Iterations:** 3 (max reached)
+  **Unresolved violations:** {count}
+
+  Review loop exhausted. Moving to Waiting/Blocked for manual attention.
+  ```
 - Move issue to Waiting/Blocked on the project board
 - Skip this ticket
 
@@ -276,19 +338,10 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 ### Stage 6: CLOSE
 
 - Check off ALL acceptance criteria checkboxes in the issue body via `gh issue edit`
-- Post final issue comment:
-  ```
-  ## Story Complete
-
-  **Implementation PR:** #{IMPL_PR} (merged)
-  **Integration Test PR:** #{TEST_PR} (merged)
-  **Review iterations (implementation):** {N}
-  **Review iterations (integration tests):** {N}
-
-  All acceptance criteria verified. Closing issue.
-  ```
 - Close the issue: `gh issue close {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}`
   (Board automation moves it to Done)
+
+Note: Do NOT post a "Story Complete" summary comment. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) already provide the full audit trail in chronological order.
 
 ---
 
