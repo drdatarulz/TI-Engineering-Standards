@@ -32,7 +32,7 @@ src/
   {Project}.Domain/           # Zero dependencies. Models + Interfaces only.
   {Project}.Infrastructure/   # All concrete implementations.
   {Project}.Api/              # Minimal API. Endpoints, DI registration, auth middleware.
-  {Project}.Migrator/         # Console app. Runs DbUp migrations.
+  {Project}.Migrator/         # Console app. Runs DbUp migrations. Self-contained.
   ... additional service projects as needed ...
 
 tests/
@@ -42,6 +42,20 @@ tests/
   {Project}.Playwright.Tests/
   {Project}.Fakes/            # Shared hand-rolled fakes for all test projects.
 ```
+
+### Migrator — Self-Contained
+
+- The Migrator project **must have zero project references** — no references to Infrastructure, Domain, or any other project
+- All SQL migration scripts live inside the Migrator project as `<EmbeddedResource>` items
+- The Migrator's only dependencies are DbUp NuGet packages and the configuration stack
+- Rationale: The Migrator runs in CI/CD pipelines and should be independently deployable without pulling in application code
+
+### Infrastructure — Shared Implementations Only
+
+- The Infrastructure project is for **truly shared implementations** — classes used by multiple projects
+- Single-use classes that are only consumed by one service should live in that service's project
+- When a class starts as single-use and later gains a second consumer, move it to Infrastructure at that point
+- Periodically audit Infrastructure to identify classes that have become single-use after refactoring
 
 ## Build Order
 

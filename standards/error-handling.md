@@ -1,18 +1,37 @@
 # Error Handling & API Response Conventions
 
-## Error Response Format
+## Error Response Format — RFC 7807 Problem Details
 
-- **Standard DTO** — all error responses use a consistent `ErrorResponse` shape
-- Two fields: `Error` (string, always present) and `Detail` (nullable string, optional context)
-- No Problem Details / RFC 9457 — keep it simple and predictable
+- **Use the built-in Problem Details middleware** — `builder.Services.AddProblemDetails()` in API startup
+- All error responses follow the [RFC 7807](https://datatracker.ietf.org/doc/html/rfc7807) standard shape
+- No custom `ErrorResponse` DTOs — use the framework's `Results.Problem()` and `Results.ValidationProblem()`
 
 ```csharp
-public record ErrorResponse
+// Program.cs — register Problem Details
+builder.Services.AddProblemDetails();
+
+// 400 — validation failure (structured field-level errors)
+return Results.ValidationProblem(new Dictionary<string, string[]>
 {
-    public required string Error { get; init; }
-    public string? Detail { get; init; }
-}
+    ["Subject"] = ["Subject is required"],
+    ["ScheduledAt"] = ["Scheduled time must be in the future"]
+});
+
+// 409 — business rule conflict (single error message)
+return Results.Problem(
+    detail: "Email has already been queued and cannot be edited",
+    statusCode: StatusCodes.Status409Conflict);
+
+// 500 — unhandled exceptions are automatically formatted as Problem Details by the middleware
 ```
+
+### When to use which
+
+| Method | Use case |
+|--------|----------|
+| `Results.ValidationProblem(errors)` | Input validation failures — returns 400 with per-field error dictionary |
+| `Results.Problem(detail, statusCode)` | Business rule violations, conflicts — returns specified status code |
+| Automatic (middleware) | Unhandled exceptions — returns 500 with generic message (no stack trace in production) |
 
 ## HTTP Status Code Conventions
 
@@ -21,7 +40,7 @@ public record ErrorResponse
 | 200 | GET (single resource or list) |
 | 201 | POST (create) — include `Location` header |
 | 204 | PUT / DELETE (success, no body) |
-| 400 | Validation failure — return `ErrorResponse` |
+| 400 | Validation failure — return `ValidationProblem` |
 | 403 | Authorization failure — no body |
 | 404 | Resource not found — no body |
 | 429 | Rate limit exceeded |
@@ -29,16 +48,53 @@ public record ErrorResponse
 
 ## Validation
 
-- **Inline imperative checks** in endpoint handlers — no FluentValidation, no data annotations
+- **Data annotation attributes** on request model properties — the primary validation mechanism
+- The framework validates automatically and returns RFC 7807 `ValidationProblem` responses
+- **Inline imperative checks** for cross-field or business-logic validation that attributes can't express
 - Validate at the API boundary, trust internal code
-- Return early with `Results.BadRequest(new ErrorResponse { ... })`
+
+### Data Annotations (preferred for field-level rules)
 
 ```csharp
-if (string.IsNullOrWhiteSpace(request.Subject))
-    return Results.BadRequest(new ErrorResponse { Error = "Subject is required" });
+public class ScheduleEmailRequest
+{
+    [Required]
+    [MaxLength(998)]
+    [JsonPropertyName("subject")]
+    public string Subject { get; set; } = "";
 
+    [Required]
+    [JsonPropertyName("scheduledAt")]
+    public DateTime ScheduledAt { get; set; }
+
+    [Required]
+    [MinLength(1)]
+    [JsonPropertyName("recipients")]
+    public List<RecipientRequest> Recipients { get; set; } = [];
+}
+```
+
+### Common Attributes
+
+| Attribute | Use case |
+|-----------|----------|
+| `[Required]` | Non-nullable fields that must be provided |
+| `[MaxLength(n)]` / `[MinLength(n)]` | String/collection length constraints |
+| `[Range(min, max)]` | Numeric range constraints |
+| `[EmailAddress]` | Email format validation |
+| `[RegularExpression]` | Pattern matching |
+| `[StringLength(max, MinimumLength)]` | String length with both bounds |
+
+### Imperative Checks (for business logic)
+
+Use inline checks for validation that attributes can't express — cross-field rules, async lookups, or domain-specific logic:
+
+```csharp
 if (request.ScheduledAt < DateTime.UtcNow)
-    return Results.BadRequest(new ErrorResponse { Error = "Scheduled time must be in the future" });
+    return Results.ValidationProblem(new Dictionary<string, string[]>
+    {
+        ["ScheduledAt"] = ["Scheduled time must be in the future"]
+    });
 ```
 
 ## Authorization Failures

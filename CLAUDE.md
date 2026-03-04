@@ -37,6 +37,7 @@ Read each of these files — they contain the engineering rules and conventions 
 
 | File | Scope |
 |------|-------|
+| [standards/api-design.md](standards/api-design.md) | Endpoint return types, DTOs, serialization, naming conventions |
 | [standards/architecture.md](standards/architecture.md) | Dependency inversion, interface-first design, project layering |
 | [standards/configuration.md](standards/configuration.md) | Options pattern, config layering, environment variables |
 | [standards/database.md](standards/database.md) | SQL Server conventions, primary keys, timestamps, migrations |
