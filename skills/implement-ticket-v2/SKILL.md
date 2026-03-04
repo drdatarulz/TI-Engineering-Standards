@@ -155,7 +155,7 @@ gh pr create --base main --head {BRANCH_NAME} --title "{STORY_ID}: {TICKET_TITLE
 - All unit tests pass: yes/no
 - Full solution builds: yes/no
 
-Resolves #{ISSUE_NUMBER}
+Relates to #{ISSUE_NUMBER}
 EOF
 )"
 ```
