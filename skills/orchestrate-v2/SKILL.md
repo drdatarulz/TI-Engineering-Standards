@@ -281,6 +281,20 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 **Post a dedicated issue comment for every review result** — this creates a real-time audit trail on the issue.
 
 **If `STATUS: Approved`:**
+- **Check off ALL acceptance criteria checkboxes** in the issue body BEFORE merging (prevents the `Closes #XX` auto-close from racing the checkbox update):
+  ```bash
+  # Fetch the current issue body
+  BODY=$(gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq .body)
+  # Replace all unchecked boxes with checked boxes
+  UPDATED=$(echo "$BODY" | sed 's/- \[ \]/- [x]/g')
+  # Update the issue
+  gh issue edit {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$UPDATED"
+  ```
+- **Verify checkboxes were checked** — re-fetch the issue body and confirm no `- [ ]` remains:
+  ```bash
+  gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq '.body' | grep -c '\- \[ \]'
+  ```
+  If the count is > 0, retry the edit once. If it still fails, log a warning but continue.
 - Post issue comment:
   ```
   ## Integration Test Review — Approved
@@ -337,11 +351,22 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 ### Stage 6: CLOSE
 
-- Check off ALL acceptance criteria checkboxes in the issue body via `gh issue edit`
-- Close the issue: `gh issue close {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}`
+- **Safety-net checkbox verification** — if the issue is still open (not auto-closed by `Closes #XX`), check off any remaining unchecked acceptance criteria:
+  ```bash
+  REMAINING=$(gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq '.body' | grep -c '\- \[ \]')
+  if [ "$REMAINING" -gt 0 ]; then
+    BODY=$(gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq .body)
+    UPDATED=$(echo "$BODY" | sed 's/- \[ \]/- [x]/g')
+    gh issue edit {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$UPDATED"
+  fi
+  ```
+- Close the issue (if not already auto-closed):
+  ```bash
+  gh issue close {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}
+  ```
   (Board automation moves it to Done)
 
-Note: Do NOT post a "Story Complete" summary comment. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) already provide the full audit trail in chronological order.
+Note: Acceptance criteria are primarily checked off in Stage 5b before merging, so this step is a safety net. Do NOT post a "Story Complete" summary comment. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) already provide the full audit trail in chronological order.
 
 ---
 
@@ -408,6 +433,6 @@ After all tickets are processed (or the loop is halted), produce this summary:
 ```
 
 ---
-<!-- skill-version: 2.0 -->
-<!-- last-updated: 2026-03-04 -->
+<!-- skill-version: 2.1 -->
+<!-- last-updated: 2026-03-05 -->
 <!-- pipeline: v2-pr-based -->
