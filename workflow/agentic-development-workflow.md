@@ -2,16 +2,16 @@
 
 ## Overview
 
-This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a supervisor/worker orchestration pattern. The workflow covers everything from initial brainstorming through deployed, tested code.
+This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a supervisor/worker orchestration pattern with PR-based review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code.
 
-The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift.
+The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift, and milestone-based review gates to ensure human validation at meaningful intervals.
 
 ---
 
 ## Phase 1: Discovery & Capture
 
-**Tool:** Otter.ai  
-**Participants:** Developer + stakeholders/clients  
+**Tool:** Otter.ai
+**Participants:** Developer + stakeholders/clients
 **Output:** Raw transcript (.txt)
 
 Record a freeform discussion using Otter.ai for live transcription. There is no required structure — the goal is to get every idea, requirement, concern, and tangential thought captured. Participants throw out everything they're thinking about in whatever order it comes.
@@ -22,13 +22,13 @@ Export the full transcript as a text file. This is the primary input artifact fo
 
 ## Phase 2: PRD Refinement
 
-**Tool:** Claude Web Interface  
-**Input:** Transcript file  
+**Tool:** Claude Web Interface
+**Input:** Transcript file
 **Output:** PRD (Markdown) + Screen Inventory (Markdown) + Decisions Log (Markdown)
 
 ### 2.1 Initial Synthesis
 
-Upload the transcript to Claude in the web interface. Prompt Claude to read the entire transcript, make sense of the discussion, and produce a first-pass PRD in Markdown format (not Word).
+Upload the transcript to Claude in the web interface. Prompt Claude to read the entire transcript, make sense of the discussion, and produce a first-pass PRD in Markdown format.
 
 ### 2.2 Convergence Loop
 
@@ -48,7 +48,7 @@ During the convergence loop (or as a dedicated step), define:
 - **Compilable components** — APIs, clients, worker processes, background services. Define what each binary/deployable unit is and what it does. This prevents Claude Code from making assumptions about service boundaries during development.
 - **Architectural constraints** — patterns to follow, patterns to avoid, dependency rules
 
-### 2.4 Screen Inventory (New)
+### 2.4 Screen Inventory
 
 After functional requirements and engineering scope are largely settled, walk through the application's UI screen by screen. This is conversational — describe what each screen does, what the user sees and can do, and where they can navigate from there. Claude organizes this into a structured Screen Inventory document.
 
@@ -61,17 +61,17 @@ The Screen Inventory defines:
 - **Key states** — empty, loading, and error states for each screen
 - **Shared components** — UI elements that appear across multiple screens, defined once to prevent duplication
 
-This gives Claude Code explicit screen boundaries during development, just as component definitions give it explicit service boundaries. Without it, Claude Code infers screen structure from the PRD's functional requirements, and those inferences compound into inconsistencies.
+This gives Claude Code explicit screen boundaries during development, just as component definitions give it explicit service boundaries.
 
-A reusable Screen Inventory template is available as a companion artifact. Use it as the starting structure during this conversation.
+A reusable Screen Inventory template is available at `workflow/screen-inventory-template.md`.
 
 ### 2.5 Final PRD Review
 
 Claude produces the complete PRD. Review it in one more cycle of reading and pointing things out until satisfied.
 
-### 2.6 Decisions Log (New)
+### 2.6 Decisions Log
 
-Before closing the Claude Web session, ask Claude to produce a **Decisions Log** as a companion artifact. This is a concise document that captures:
+Before closing the Claude Web session, ask Claude to produce a **Decisions Log** as a companion artifact:
 
 - Key decisions made during the PRD process
 - Alternatives that were considered and why they were rejected
@@ -80,168 +80,173 @@ Before closing the Claude Web session, ask Claude to produce a **Decisions Log**
 
 Format: Short entries, each following the pattern: "**Decision:** [what was decided]. **Alternatives considered:** [what else was on the table]. **Rationale:** [why this choice was made]."
 
-The Decisions Log gives Claude Code the *reasoning* behind the PRD, not just the requirements. This fills the context gap at the handoff point without the noise of the raw transcript.
+The Decisions Log gives Claude Code the *reasoning* behind the PRD, not just the requirements.
 
 ---
 
 ## Phase 3: Project Bootstrap
 
-**Tool:** Claude Code  
-**Input:** PRD + Decisions Log  
-**Output:** Initialized repo with enriched backlog
+**Tool:** Claude Code
+**Input:** PRD + Screen Inventory + Decisions Log
+**Output:** Initialized repo with milestoned backlog
 
 ### 3.1 Repository Setup
 
-Create the project folder, GitHub repo, and project board. The project board uses a Kanban layout: Inbox → Up Next → Active → Done. Two types of items live on the board:
+Create the project folder, GitHub repo, and project board. The project board uses a Kanban layout with columns defined in `standards/project-tracking.md`: Inbox → Up Next → In Progress → Waiting/Blocked → Done.
 
-- **Development stories** — code-producing tickets following a Kanban workflow
-- **Operational tasks** — non-code items tracked for accountability
+Two types of items live on the board:
 
-Label these distinctly (e.g., `story` vs. `task` labels or separate issue templates) so they don't get mixed.
+- **Development stories** (`story` label) — code-producing tickets following vertical slice principles
+- **Operational tasks** (`task` label) — non-code items tracked for accountability
+
+Enable the **Auto-add to project** workflow so new issues automatically land on the board.
 
 ### 3.2 Standards Integration
 
-The project pulls from a shared TI-Engineering-Standards repository that is abstracted across all projects. On session start:
+The project pulls from the shared TI-Engineering-Standards repository. On session start:
 
 1. If the standards repo exists locally: `git pull --ff-only`
 2. If not: `git clone` the repo
 3. Read `CLAUDE.md` from the standards repo and every file it references
+4. Sync skills from the standards repo into the project's `.claude/skills/` (skipping `archive/` and local overrides)
 
-This is defined in each project's `CLAUDE.md` as the entry point. When standards change in one project, they propagate to all projects on next pull.
+This is defined in each project's `CLAUDE.md` using the project template at `templates/CLAUDE-project.md`.
 
-**Note:** Consider versioning or timestamping when standards were pulled to maintain consistency within a single project if standards change mid-development.
+### 3.3 Backlog Generation (prd-to-backlog-v3)
 
-### 3.3 Backlog Generation
+Use the `prd-to-backlog-v3` skill to decompose the PRD into a milestoned backlog. The skill:
 
-Claude Code reads the PRD, Screen Inventory, and Decisions Log and decomposes them into GitHub issues on the project board. Issues should be created and explicitly added to the project board (GitHub Project #5) — creating an issue alone does not automatically place it on a project board without automation.
+1. Reads the PRD, Screen Inventory, Decisions Log, and ARCHITECTURE.md
+2. Identifies foundation work (kept minimal — only what can't be part of a vertical slice)
+3. Groups screens and capabilities into milestones per `standards/story-writing-standards.md`
+4. Decomposes into vertical-slice stories sized by entity lifecycle
+5. Presents the full plan for human review before creating any issues
+6. Creates GitHub issues with proper labels, custom fields, and milestone markers
 
-**Recommended:** Set up a GitHub Actions workflow or project-level auto-add rule to catch new issues with certain labels and add them to the board automatically.
+Stories follow the conventions in `standards/story-writing-standards.md`: vertical slices preferred, entity lifecycle grouping (create + list + view + delete = one story), capability-based splitting for larger features.
 
-### 3.4 Backlog Review (Recommended)
+### 3.4 Backlog Review
 
-Before investing in ticket enrichment, spend 10–15 minutes scanning the generated stories:
+After the skill generates stories, review them:
 
 - Do story titles map back to PRD requirements?
 - Is the decomposition at the right granularity?
 - Are there gaps — PRD requirements with no corresponding story?
-- Are there phantom stories — tickets that don't trace back to the PRD?
+- Are milestone groupings sensible?
 
-This lightweight gate catches misinterpretations before they compound.
+### 3.5 Story Refinement (refine-story-v3)
 
-### 3.5 Ticket Enrichment
+Use `refine-story-v3` to enrich each story with technical detail:
 
-Using a dedicated review skill, Claude Code reviews each story for:
+- Codebase exploration (stub files, interfaces, consumers, DI registration)
+- Gap analysis across 11 categories (context pointers, technical approach, file I/O, error handling, etc.)
+- Acceptance criteria expansion with specific, testable criteria
+- Files expected to change
+- Test coverage planning
 
-- Technical completeness
-- Questions a developer might have
-- Cross-references with the codebase and other stories
+The skill supports both standalone (interactive) and orchestrator (autonomous) modes.
 
-The ticket is updated with implementation details, making it well-rounded before development begins.
+### 3.6 Incremental Story Additions (add-story-v3)
+
+When adding stories mid-project (not during initial PRD decomposition), use `add-story-v3`. The skill:
+
+1. Reviews the existing backlog and codebase
+2. Works conversationally to understand what you want to add
+3. Proposes stories following the same standards
+4. Determines milestone placement
+5. Creates issues after human approval
 
 ---
 
 ## Phase 4: Orchestrated Development
 
-**Tool:** Claude Code with Orchestrator + Developer skills  
-**Input:** Enriched tickets  
-**Output:** Implemented, tested, merged code
+**Tool:** Claude Code with orchestrate-v3
+**Input:** Refined, enriched tickets
+**Output:** Implemented, reviewed, tested, merged code
 
-### 4.1 Architecture: Supervisor/Worker Pattern
+### 4.1 Architecture: PR-Based Pipeline with Review Gates
 
-Development uses two Claude Code skills working in concert:
+The v3 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift.
 
-- **Orchestrator skill** — manages the loop: pre-flight, delegation, post-processing, board updates, merging, session summary. Stays lightweight.
-- **Developer sub-agent skill** — implements a single ticket with a fresh context window. Loads all standards and constraints from scratch each time. This is the core mitigation for context drift.
+```
+Per Ticket:
+1. REFINE ──────────── refine-story-v3 (enriches issue spec)
+2. IMPLEMENT ───────── implement-ticket-v3 (creates PR #1)
+3. ENGINEERING REVIEW ─ engineering-review-v3 (standards check)
+   └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
+4. SECURITY REVIEW ──── security-review-v3 (OWASP Top 10)
+   └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
+   └─ On pass → merge PR #1
+5. INTEGRATION TESTS ── integration-test-v3 (creates PR #2)
+6. ENGINEERING REVIEW ─ engineering-review-v3 (test quality)
+   └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
+   └─ On approve → merge PR #2
+7. CLOSE ───────────── check acceptance criteria, close issue
+```
 
-The orchestrator spawns one developer sub-agent per ticket sequentially. Each sub-agent gets a clean context with full standards, preventing the procedural drift that occurs when a single long-running session accumulates context and deprioritizes instructions.
+### 4.2 Milestone Gates
 
-### 4.2 Orchestrator Flow
+When the orchestrator encounters an issue with the `milestone` label, it stops regardless of operating mode (supervised or autonomous):
 
-For each ticket in the batch:
+1. Runs the smoke test checklist from the milestone issue body
+2. Reports results and lists stories completed in this milestone
+3. Waits for human approval before continuing
 
-**Pre-Flight (orchestrator):**
-1. Read the ticket via GitHub MCP
-2. Pull latest main
-3. Verify git hooks
-4. Create feature branch (`story/TX-XXX-short-name`)
-5. Move ticket to In Progress on project board
+This ensures the developer can launch the application, interact with it, and verify it matches expectations before more work proceeds. Milestones map to screen inventory groupings — each milestone delivers a coherent set of user-visible functionality.
 
-**Ticket Readiness Gate (recommended):** Before spawning the sub-agent, verify the ticket has acceptance criteria and a non-empty description. If not, skip the ticket and log it as Skipped with reason.
+### 4.3 Operating Modes
 
-**Spawn Sub-Agent:**
-- Read the developer skill
-- Substitute placeholders: ticket number, title, body, branch name
-- Pass to Task tool as a fresh sub-agent
+- **Supervised**: hard stop between each ticket. Used when iterating on skills, early in a project, or when close oversight is desired.
+- **Autonomous**: continues between tickets automatically, stopping only at milestones, circuit breakers, or completion.
 
-**Process Result (orchestrator):**
-- If **Complete**: verify build, verify tests, update acceptance criteria, post completion comment, merge to main (no-ff), delete branch, push (autonomous only), close issue
-- If **Partial**: comment on issue with what remains, leave branch as-is
-- If **Blocked**: move to Waiting/Blocked on board, comment with blocker details
+### 4.4 Circuit Breakers
 
-**Status Parse Hardening (recommended):** Explicitly parse the sub-agent's STATUS line. If not exactly "Complete", "Partial", or "Blocked", treat as Partial and flag it.
+Even in autonomous mode, the orchestrator halts entirely if:
 
-**Mode Gate:**
-- **Supervised**: hard stop after each ticket. Output check-in report and wait for "proceed." Used when iterating on skills or early in a project.
-- **Autonomous**: continue to next ticket automatically.
+- 3 consecutive tickets are Blocked or Partial — something systemic is wrong
+- A PR merge conflict occurs — needs human judgment
+- Build fails on main after a merge — main is corrupted (rollback tag available)
+- 3 review iterations exhausted on 2 consecutive tickets — pattern problem
 
-**Circuit Breakers (both modes):**
-- 3 consecutive Partial/Blocked → halt (systemic issue)
-- Main corrupted after merge → halt
-- Merge conflict requiring human judgment → halt
+### 4.5 Rollback Safety
 
-### 4.3 Developer Sub-Agent Flow
+Before any work begins on a ticket, the orchestrator tags main (`pre-{STORY_ID}`). If a merge corrupts main, the tag provides a clean rollback point. Tags are deleted after successful completion.
 
-Each sub-agent executes independently with a full context reload:
+### 4.6 Ticket Readiness Gate
 
-**Context Load:**
-1. Read TI-Engineering-Standards/CLAUDE.md and all 12 referenced standards files
-2. Read project CLAUDE.md
-3. Read ARCHITECTURE.md
-4. Do NOT write any code until all three steps are complete
+Before spawning agents for a ticket, the orchestrator verifies the issue has acceptance criteria and a non-empty description. Tickets that aren't ready are skipped and logged.
 
-**Critical Constraints (inlined for visibility):**
-- Domain has zero dependencies
-- Dapper only (no Entity Framework)
-- Minimal APIs only (no MVC controllers)
-- xUnit + FluentAssertions only (no mocking frameworks)
-- Hand-rolled fakes only
-- Snake_case test naming
-- INT IDENTITY primary keys, DATETIME2 + SYSUTCDATETIME()
-- DbUp forward-only migrations
-- Serilog structured logging
-- Stage specific files (never `git add .`)
+### 4.7 Observability
 
-**Implementation Workflow:**
-1. **Explore** — read existing code, understand patterns, identify changes needed
-2. **Plan** — determine approach respecting build order (Domain → Fakes → Infrastructure → Api)
-3. **Implement** — follow build order, write fakes and tests alongside code
-4. **Test** — build and test; 3 attempts to fix failures before reporting Partial
-5. **Commit** — stage specific files, concise "why" message
+The orchestrator captures per-ticket metrics from each sub-agent:
 
-**Exit Checklist (recommended addition — before report):**
-- [ ] All standards files were read
-- [ ] No banned dependencies introduced (EF, Moq, etc.)
-- [ ] Fakes created for all new interfaces
-- [ ] Tests written alongside implementation
-- [ ] `dotnet build` succeeds with zero errors
-- [ ] `dotnet test` passes all tests
-- [ ] Staged specific files only
-- [ ] Commit message follows `TX-XXX:` format
-- [ ] GitHub issue updated with implementation summary
-- [ ] Acceptance criteria reviewed
+- Token usage per stage (refine, implement, review, security, integration test)
+- Duration per stage
+- Number of review iterations
+- Test counts
 
-**Report:** Structured output with STATUS, changes, tests, decisions, concerns, and blocked reason if applicable.
+These are reported in the session summary for cost tracking and identifying stories that consumed disproportionate resources (indicating poor scoping or ambiguity).
+
+### 4.8 PRD Amendment Tracking
+
+When developer CONCERNS or integration tester NOTES reveal something that contradicts or is missing from the PRD, the orchestrator captures it in a PRD amendments log. This is reported in the session summary so the PRD remains a living document.
 
 ---
 
 ## Phase 5: Session Summary & Review
 
-**Tool:** Human + Claude Code  
-**Output:** Session report, refined skills
+**Tool:** Human + Claude Code
+**Output:** Session report, refined skills and standards
 
 ### 5.1 Session Report
 
-The orchestrator produces a final summary: completed tickets, partial tickets, blocked tickets, skipped tickets, total tests added, total files changed.
+The orchestrator produces a comprehensive summary including:
+
+- Completed / Partial / Blocked / Skipped tickets
+- Milestones reached and smoke test results
+- Observability metrics (tokens, duration, review iterations per ticket)
+- PRD amendments discovered during development
+- Implementation and integration test PR numbers for audit trail
 
 ### 5.2 Debug & Iterate
 
@@ -249,36 +254,52 @@ Run the application, test flows manually, identify issues. Debug with Claude Cod
 
 - The shared engineering standards repo (if broadly applicable)
 - Project-specific CLAUDE.md or ARCHITECTURE.md
-- Skill files (orchestrator and developer)
-
-This is where skills get refined — checklists become more explicit, constraints get inlined, and procedural instructions evolve from narratives to checkboxes based on observed drift patterns.
+- Skill files (all skills in the standards repo)
+- Story-writing standards (if decomposition patterns need adjustment)
 
 ---
 
 ## Key Principles
 
-**Context drift is the primary adversary.** The supervisor/worker pattern exists specifically to reset context on every ticket. Front-loaded instructions decay; end-of-task checklists stick better because they're proximate to the action.
+**Context drift is the primary adversary.** The supervisor/worker pattern exists specifically to reset context on every sub-agent invocation. Each stage gets a fresh context with full standards loaded.
 
-**Separate concerns at every boundary.** Humans do discovery. Claude Web does specification. Claude Code does implementation. The orchestrator manages workflow. The developer sub-agent writes code. Each actor has a clear, bounded role.
+**Vertical slices over horizontal layers.** Stories deliver user-visible functionality. Foundation work is bounded to the minimum needed to unblock the first milestone. Entity lifecycle operations (create, list, view, delete) travel together.
 
-**Shared standards, project-specific rules.** The engineering standards repo is the single source of truth across projects. Project-level files (CLAUDE.md, ARCHITECTURE.md) layer on project-specific context. This lets you improve once and propagate everywhere.
+**Milestones are review gates.** Don't let work accumulate too long without human eyes on the running application. Milestone frequency is determined during PRD-to-backlog decomposition based on project complexity.
 
-**Trust but verify.** The orchestrator independently verifies build and tests after the sub-agent reports Complete. The sub-agent's word is not sufficient — the orchestrator confirms.
+**PR-based review gates catch what self-review misses.** The engineering review and security review agents operate with independent context, checking the developer's work against standards rather than confirming the developer's own assumptions.
 
-**Diminishing returns signal phase transitions.** In the PRD convergence loop, the shift from pertinent suggestions to marginal minutiae is the signal to stop refining and start building. Recognize and respect that signal.
+**Trust but verify.** The orchestrator independently verifies build and tests after each stage. Sub-agent status reports are parsed strictly — non-standard responses are treated as Partial.
+
+**Shared standards, project-specific rules.** The engineering standards repo is the single source of truth across projects. Project-level files (CLAUDE.md, ARCHITECTURE.md) layer on project-specific context. Skills auto-sync from the standards repo.
+
+**Diminishing returns signal phase transitions.** In the PRD convergence loop, the shift from pertinent suggestions to marginal minutiae is the signal to stop refining and start building.
+
+**Observability informs improvement.** Per-ticket token and duration metrics reveal which stories were poorly scoped, which review gates catch the most issues, and where the pipeline can be optimized.
 
 ---
 
-## Appendix: Recommended Enhancements Summary
+## Skills Reference (v3)
 
-| Enhancement | Phase | Effort | Impact |
-|---|---|---|---|
-| Decisions Log | 2 (PRD) | Low | High — fills context gap at handoff |
-| Screen Inventory | 2 (PRD) | Low–Medium | High — prevents UI interpretation drift |
-| Backlog Review Gate | 3 (Bootstrap) | Low | Medium — catches misinterpretations early |
-| Developer Exit Checklist | 4 (Dev) | Low | High — targets observed procedural drift |
-| Ticket Readiness Gate | 4 (Dev) | Low | Medium — prevents wasted sub-agent runs |
-| Status Parse Hardening | 4 (Dev) | Low | Medium — prevents silent misrouting |
-| Standalone Standards Sync | 4 (Dev) | Low | Low — edge case for standalone runs |
-| GitHub Auto-Add Rule | 3 (Bootstrap) | Low | Medium — eliminates manual board management |
-| Issue Labeling (story vs. task) | 3 (Bootstrap) | Low | Medium — clean separation of work types |
+### Story Creation
+| Skill | Purpose |
+|-------|---------|
+| prd-to-backlog-v3 | Bulk PRD decomposition into milestoned backlog |
+| add-story-v3 | Incremental story creation for existing projects |
+
+### Development Pipeline (per ticket, managed by orchestrate-v3)
+| Skill | Purpose |
+|-------|---------|
+| refine-story-v3 | Enrich issue with technical detail and acceptance criteria |
+| implement-ticket-v3 | Implement code, create PR. Supports fix mode for review feedback |
+| engineering-review-v3 | Review PR against standards. Implementation and integration-test modes |
+| security-review-v3 | OWASP Top 10 security analysis with attack vector requirements |
+| integration-test-v3 | Write integration tests, create PR. Supports fix mode |
+| orchestrate-v3 | Pipeline orchestrator with milestones, review loops, and observability |
+
+### Standards
+| File | Purpose |
+|------|---------|
+| story-writing-standards.md | Story structure, vertical slices, milestones, sizing, acceptance criteria |
+| project-tracking.md | Board structure, labels, custom fields, issue types |
+| _(12 additional standards files)_ | Architecture, testing, database, git, security, logging, etc. |

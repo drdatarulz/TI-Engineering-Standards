@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kevin's Agentic Development Workflow</title>
+<title>TI Agentic Development Workflow — v3</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
@@ -21,13 +21,12 @@
     --accent-rose: #e8637a;
     --accent-purple: #a78bfa;
     --accent-green: #6bcf7f;
+    --accent-orange: #f09848;
     --phase-discovery: #5b9cf5;
     --phase-prd: #a78bfa;
-    --phase-transition: #f0b849;
+    --phase-bootstrap: #f0b849;
     --phase-dev: #4ecdc4;
     --phase-review: #e8637a;
-    --glow-blue: rgba(91, 156, 245, 0.15);
-    --glow-teal: rgba(78, 205, 196, 0.15);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -52,15 +51,24 @@
     font-weight: 700;
     letter-spacing: -0.5px;
     color: var(--text);
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
   .header h1 span { color: var(--accent-teal); }
 
+  .header .version {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent-amber);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
   .header p {
     color: var(--text-muted);
     font-size: 15px;
-    max-width: 680px;
+    max-width: 720px;
   }
 
   .legend {
@@ -93,7 +101,6 @@
     padding: 0 40px 60px;
   }
 
-  /* Phase sections */
   .phase {
     margin-bottom: 40px;
     position: relative;
@@ -117,14 +124,12 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    letter-spacing: 0;
   }
 
   .phase-title {
     font-family: 'JetBrains Mono', monospace;
     font-size: 14px;
     font-weight: 600;
-    letter-spacing: -0.2px;
   }
 
   .phase-subtitle {
@@ -134,18 +139,8 @@
     font-family: 'JetBrains Mono', monospace;
   }
 
-  /* Step cards */
-  .steps {
-    display: grid;
-    gap: 12px;
-  }
-
-  .step-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
+  .steps { display: grid; gap: 12px; }
+  .step-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .step-row.single { grid-template-columns: 1fr; }
   .step-row.triple { grid-template-columns: 1fr 1fr 1fr; }
 
@@ -154,7 +149,6 @@
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 18px 20px;
-    position: relative;
     transition: all 0.2s ease;
     cursor: default;
   }
@@ -175,10 +169,7 @@
     gap: 6px;
   }
 
-  .step-label .icon {
-    font-size: 13px;
-    line-height: 1;
-  }
+  .step-label .icon { font-size: 13px; line-height: 1; }
 
   .step h3 {
     font-family: 'JetBrains Mono', monospace;
@@ -211,32 +202,6 @@
     color: var(--text-muted);
   }
 
-  /* New / recommended badges */
-  .badge-new {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-left: 8px;
-    vertical-align: middle;
-  }
-
-  .badge-new.recommended {
-    background: rgba(78, 205, 196, 0.15);
-    color: var(--accent-teal);
-    border: 1px solid rgba(78, 205, 196, 0.25);
-  }
-
-  .badge-new.new {
-    background: rgba(240, 184, 73, 0.15);
-    color: var(--accent-amber);
-    border: 1px solid rgba(240, 184, 73, 0.25);
-  }
-
-  /* Connector arrows */
   .connector {
     display: flex;
     align-items: center;
@@ -247,21 +212,6 @@
     opacity: 0.4;
   }
 
-  .connector.loop {
-    position: relative;
-  }
-
-  .connector.loop::after {
-    content: 'convergence loop';
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    position: absolute;
-    right: 0;
-    opacity: 0.6;
-  }
-
-  /* Loop indicator */
   .loop-indicator {
     border: 1px dashed var(--border-active);
     border-radius: 12px;
@@ -282,7 +232,6 @@
     letter-spacing: 0.8px;
   }
 
-  /* Orchestrator visual */
   .orchestrator-box {
     border: 2px solid rgba(78, 205, 196, 0.3);
     border-radius: 14px;
@@ -305,30 +254,43 @@
     letter-spacing: 1px;
   }
 
-  .subagent-box {
-    border: 1px solid rgba(167, 139, 250, 0.3);
-    border-radius: 10px;
-    padding: 16px;
-    background: rgba(167, 139, 250, 0.03);
-    margin-top: 12px;
+  .pipeline-stage {
+    border-left: 3px solid var(--border);
+    padding-left: 16px;
+    margin: 12px 0;
     position: relative;
   }
 
-  .subagent-box .sub-label {
+  .pipeline-stage::before {
+    content: attr(data-stage);
     position: absolute;
-    top: -10px;
-    left: 16px;
-    background: var(--surface);
-    padding: 0 8px;
+    left: -44px;
+    top: 0;
     font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
-    font-weight: 600;
-    color: var(--accent-purple);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    width: 32px;
+    text-align: right;
   }
 
-  /* Sections divider */
+  .pipeline-stage.active { border-left-color: var(--accent-teal); }
+  .pipeline-stage.review { border-left-color: var(--accent-orange); }
+  .pipeline-stage.security { border-left-color: var(--accent-rose); }
+  .pipeline-stage.test { border-left-color: var(--accent-purple); }
+  .pipeline-stage.milestone { border-left-color: var(--accent-amber); }
+
+  .review-loop {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+    margin-top: 6px;
+    display: inline-block;
+  }
+
   .phase-divider {
     display: flex;
     align-items: center;
@@ -354,50 +316,29 @@
     white-space: nowrap;
   }
 
-  /* Improvements section */
-  .improvements {
-    margin-top: 48px;
-    padding: 24px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+  .milestone-banner {
+    background: rgba(240, 184, 73, 0.08);
+    border: 1px dashed rgba(240, 184, 73, 0.4);
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin: 12px 0;
   }
 
-  .improvements h2 {
+  .milestone-banner h3 {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 700;
-    margin-bottom: 16px;
     color: var(--accent-amber);
+    margin-bottom: 6px;
   }
 
-  .improvement-item {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 16px;
-  }
-
-  .improvement-item:last-child { border-bottom: none; }
-
-  .improvement-item .label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent-amber);
-  }
-
-  .improvement-item .desc {
-    font-size: 13.5px;
+  .milestone-banner p {
+    font-size: 13px;
     color: var(--text-muted);
-    line-height: 1.55;
   }
 
   @media (max-width: 900px) {
-    .step-row { grid-template-columns: 1fr; }
-    .step-row.triple { grid-template-columns: 1fr; }
-    .improvement-item { grid-template-columns: 1fr; gap: 4px; }
+    .step-row, .step-row.triple { grid-template-columns: 1fr; }
     .header, .workflow-container { padding-left: 20px; padding-right: 20px; }
   }
 </style>
@@ -406,19 +347,21 @@
 
 <div class="header">
   <h1>agentic<span>.</span>workflow</h1>
-  <p>Full lifecycle from brainstorm to deployed code — orchestrating Claude Web, Claude Code, and GitHub for 100% agentic development.</p>
+  <div class="version">v3 — PR-Based Pipeline with Milestones & Observability</div>
+  <p>Full lifecycle from brainstorm to reviewed, tested, merged code — orchestrating Claude Web, Claude Code, and GitHub with automated engineering and security review gates.</p>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-discovery)"></div>Discovery</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-prd)"></div>PRD Refinement</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--phase-transition)"></div>Transition</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--phase-bootstrap)"></div>Bootstrap</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-dev)"></div>Development</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--phase-review)"></div>Review & Iterate</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange)"></div>Review Gates</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--phase-review)"></div>Summary</div>
   </div>
 </div>
 
 <div class="workflow-container">
 
-  <!-- PHASE 1: Discovery -->
+  <!-- PHASE 1 -->
   <div class="phase">
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(91,156,245,0.15);color:var(--phase-discovery)">01</div>
@@ -430,13 +373,13 @@
         <div class="step">
           <div class="step-label" style="color:var(--phase-discovery)"><span class="icon">🎙</span> Brainstorm Session</div>
           <h3>Freeform Discussion</h3>
-          <p>Unstructured conversation with clients and stakeholders. No particular order — get everything out. Otter.ai transcribes the full session in real time.</p>
+          <p>Unstructured conversation with clients and stakeholders. No particular order — get everything out. Otter.ai transcribes in real time.</p>
           <div class="tools"><span class="tool-tag">Otter.ai</span><span class="tool-tag">Stakeholders</span></div>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--phase-discovery)"><span class="icon">📄</span> Transcript Output</div>
           <h3>Raw Transcript</h3>
-          <p>Export full transcript as text. This becomes the primary input artifact — every idea, tangent, and decision captured verbatim.</p>
+          <p>Export full transcript as text. Primary input artifact for PRD synthesis.</p>
           <div class="tools"><span class="tool-tag">.txt export</span></div>
         </div>
       </div>
@@ -445,7 +388,7 @@
 
   <div class="connector">↓</div>
 
-  <!-- PHASE 2: PRD Refinement -->
+  <!-- PHASE 2 -->
   <div class="phase">
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(167,139,250,0.15);color:var(--phase-prd)">02</div>
@@ -457,54 +400,49 @@
         <div class="step">
           <div class="step-label" style="color:var(--phase-prd)"><span class="icon">🧠</span> Initial Synthesis</div>
           <h3>Transcript → Structure</h3>
-          <p>Upload transcript to Claude web. Claude reads, makes sense of the discussion, identifies themes, and produces a first-pass PRD in Markdown format.</p>
-          <div class="tools"><span class="tool-tag">Claude Web</span><span class="tool-tag">Markdown output</span></div>
+          <p>Upload transcript to Claude web. Claude reads, identifies themes, and produces a first-pass PRD in Markdown.</p>
+          <div class="tools"><span class="tool-tag">Claude Web</span><span class="tool-tag">Markdown</span></div>
         </div>
       </div>
 
-      <div class="connector loop">↕</div>
+      <div class="connector">↕</div>
 
       <div class="loop-indicator">
         <div class="loop-label">Convergence Loop — diminishing returns signal exit</div>
-        <div class="steps">
-          <div class="step-row">
-            <div class="step">
-              <div class="step-label" style="color:var(--phase-prd)"><span class="icon">❓</span> Gap Analysis</div>
-              <h3>"Am I Missing Anything?"</h3>
-              <p>Claude identifies gaps, asks clarifying questions, and raises items you haven't considered. You answer questions, refine scope, and correct misunderstandings.</p>
-            </div>
-            <div class="step">
-              <div class="step-label" style="color:var(--phase-prd)"><span class="icon">📐</span> Engineering Scoping</div>
-              <h3>Tech Stack & Components</h3>
-              <p>Define technology choices, compilable components (APIs, clients, workers), service boundaries, and architectural constraints. This prevents downstream interpretation drift.</p>
-            </div>
+        <div class="step-row">
+          <div class="step">
+            <div class="step-label" style="color:var(--phase-prd)"><span class="icon">❓</span> Gap Analysis</div>
+            <h3>"Am I Missing Anything?"</h3>
+            <p>Claude identifies gaps, asks clarifying questions. You answer, refine, iterate until suggestions become marginal.</p>
+          </div>
+          <div class="step">
+            <div class="step-label" style="color:var(--phase-prd)"><span class="icon">📐</span> Engineering Scoping</div>
+            <h3>Tech Stack & Components</h3>
+            <p>Define compilable components (APIs, clients, workers), service boundaries, and architectural constraints.</p>
           </div>
         </div>
       </div>
 
       <div class="connector">↓</div>
 
-      <div class="step-row">
+      <div class="step-row triple">
         <div class="step">
           <div class="step-label" style="color:var(--phase-prd)"><span class="icon">📋</span> Final PRD</div>
           <h3>PRD Produced</h3>
-          <p>Complete PRD with functional requirements, architectural boundaries, component definitions, and tech stack decisions. Reviewed and approved.</p>
+          <p>Complete PRD with functional requirements, architectural boundaries, and component definitions.</p>
           <div class="tools"><span class="tool-tag">Markdown</span></div>
         </div>
         <div class="step">
-          <div class="step-label" style="color:var(--accent-amber)"><span class="icon">🖥️</span> Screen Inventory <span class="badge-new new">New</span></div>
+          <div class="step-label" style="color:var(--phase-prd)"><span class="icon">🖥️</span> Screen Inventory</div>
           <h3>Every Screen, Defined</h3>
-          <p>Conversational walkthrough of every screen/view: purpose, user actions, navigation paths, data dependencies, empty/loading/error states, shared components. Gives Claude Code explicit UI boundaries.</p>
-          <div class="tools"><span class="tool-tag">Markdown</span><span class="tool-tag">Template available</span></div>
+          <p>Conversational walkthrough of every screen: purpose, user actions, navigation, data dependencies, states, shared components.</p>
+          <div class="tools"><span class="tool-tag">Markdown</span></div>
         </div>
-      </div>
-
-      <div class="step-row single">
         <div class="step">
-          <div class="step-label" style="color:var(--accent-amber)"><span class="icon">📝</span> Decisions Log <span class="badge-new new">New</span></div>
+          <div class="step-label" style="color:var(--phase-prd)"><span class="icon">📝</span> Decisions Log</div>
           <h3>Why, Not Just What</h3>
-          <p>Companion document capturing key decisions and their reasoning. "We considered X but chose Y because Z." Provides context that the PRD alone doesn't carry.</p>
-          <div class="tools"><span class="tool-tag">Markdown</span><span class="tool-tag">Companion artifact</span></div>
+          <p>Key decisions and reasoning. "We considered X but chose Y because Z." Fills the context gap at handoff.</p>
+          <div class="tools"><span class="tool-tag">Markdown</span></div>
         </div>
       </div>
     </div>
@@ -512,32 +450,32 @@
 
   <div class="phase-divider"><span>Context Handoff — Claude Web → Claude Code</span></div>
 
-  <!-- PHASE 3: Project Setup -->
+  <!-- PHASE 3 -->
   <div class="phase">
     <div class="phase-header">
-      <div class="phase-number" style="background:rgba(240,184,73,0.15);color:var(--phase-transition)">03</div>
-      <div class="phase-title" style="color:var(--phase-transition)">Project Bootstrap</div>
+      <div class="phase-number" style="background:rgba(240,184,73,0.15);color:var(--phase-bootstrap)">03</div>
+      <div class="phase-title" style="color:var(--phase-bootstrap)">Project Bootstrap</div>
       <div class="phase-subtitle">Claude Code</div>
     </div>
     <div class="steps">
       <div class="step-row triple">
         <div class="step">
-          <div class="step-label" style="color:var(--phase-transition)"><span class="icon">📁</span> Repo Setup</div>
+          <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📁</span> Repo Setup</div>
           <h3>Initialize Project</h3>
-          <p>Create folder, GitHub repo, and project board (Kanban-style with Inbox, Up Next, Active, Done). Copy engineering standards and project CLAUDE.md.</p>
-          <div class="tools"><span class="tool-tag">GitHub</span><span class="tool-tag">Claude Code</span></div>
+          <p>Create repo, project board (Kanban), issue templates. Enable auto-add workflow.</p>
+          <div class="tools"><span class="tool-tag">GitHub</span></div>
         </div>
         <div class="step">
-          <div class="step-label" style="color:var(--phase-transition)"><span class="icon">📚</span> Standards Repo</div>
+          <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📚</span> Standards Sync</div>
           <h3>Pull Shared Standards</h3>
-          <p>Clone or pull TI-Engineering-Standards repo. These are abstracted across projects so a single change propagates everywhere. Versioned at pull time.</p>
-          <div class="tools"><span class="tool-tag">Shared repo</span><span class="tool-tag">git pull</span></div>
+          <p>Clone or pull TI-Engineering-Standards. Sync v3 skills into project. Read all 13 standards files.</p>
+          <div class="tools"><span class="tool-tag">Auto-sync protocol</span></div>
         </div>
         <div class="step">
-          <div class="step-label" style="color:var(--phase-transition)"><span class="icon">📊</span> Backlog Generation</div>
-          <h3>PRD → Stories</h3>
-          <p>Claude Code reads the PRD, Screen Inventory, and Decisions Log and decomposes them into GitHub issues on the project board. Creates both development stories and operational tasks.</p>
-          <div class="tools"><span class="tool-tag">GitHub MCP</span><span class="tool-tag">Issues → Board</span></div>
+          <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📊</span> Backlog Generation</div>
+          <h3>prd-to-backlog-v3</h3>
+          <p>Decompose PRD + Screen Inventory + Decisions Log into vertical-slice stories grouped by milestones. Human approves plan before issues are created.</p>
+          <div class="tools"><span class="tool-tag">prd-to-backlog-v3</span></div>
         </div>
       </div>
 
@@ -545,15 +483,15 @@
 
       <div class="step-row">
         <div class="step">
-          <div class="step-label" style="color:var(--accent-amber)"><span class="icon">🔍</span> Backlog Review <span class="badge-new recommended">Recommended</span></div>
-          <h3>Sanity Check Stories</h3>
-          <p>Quick 10–15 min pass: do story titles and scope map back to PRD requirements? Catch misinterpretations before they get baked into enriched tickets and code.</p>
+          <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">🔍</span> Backlog Review</div>
+          <h3>Human Sanity Check</h3>
+          <p>Verify stories map to PRD, decomposition granularity is right, milestone groupings are sensible.</p>
         </div>
         <div class="step">
-          <div class="step-label" style="color:var(--phase-transition)"><span class="icon">🔧</span> Ticket Enrichment</div>
-          <h3>Technical Completeness Review</h3>
-          <p>Claude Code reviews each story for technical completeness, developer questions, and cross-references with codebase and other stories. Updates tickets with implementation details.</p>
-          <div class="tools"><span class="tool-tag">Review skill</span><span class="tool-tag">GitHub MCP</span></div>
+          <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">🔧</span> Story Refinement</div>
+          <h3>refine-story-v3</h3>
+          <p>Enrich each story with codebase exploration, gap analysis, technical approach, expanded acceptance criteria, and files expected to change.</p>
+          <div class="tools"><span class="tool-tag">refine-story-v3</span></div>
         </div>
       </div>
     </div>
@@ -561,70 +499,111 @@
 
   <div class="connector">↓</div>
 
-  <!-- PHASE 4: Development -->
+  <!-- PHASE 4 -->
   <div class="phase">
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(78,205,196,0.15);color:var(--phase-dev)">04</div>
       <div class="phase-title" style="color:var(--phase-dev)">Orchestrated Development</div>
-      <div class="phase-subtitle">Claude Code — Supervisor/Worker Pattern</div>
+      <div class="phase-subtitle">orchestrate-v3 — PR-Based Pipeline</div>
     </div>
     <div class="steps">
       <div class="orchestrator-box">
-        <div class="orch-label">▸ Orchestrator Skill</div>
+        <div class="orch-label">▸ orchestrate-v3 — Per Ticket Pipeline</div>
 
-        <div class="step-row triple" style="margin-top:8px">
+        <div class="step-row triple" style="margin-top:12px">
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
             <div class="step-label" style="color:var(--phase-dev)"><span class="icon">✅</span> Pre-Flight</div>
             <h3>Per-Ticket Setup</h3>
-            <p>Read ticket, pull latest main, verify git hooks, create feature branch, move ticket to In Progress on project board.</p>
+            <p>Read ticket, verify readiness (acceptance criteria exist), pull latest main, tag for rollback, create branch, move to In Progress.</p>
           </div>
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
             <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🔄</span> Mode Gate</div>
             <h3>Supervised / Autonomous</h3>
-            <p>Supervised: hard stop between tickets for human approval. Autonomous: continues to next ticket. Supervised mode used when iterating on skills.</p>
+            <p>Supervised: stop between tickets. Autonomous: continue, stopping only at milestones and circuit breakers.</p>
           </div>
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
-            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🛑</span> Circuit Breakers</div>
-            <h3>Stop Conditions</h3>
-            <p>Halt if: 3 consecutive Partial/Blocked, main corrupted after merge, or merge conflict requiring human judgment.</p>
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">📈</span> Observability</div>
+            <h3>Token & Duration Tracking</h3>
+            <p>Capture per-stage metrics from each sub-agent. Track review iterations, test counts, PRD amendments.</p>
           </div>
         </div>
 
-        <div class="subagent-box">
-          <div class="sub-label">▸ Developer Sub-Agent (fresh context per ticket)</div>
-          <div class="step-row" style="margin-top:8px">
-            <div class="step" style="background:rgba(167,139,250,0.03);border-color:rgba(167,139,250,0.15)">
-              <div class="step-label" style="color:var(--accent-purple)"><span class="icon">📖</span> Context Load</div>
-              <h3>Standards + Architecture</h3>
-              <p>Read TI-Engineering-Standards (12 files), project CLAUDE.md, ARCHITECTURE.md. All critical constraints internalized before any code is written.</p>
-            </div>
-            <div class="step" style="background:rgba(167,139,250,0.03);border-color:rgba(167,139,250,0.15)">
-              <div class="step-label" style="color:var(--accent-purple)"><span class="icon">⚡</span> Implement</div>
-              <h3>Explore → Plan → Build → Test → Commit</h3>
-              <p>Follow build order: Domain → Fakes → Infrastructure → Api. Write tests alongside code. Hand-rolled fakes only. Dapper, Minimal APIs, no banned deps.</p>
+        <!-- Pipeline stages -->
+        <div style="margin: 20px 0 8px 48px">
+
+          <div class="pipeline-stage active" data-stage="1">
+            <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
+              <div class="step-label" style="color:var(--phase-dev)"><span class="icon">📖</span> Refine</div>
+              <h3>refine-story-v3</h3>
+              <p>Enrich issue with technical detail, codebase context, and expanded acceptance criteria. Autonomous decisions in orchestrator mode.</p>
             </div>
           </div>
-          <div class="step-row single" style="margin-top:12px">
-            <div class="step" style="background:rgba(167,139,250,0.03);border-color:rgba(167,139,250,0.15)">
-              <div class="step-label" style="color:var(--accent-amber)"><span class="icon">☑️</span> Exit Checklist <span class="badge-new recommended">Recommended</span></div>
-              <h3>Pre-Report Verification</h3>
-              <p>Before writing the report: confirm standards read, no banned deps, fakes created, tests pass, specific files staged, commit message formatted, ticket acceptance criteria reviewed. Prevents procedural drift by verifying <em>at the action boundary</em> rather than relying on front-loaded instructions.</p>
+
+          <div class="pipeline-stage active" data-stage="2">
+            <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
+              <div class="step-label" style="color:var(--phase-dev)"><span class="icon">⚡</span> Implement</div>
+              <h3>implement-ticket-v3 → PR #1</h3>
+              <p>Fresh context. Load all standards. Explore → Plan → Implement → Unit Test → Commit → Push → Create PR. Build order: Domain → Fakes → Infrastructure → Api.</p>
             </div>
           </div>
-          <div class="step-row single" style="margin-top:12px">
-            <div class="step" style="background:rgba(167,139,250,0.03);border-color:rgba(167,139,250,0.15)">
-              <div class="step-label" style="color:var(--accent-purple)"><span class="icon">📊</span> Report</div>
-              <h3>Structured Result</h3>
-              <p>STATUS (Complete/Partial/Blocked), changes list, test results, architectural decisions, concerns. Consumed by orchestrator for routing.</p>
+
+          <div class="pipeline-stage review" data-stage="3">
+            <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
+              <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
+              <h3>engineering-review-v3 (implementation mode)</h3>
+              <p>Independent context reviews PR against all 13 standards files. Posts line-level comments with standards references. Approves or requests changes.</p>
+              <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 3 iterations</div>
             </div>
           </div>
+
+          <div class="pipeline-stage security" data-stage="3.5">
+            <div class="step" style="border-color:rgba(232,99,122,0.2);background:rgba(232,99,122,0.02)">
+              <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛡️</span> Security Review</div>
+              <h3>security-review-v3 (OWASP Top 10)</h3>
+              <p>Framework-aware analysis with attack vector requirements. Every finding must explain how to exploit it — no false positives. On pass → merge PR #1.</p>
+              <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 2 iterations</div>
+            </div>
+          </div>
+
+          <div class="pipeline-stage test" data-stage="4">
+            <div class="step" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.02)">
+              <div class="step-label" style="color:var(--accent-purple)"><span class="icon">🧪</span> Integration Tests</div>
+              <h3>integration-test-v3 → PR #2</h3>
+              <p>Independent context writes tests against acceptance criteria (not developer's description). Testcontainers, real database, data isolation. Branches from updated main.</p>
+            </div>
+          </div>
+
+          <div class="pipeline-stage review" data-stage="5">
+            <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
+              <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
+              <h3>engineering-review-v3 (integration-tests mode)</h3>
+              <p>Reviews test quality, coverage, patterns. On approve → check off acceptance criteria → merge PR #2 → close issue.</p>
+              <div class="review-loop">↻ Loop: reviewer ↔ test-writer fix mode — max 3 iterations</div>
+            </div>
+          </div>
+
+          <div class="pipeline-stage active" data-stage="6">
+            <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
+              <div class="step-label" style="color:var(--accent-green)"><span class="icon">✔️</span> Close</div>
+              <h3>Finalize</h3>
+              <p>Check off acceptance criteria, close issue. Board automation moves to Done. Delete rollback tag. Capture ticket metrics.</p>
+            </div>
+          </div>
+
         </div>
 
-        <div class="step-row single" style="margin-top:16px">
-          <div class="step" style="border-color:rgba(78,205,196,0.2)">
-            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🔀</span> Post-Processing</div>
-            <h3>Orchestrator Closes the Loop</h3>
-            <p>Verify build & tests independently. Update acceptance criteria on issue. Post completion comment. Merge to main (no-ff). Delete branch. Close issue (board automation moves to Done). In supervised mode: stop and wait for "proceed."</p>
+        <!-- Milestone banner -->
+        <div class="milestone-banner">
+          <h3>⬥ Milestone Gate</h3>
+          <p>When a <code>milestone</code>-labeled issue is encountered, the orchestrator <strong>stops regardless of mode</strong>. Runs the smoke test checklist, reports results, and waits for human approval. The developer launches the app, clicks through, and validates before work continues.</p>
+        </div>
+
+        <!-- Circuit breakers -->
+        <div class="step-row single" style="margin-top:12px">
+          <div class="step" style="border-color:rgba(232,99,122,0.2)">
+            <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛑</span> Circuit Breakers</div>
+            <h3>Orchestrator Halts Entirely</h3>
+            <p>3 consecutive Partial/Blocked tickets. PR merge conflict. Build fails on main (rollback tag available). Review loop exhausted on 2 consecutive tickets.</p>
           </div>
         </div>
 
@@ -634,59 +613,31 @@
 
   <div class="connector">↓</div>
 
-  <!-- PHASE 5: Session Summary -->
+  <!-- PHASE 5 -->
   <div class="phase">
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(232,99,122,0.15);color:var(--phase-review)">05</div>
       <div class="phase-title" style="color:var(--phase-review)">Session Summary & Review</div>
-      <div class="phase-subtitle">Human Review</div>
+      <div class="phase-subtitle">Human + Claude Code</div>
     </div>
     <div class="steps">
-      <div class="step-row">
+      <div class="step-row triple">
         <div class="step">
-          <div class="step-label" style="color:var(--phase-review)"><span class="icon">📈</span> Session Report</div>
-          <h3>Completed / Partial / Blocked / Skipped</h3>
-          <p>Full accounting of all tickets processed: what was completed, what remains, what's blocked. Includes test counts and files changed across the session.</p>
+          <div class="step-label" style="color:var(--phase-review)"><span class="icon">📊</span> Session Report</div>
+          <h3>Full Accounting</h3>
+          <p>Completed / Partial / Blocked / Skipped. Milestones reached. PR numbers for audit trail. Observability metrics per ticket.</p>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--phase-review)"><span class="icon">📝</span> PRD Amendments</div>
+          <h3>Living Document</h3>
+          <p>Findings from developer CONCERNS and integration tester NOTES that contradict or extend the PRD. Captured per-ticket, reported in summary.</p>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--phase-review)"><span class="icon">🐛</span> Debug & Iterate</div>
-          <h3>Manual Review Cycle</h3>
-          <p>Run the application, test flows, identify issues. Debug with Claude Code. Refine skills and standards based on patterns observed. Feed improvements back into the shared standards repo.</p>
+          <h3>Refine Process</h3>
+          <p>Run the app, test flows, debug. Feed improvements back into standards, skills, and project docs.</p>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Recommended Improvements -->
-  <div class="improvements">
-    <h2>⚡ Recommended Enhancements</h2>
-    <div class="improvement-item">
-      <div class="label">Decisions Log</div>
-      <div class="desc">Produce alongside the PRD at end of Claude Web session. Captures "we considered X but chose Y because Z." Gives Claude Code the <em>reasoning</em> context, not just the requirements. Lightweight and high-value.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Screen Inventory</div>
-      <div class="desc">Conversational screen-by-screen walkthrough during PRD phase. Defines every view, its purpose, user actions, navigation paths, data dependencies, and key states. Prevents Claude Code from inferring screen boundaries — same principle as defining compilable components.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Backlog Review Gate</div>
-      <div class="desc">10–15 min human review after Claude Code generates stories. Confirm story titles and scope map back to PRD. Catches misinterpretations before they compound through enrichment and development.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Developer Exit Checklist</div>
-      <div class="desc">Explicit verification step before the report — not instructions at the top, but a checklist at the action boundary. Include ticket update, acceptance criteria review, and banned-dependency check. Targets the procedural drift you've observed.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Ticket Readiness Gate</div>
-      <div class="desc">Orchestrator pre-flight checks that the ticket has acceptance criteria and a non-empty description before spawning a sub-agent. Skip and log tickets that aren't ready.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Status Parse Hardening</div>
-      <div class="desc">Orchestrator explicitly parses the sub-agent STATUS line. If not exactly "Complete", "Partial", or "Blocked", treat as Partial and flag. Prevents silent misrouting if the report format drifts.</div>
-    </div>
-    <div class="improvement-item">
-      <div class="label">Standalone Standards Sync</div>
-      <div class="desc">Add conditional standards pull to the developer skill's standalone path (when not invoked by orchestrator). Currently only the orchestrator syncs standards.</div>
     </div>
   </div>
 
