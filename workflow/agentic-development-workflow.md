@@ -134,19 +134,7 @@ After the skill generates stories, review them:
 - Are there gaps — PRD requirements with no corresponding story?
 - Are milestone groupings sensible?
 
-### 3.5 Story Refinement (refine-story-v3)
-
-Use `refine-story-v3` to enrich each story with technical detail:
-
-- Codebase exploration (stub files, interfaces, consumers, DI registration)
-- Gap analysis across 11 categories (context pointers, technical approach, file I/O, error handling, etc.)
-- Acceptance criteria expansion with specific, testable criteria
-- Files expected to change
-- Test coverage planning
-
-The skill supports both standalone (interactive) and orchestrator (autonomous) modes.
-
-### 3.6 Incremental Story Additions (add-story-v3)
+### 3.5 Incremental Story Additions (add-story-v3)
 
 When adding stories mid-project (not during initial PRD decomposition), use `add-story-v3`. The skill:
 
@@ -161,7 +149,7 @@ When adding stories mid-project (not during initial PRD decomposition), use `add
 ## Phase 4: Orchestrated Development
 
 **Tool:** Claude Code with orchestrate-v3
-**Input:** Refined, enriched tickets
+**Input:** Backlog tickets (refined automatically by the orchestrator as Stage 1)
 **Output:** Implemented, reviewed, tested, merged code
 
 ### 4.1 Architecture: PR-Based Pipeline with Review Gates
