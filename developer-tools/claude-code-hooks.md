@@ -200,18 +200,41 @@ user@hostname:/current/working/directory [Claude Opus 4.6] ctx:42%
 
 ---
 
+## Source Files
+
+All scripts are checked into this repo at `developer-tools/hooks/`:
+
+| File | Description |
+|------|-------------|
+| [hooks/notify-email.sh](hooks/notify-email.sh) | Notification trigger (Python 3) |
+| [hooks/cancel-notify.sh](hooks/cancel-notify.sh) | Cancel pending notification (Bash) |
+| [hooks/delayed-send.sh](hooks/delayed-send.sh) | Background sender — Teams or email (Python 3) |
+| [hooks/statusline-command.sh](hooks/statusline-command.sh) | Custom status bar (Bash) |
+| [hooks/graph-creds.env.template](hooks/graph-creds.env.template) | Credentials template (fill in and rename) |
+
 ## Setup on a New Machine
 
-1. **Copy hook scripts** to `~/.claude/hooks/`:
-   - `notify-email.sh` (ensure executable: `chmod +x`)
-   - `cancel-notify.sh` (ensure executable: `chmod +x`)
-   - `delayed-send.sh` (ensure executable: `chmod +x`)
+```bash
+# 1. Copy hook scripts
+mkdir -p ~/.claude/hooks
+cp developer-tools/hooks/notify-email.sh ~/.claude/hooks/
+cp developer-tools/hooks/cancel-notify.sh ~/.claude/hooks/
+cp developer-tools/hooks/delayed-send.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/*.sh
 
-2. **Create `graph-creds.env`** at `~/.claude/hooks/graph-creds.env` with your credentials (see template above)
+# 2. Copy status line
+cp developer-tools/hooks/statusline-command.sh ~/.claude/statusline-command.sh
 
-3. **Copy `statusline-command.sh`** to `~/.claude/statusline-command.sh`
+# 3. Create credentials file from template
+cp developer-tools/hooks/graph-creds.env.template ~/.claude/hooks/graph-creds.env
+# Edit ~/.claude/hooks/graph-creds.env and fill in your values
 
-4. **Copy or merge `settings.json`** to `~/.claude/settings.json`
+# 4. Copy or merge settings.json (see settings.json section above)
+# If ~/.claude/settings.json doesn't exist:
+#   cp the JSON from the settings.json section above into ~/.claude/settings.json
+# If it already exists:
+#   merge the hooks, statusLine, and spinnerVerbs keys into your existing file
+```
 
 5. **Verify Python 3** is available (`python3 --version`) — the notification scripts use only stdlib (no pip installs needed)
 
