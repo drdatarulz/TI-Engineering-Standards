@@ -8,8 +8,19 @@ This project follows **TI Engineering Standards**. Before starting work:
 2. If not found: `git clone https://github.com/drdatarulz/TI-Engineering-Standards.git ../TI-Engineering-Standards/`
 3. If found: `cd ../TI-Engineering-Standards && git pull --ff-only && cd -`
 4. Read `../TI-Engineering-Standards/CLAUDE.md` and all referenced standards files.
+5. Sync skills (skipping archive and any local overrides):
+   ```bash
+   mkdir -p .claude/skills
+   for skill_dir in ../TI-Engineering-Standards/skills/*/; do
+     skill_name=$(basename "$skill_dir")
+     if [ "$skill_name" = "archive" ]; then continue; fi
+     if [ ! -d ".claude/skills/$skill_name" ]; then
+       cp -r "$skill_dir" ".claude/skills/$skill_name"
+     fi
+   done
+   ```
 
-All generic engineering rules (architecture, testing, database, git workflow, etc.) live in that repo. This file contains only **project-specific** instructions.
+All generic engineering rules (architecture, testing, database, git workflow, story writing, etc.) live in that repo. This file contains only **project-specific** instructions.
 
 ---
 
@@ -27,6 +38,9 @@ Full architectural details: see `ARCHITECTURE.md`
 |------|---------|
 | `CLAUDE.md` | Project-specific rules and conventions (this file) |
 | `ARCHITECTURE.md` | Full system design, database schema, design rationale |
+| `docs/PRD.md` | Product Requirements Document |
+| `docs/screen-inventory.md` | Screen Inventory (if applicable) |
+| `docs/decisions-log.md` | Decisions Log from PRD phase |
 | `STATUS.md` | Build progress history |
 | `docs/checklists/` | Deployment runbooks, manual testing checklists |
 | `docs/architecture/` | Architecture diagrams (markdown + draw.io) |
@@ -83,8 +97,9 @@ dotnet run --project src/{ProjectName}.Migrator/
 
 ## Work Tracking
 
-<!-- Reference your GitHub Project board -->
-<!-- Story ID prefix for this project (e.g., DS-XXX, XX-XXX) -->
+<!-- Reference your GitHub Project board URL -->
+<!-- Story ID prefix for this project (e.g., DS-XXX, TX-XXX) -->
+<!-- GitHub Project number (for GraphQL queries) -->
 
 ---
 

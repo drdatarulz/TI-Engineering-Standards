@@ -1,19 +1,21 @@
 ---
 name: Story
-about: Code-producing story with acceptance criteria
+about: Code-producing story with acceptance criteria (vertical slice preferred)
 title: "{PREFIX}-XXX: "
 labels: story
 ---
 
 ## Summary
 
-Brief description of what this story delivers and why.
+Brief description of what this story delivers — framed from the user's perspective. What can the user do after this story is complete?
+
+**Milestone:** _(which milestone this belongs to, if any)_
 
 ## Acceptance Criteria
 
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+- [ ] Criterion 1 — specific and testable
+- [ ] Criterion 2 — covers a key behavior or edge case
+- [ ] Criterion 3 — covers an error scenario
 
 ## Branch
 

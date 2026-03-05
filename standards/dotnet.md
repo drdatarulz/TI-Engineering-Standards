@@ -3,7 +3,7 @@
 ## Runtime
 
 - **.NET LTS releases** — always target the current LTS version
-- Currently: .NET 10 LTS (net10.0)
+- Currently: .NET 8 LTS (net8.0)
 
 ## API Style — Minimal APIs
 
@@ -42,8 +42,8 @@ public static class EmailEndpoints
 - **DbUp** — plain SQL migration scripts
 - Numbered sequentially: `001_CreateUsersTable.sql`, `002_CreateTeamsTable.sql`, etc.
 - **Forward-only** — no down migrations
-- Scripts live in `Infrastructure/Migrations/`
-- Migrator is a standalone console app that runs DbUp
+- Scripts live in the Migrator project as embedded resources (see [architecture.md](architecture.md))
+- Migrator is a standalone console app with zero project references — self-contained and independently deployable
 
 ## Configuration
 

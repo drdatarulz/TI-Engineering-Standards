@@ -37,7 +37,7 @@
 ## Migrations
 
 - **DbUp** — forward-only SQL migration scripts
-- Scripts in `Infrastructure/Migrations/`, numbered: `001_CreateUsersTable.sql`, etc.
+- Scripts live in the Migrator project (see [architecture.md](architecture.md)), numbered: `001_CreateUsersTable.sql`, etc.
 - No down migrations — ever
 - Each script is idempotent where practical (use `IF NOT EXISTS` for DDL)
 
