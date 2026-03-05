@@ -10,16 +10,19 @@ You are the **v2 orchestrator** for this session. Your job is to implement GitHu
 ## Pipeline Per Ticket
 
 ```
-1. REFINE STORY ─────────── refine-story-v2 (updates issue spec)
-2. IMPLEMENT ────────────── implement-ticket-v2 (creates PR #1)
-3. REVIEW (implementation) ─ engineering-review (standards + build + unit tests)
-   └─ Loop: reviewer ↔ implementer (max 3 iterations)
-   └─ On approve → merge PR #1
-4. INTEGRATION TESTS ────── integration-test (branches from updated main, creates PR #2)
-5. REVIEW (integration) ─── engineering-review (test quality + tests pass)
-   └─ Loop: reviewer ↔ test-writer (max 3 iterations)
-   └─ On approve → merge PR #2
-6. CLOSE ────────────────── close issue, update board
+1.   REFINE STORY ─────────── refine-story-v2 (updates issue spec)
+2.   IMPLEMENT ────────────── implement-ticket-v2 (creates PR #1)
+3.   REVIEW (implementation) ─ engineering-review (standards + build + unit tests)
+     └─ Loop: reviewer ↔ implementer (max 3 iterations)
+     └─ On approve → continue to 3.5
+3.5. SECURITY REVIEW ──────── security-review (OWASP Top 10 analysis)
+     └─ Loop: reviewer ↔ implementer (max 2 iterations)
+     └─ On pass → merge PR #1
+4.   INTEGRATION TESTS ────── integration-test (branches from updated main, creates PR #2)
+5.   REVIEW (integration) ─── engineering-review (test quality + tests pass)
+     └─ Loop: reviewer ↔ test-writer (max 3 iterations)
+     └─ On approve → merge PR #2
+6.   CLOSE ────────────────── close issue, update board
 ```
 
 ## Parse Arguments
@@ -184,15 +187,9 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   **Violations:** 0
   **Suggestions:** {count}
 
-  Review passed all standards checks. Merging.
+  Review passed all standards checks. Proceeding to security review.
   ```
-- Merge the PR:
-  ```bash
-  gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
-  ```
-- Pull main: `git checkout main && git pull origin main`
-- Delete local branch: `git branch -d {BRANCH_NAME} 2>/dev/null`
-- Continue to Stage 4
+- Continue to Stage 3.5 (do NOT merge yet)
 
 **If `STATUS: ChangesRequested` and iteration < 3:**
 - Post issue comment:
@@ -223,6 +220,60 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   **Unresolved violations:** {count}
 
   Review loop exhausted. Moving to Waiting/Blocked for manual attention.
+  ```
+- Move issue to Waiting/Blocked on the project board
+- Skip this ticket
+
+---
+
+### Stage 3.5: SECURITY REVIEW
+
+Run an OWASP Top 10 security analysis on the approved implementation PR. Max 2 iterations (security issues that persist after one fix likely need human judgment).
+
+#### 3.5a. Spawn security-review-v2
+
+Read `.claude/skills/security-review-v2/SKILL.md` and substitute:
+- `{PR_NUMBER}` → the implementation PR number
+- `{ISSUE_NUMBER}` → the GitHub issue number
+- `{STORY_ID}` → the story ID
+- `{BRANCH_NAME}` → the implementation branch
+- `{REPO_OWNER}` → resolved repo owner
+- `{REPO_NAME}` → resolved repo name
+- `{ITERATION}` → current iteration (starting at 1)
+
+Pass to Agent tool with `subagent_type: "general-purpose"`.
+
+#### 3.5b. Process security review result
+
+**Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v2 skill posts its own audit comment; verify it was posted but do not duplicate it.)
+
+**If `STATUS: Passed`:**
+- Merge the PR:
+  ```bash
+  gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
+  ```
+- Pull main: `git checkout main && git pull origin main`
+- Delete local branch: `git branch -d {BRANCH_NAME} 2>/dev/null`
+- Continue to Stage 4
+
+**If `STATUS: Blocked` and iteration < 2:**
+- Spawn implement-ticket-v2 in FIX mode:
+  - `{FIX_MODE}` → `true`
+  - `{PR_NUMBER}` → the implementation PR number
+  - `{ITERATION}` → current iteration number
+  - All other placeholders same as Stage 2
+- After fix completes, loop back to 3.5a with incremented iteration
+
+**If `STATUS: Blocked` and iteration >= 2:**
+- Post issue comment:
+  ```
+  ## Security Review — Exhausted
+
+  **PR:** #{PR_NUMBER}
+  **Iterations:** 2 (max reached)
+  **Unresolved findings:** {count}
+
+  Security review loop exhausted. Moving to Waiting/Blocked for manual attention.
   ```
 - Move issue to Waiting/Blocked on the project board
 - Skip this ticket
@@ -402,9 +453,9 @@ After all tickets are processed (or the loop is halted), produce this summary:
 ## Session Summary
 
 ### Completed
-| Ticket | Title | Impl PR | Test PR | Review Iters (Impl) | Review Iters (Test) | Tests Added |
-|--------|-------|---------|---------|---------------------|---------------------|-------------|
-| AZ-XXX | ... | #N | #N | N | N | N |
+| Ticket | Title | Impl PR | Test PR | Review Iters (Impl) | Security Iters | Review Iters (Test) | Tests Added |
+|--------|-------|---------|---------|---------------------|----------------|---------------------|-------------|
+| AZ-XXX | ... | #N | #N | N | N | N | N |
 
 ### Partial
 | Ticket | Title | What Remains |
@@ -427,12 +478,15 @@ After all tickets are processed (or the loop is halted), produce this summary:
 - Tickets blocked: X
 - Total implementation PRs merged: X
 - Total integration test PRs merged: X
-- Total review iterations: X
+- Total review iterations (implementation): X
+- Total security review iterations: X
+- Total security findings (blocking/advisory): X/X
+- Total review iterations (integration): X
 - Total tests added: X
 - Total files changed: X
 ```
 
 ---
-<!-- skill-version: 2.1 -->
+<!-- skill-version: 2.2 -->
 <!-- last-updated: 2026-03-05 -->
 <!-- pipeline: v2-pr-based -->
