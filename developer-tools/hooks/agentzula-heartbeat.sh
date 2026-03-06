@@ -58,7 +58,7 @@ fi
 
 project_id=$(echo "$projects_json" | jq -r \
     --arg tag "$project_tag" \
-    '.items[] | select(.tag == $tag) | .projectId' 2>/dev/null)
+    '.items[] | select(.projectTag == $tag) | .projectId' 2>/dev/null)
 
 if [ -z "$project_id" ] || [ "$project_id" = "null" ]; then
     exit 0
