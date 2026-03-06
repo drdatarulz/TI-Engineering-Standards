@@ -12,8 +12,8 @@ You are the **v3 orchestrator** for this session. Your job is to implement GitHu
 ## Pipeline Per Ticket
 
 ```
-1.   REFINE STORY ─────────── refine-story-v2 (updates issue spec)
-2.   IMPLEMENT ────────────── implement-ticket-v2 (creates PR #1)
+1.   REFINE STORY ─────────── refine-story-v3 (updates issue spec)
+2.   IMPLEMENT ────────────── implement-ticket-v3 (creates PR #1)
 3.   REVIEW (implementation) ─ engineering-review (standards + build + unit tests)
      └─ Loop: reviewer ↔ implementer (max 3 iterations)
      └─ On approve → continue to 3.5
@@ -171,9 +171,9 @@ Tag main before any work begins on this ticket:
 git tag pre-{STORY_ID}
 ```
 
-#### 1b. Spawn refine-story-v2
+#### 1b. Spawn refine-story-v3
 
-Read `.claude/skills/refine-story-v2/SKILL.md` and substitute:
+Read `.claude/skills/refine-story-v3/SKILL.md` and substitute:
 - `{ISSUE_NUMBER}` → the GitHub issue number
 - `{STORY_ID}` → the story ID (e.g., AZ-017)
 - `{REPO_OWNER}` → resolved repo owner
@@ -197,9 +197,9 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - Create branch: `git checkout -b story/{STORY_ID}-short-name main` (use `fix/` for bugs, `task/` for tasks)
 - Move issue to In Progress on the project board
 
-#### 2b. Spawn implement-ticket-v2
+#### 2b. Spawn implement-ticket-v3
 
-Read `.claude/skills/implement-ticket-v2/SKILL.md` and substitute:
+Read `.claude/skills/implement-ticket-v3/SKILL.md` and substitute:
 - `{TICKET_NUMBER}` → the story ID (e.g., AZ-017)
 - `{STORY_ID}` → the story ID (same value as TICKET_NUMBER)
 - `{TICKET_TITLE}` → the ticket title
@@ -227,7 +227,7 @@ Run a review loop: reviewer checks → if changes requested → implementer fixe
 
 #### 3a. Spawn engineering-review
 
-Read `.claude/skills/engineering-review-v2/SKILL.md` and substitute:
+Read `.claude/skills/engineering-review-v3/SKILL.md` and substitute:
 - `{PR_NUMBER}` → the implementation PR number
 - `{ISSUE_NUMBER}` → the GitHub issue number
 - `{STORY_ID}` → the story ID
@@ -269,7 +269,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
   Issues found — sending back for fixes. See PR #{PR_NUMBER} for inline comments.
   ```
-- Spawn implement-ticket-v2 in FIX mode:
+- Spawn implement-ticket-v3 in FIX mode:
   - `{FIX_MODE}` → `true`
   - `{PR_NUMBER}` → the implementation PR number
   - `{ITERATION}` → current iteration number
@@ -296,9 +296,9 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 Run an OWASP Top 10 security analysis on the approved implementation PR. Max 2 iterations (security issues that persist after one fix likely need human judgment).
 
-#### 3.5a. Spawn security-review-v2
+#### 3.5a. Spawn security-review-v3
 
-Read `.claude/skills/security-review-v2/SKILL.md` and substitute:
+Read `.claude/skills/security-review-v3/SKILL.md` and substitute:
 - `{PR_NUMBER}` → the implementation PR number
 - `{ISSUE_NUMBER}` → the GitHub issue number
 - `{STORY_ID}` → the story ID
@@ -311,7 +311,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 3.5b. Process security review result
 
-**Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v2 skill posts its own audit comment; verify it was posted but do not duplicate it.)
+**Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v3 skill posts its own audit comment; verify it was posted but do not duplicate it.)
 
 **If `STATUS: Passed`:**
 - Merge the PR:
@@ -323,7 +323,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 - Continue to Stage 4
 
 **If `STATUS: Blocked` and iteration < 2:**
-- Spawn implement-ticket-v2 in FIX mode:
+- Spawn implement-ticket-v3 in FIX mode:
   - `{FIX_MODE}` → `true`
   - `{PR_NUMBER}` → the implementation PR number
   - `{ITERATION}` → current iteration number
@@ -354,7 +354,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 4b. Spawn integration-test
 
-Read `.claude/skills/integration-test-v2/SKILL.md` and substitute:
+Read `.claude/skills/integration-test-v3/SKILL.md` and substitute:
 - `{STORY_ID}` → the story ID
 - `{TICKET_TITLE}` → the ticket title
 - `{ISSUE_NUMBER}` → the GitHub issue number
@@ -381,7 +381,7 @@ Same review loop structure as Stage 3, but in `integration-tests` mode.
 
 #### 5a. Spawn engineering-review
 
-Read `.claude/skills/engineering-review-v2/SKILL.md` and substitute:
+Read `.claude/skills/engineering-review-v3/SKILL.md` and substitute:
 - `{PR_NUMBER}` → the integration test PR number
 - `{ISSUE_NUMBER}` → the GitHub issue number
 - `{STORY_ID}` → the story ID

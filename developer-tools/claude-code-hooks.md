@@ -6,6 +6,8 @@ Configuration for Claude Code hooks, notifications, and UI customizations. These
 
 The notification system sends a Teams message (or email) when Claude Code is waiting for input and you haven't responded within a configurable delay. A cancel hook suppresses the notification if you respond before the delay expires.
 
+The AgentZula heartbeat hook automatically logs work time by posting a heartbeat to AgentZula after every tool call, with 5-minute debouncing.
+
 Additionally, a custom status line and spinner verbs are configured for the CLI experience.
 
 ---
@@ -19,7 +21,9 @@ Additionally, a custom status line and spinner verbs are configured for the CLI 
     notify-email.sh          # Python — notification trigger (parses transcript for unanswered questions)
     cancel-notify.sh         # Bash — cancels pending notification on user response
     delayed-send.sh          # Python — background sender (Teams webhook or Graph email)
+    agentzula-heartbeat.sh   # Bash — AgentZula activity heartbeat (PostToolUse)
     graph-creds.env          # Credentials and config (not committed — secrets)
+    agentzula-heartbeat.env  # AgentZula API URL + key (not committed — secrets)
   statusline-command.sh      # Bash — custom status bar (user@host, cwd, model, context %)
 ```
 
@@ -53,6 +57,17 @@ Register the hooks, status line, and UI customizations:
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agentzula-heartbeat.sh"
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
@@ -80,6 +95,7 @@ Register the hooks, status line, and UI customizations:
 |-------|--------|---------|
 | `Notification` | `notify-email.sh` | Fires when Claude is idle waiting for input. Parses transcript for the unanswered question, writes a marker file, spawns a delayed background sender. |
 | `UserPromptSubmit` | `cancel-notify.sh` | Fires when you submit a response. Deletes the marker file so the delayed sender knows not to send. |
+| `PostToolUse` | `agentzula-heartbeat.sh` | Fires after every tool call. Debounces (5 min), resolves project from `.agentzula-project` marker, posts heartbeat to AgentZula API. |
 
 ---
 
@@ -148,6 +164,49 @@ The background sender. Also Python 3 with a `.sh` extension.
 
 ---
 
+## AgentZula Heartbeat
+
+### agentzula-heartbeat.sh (Bash)
+
+Fires on every `PostToolUse` event. Debounces to one heartbeat per 5 minutes (configurable).
+
+**What it does:**
+1. Drains stdin (Claude Code passes JSON)
+2. Loads config from `agentzula-heartbeat.env`
+3. Checks `/tmp/agentzula-last-heartbeat` — skips if less than `HEARTBEAT_INTERVAL_SECONDS` since last beat
+4. Walks up from CWD looking for `.agentzula-project` (contains the project tag) — exits if not found
+5. Resolves the project tag to a project ID via `GET /api/projects?active=true`
+6. Posts `POST /api/activity` with `source: "claude-code"`
+7. Writes current timestamp to the debounce file
+
+All curl calls use `--max-time 3` — fire-and-forget, never blocks Claude Code.
+
+### agentzula-heartbeat.env
+
+Config for the heartbeat hook. **Contains secrets — do not commit.**
+
+Create at `~/.claude/hooks/agentzula-heartbeat.env`:
+
+```bash
+AGENTZULA_API_URL=https://your-agentzula-api-url
+AGENTZULA_API_KEY=your-mcp-api-key
+HEARTBEAT_INTERVAL_SECONDS=300
+```
+
+### .agentzula-project Marker File
+
+Each tracked repo needs a `.agentzula-project` file in its root containing the project tag (one line):
+
+```
+proj-agentzula
+```
+
+The hook walks up from CWD to find this file. Repos without it are silently skipped.
+
+For the full setup guide, see [agentzula-project-setup.md](agentzula-project-setup.md).
+
+---
+
 ## graph-creds.env
 
 Credentials and configuration. **This file contains secrets — do not commit it.**
@@ -209,8 +268,10 @@ All scripts are checked into this repo at `developer-tools/hooks/`:
 | [hooks/notify-email.sh](hooks/notify-email.sh) | Notification trigger (Python 3) |
 | [hooks/cancel-notify.sh](hooks/cancel-notify.sh) | Cancel pending notification (Bash) |
 | [hooks/delayed-send.sh](hooks/delayed-send.sh) | Background sender — Teams or email (Python 3) |
+| [hooks/agentzula-heartbeat.sh](hooks/agentzula-heartbeat.sh) | AgentZula activity heartbeat (Bash) |
 | [hooks/statusline-command.sh](hooks/statusline-command.sh) | Custom status bar (Bash) |
-| [hooks/graph-creds.env.template](hooks/graph-creds.env.template) | Credentials template (fill in and rename) |
+| [hooks/graph-creds.env.template](hooks/graph-creds.env.template) | Notification credentials template |
+| [hooks/agentzula-heartbeat.env.template](hooks/agentzula-heartbeat.env.template) | AgentZula heartbeat config template |
 
 ## Setup on a New Machine
 
@@ -220,6 +281,7 @@ mkdir -p ~/.claude/hooks
 cp developer-tools/hooks/notify-email.sh ~/.claude/hooks/
 cp developer-tools/hooks/cancel-notify.sh ~/.claude/hooks/
 cp developer-tools/hooks/delayed-send.sh ~/.claude/hooks/
+cp developer-tools/hooks/agentzula-heartbeat.sh ~/.claude/hooks/
 chmod +x ~/.claude/hooks/*.sh
 
 # 2. Copy status line
@@ -229,13 +291,23 @@ cp developer-tools/hooks/statusline-command.sh ~/.claude/statusline-command.sh
 cp developer-tools/hooks/graph-creds.env.template ~/.claude/hooks/graph-creds.env
 # Edit ~/.claude/hooks/graph-creds.env and fill in your values
 
-# 4. Copy or merge settings.json (see settings.json section above)
+# 4. Create AgentZula heartbeat config from template
+cp developer-tools/hooks/agentzula-heartbeat.env.template ~/.claude/hooks/agentzula-heartbeat.env
+# Edit ~/.claude/hooks/agentzula-heartbeat.env and fill in your API URL and key
+
+# 5. Copy or merge settings.json (see settings.json section above)
 # If ~/.claude/settings.json doesn't exist:
 #   cp the JSON from the settings.json section above into ~/.claude/settings.json
 # If it already exists:
 #   merge the hooks, statusLine, and spinnerVerbs keys into your existing file
 ```
 
-5. **Verify Python 3** is available (`python3 --version`) — the notification scripts use only stdlib (no pip installs needed)
+6. **Verify Python 3** is available (`python3 --version`) — the notification scripts use only stdlib (no pip installs needed)
 
-6. **Test:** Run Claude Code, let it ask a question, wait for the delay — you should receive a Teams message or email
+7. **Verify jq** is available (`jq --version`) — the heartbeat script uses it to parse JSON responses
+
+8. **Test notifications:** Run Claude Code, let it ask a question, wait for the delay — you should receive a Teams message or email
+
+9. **Test heartbeat:** Run Claude Code in a repo with `.agentzula-project`, use any tool, check the AgentZula activity log for a heartbeat entry
+
+For detailed AgentZula setup instructions, see [agentzula-project-setup.md](agentzula-project-setup.md).
