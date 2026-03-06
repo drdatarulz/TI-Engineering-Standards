@@ -93,7 +93,7 @@ Create `.mcp.json` in the project root:
 {
   "mcpServers": {
     "agentzula": {
-      "type": "streamable-http",
+      "type": "http",
       "url": "https://your-agentzula-api-url/mcp",
       "headers": {
         "X-Api-Key": "your-mcp-api-key"
@@ -155,3 +155,4 @@ If configured, ask Claude Code to call the `Echo` tool — it should return a re
 | Heartbeats too infrequent | Interval too high | Lower `HEARTBEAT_INTERVAL_SECONDS` in env file (default: 300 = 5 min) |
 | Hook errors in Claude Code | Script not executable | Run `chmod +x ~/.claude/hooks/agentzula-heartbeat.sh` |
 | MCP connection fails | Wrong URL or key | Verify `.mcp.json` URL includes `/mcp` path suffix |
+| MCP tools not loading | Wrong transport type | Use `"type": "http"` in `.mcp.json` — Claude Code only recognizes `stdio`, `sse`, `http` (not `streamable-http`) |
