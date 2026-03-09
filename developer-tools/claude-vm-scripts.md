@@ -86,6 +86,41 @@ workspace
 # equivalent to: cd ~/claude-workspace
 ```
 
+## Installation
+
+Add the following block to `~/.bashrc` on any new Claude development VM:
+
+```bash
+# ── Claude Code helpers ──────────────────────────────────────
+alias claude-yolo='claude --dangerously-skip-permissions'
+alias workspace='cd ~/claude-workspace'
+
+# Attach to (or create) a named tmux session (default: "claude")
+claude-attach() {
+  local session="${1:-claude}"
+  tmux attach-session -t "$session" 2>/dev/null || tmux new-session -s "$session"
+}
+
+# Create a new named tmux session (default: "claude")
+claude-new() {
+  local session="${1:-claude}"
+  tmux new-session -s "$session"
+}
+
+# List active tmux sessions
+claude-list() {
+  tmux list-sessions 2>/dev/null || echo "No active sessions."
+}
+
+# Auto-attach or create tmux session named "claude" on login
+# Uncomment the line below to auto-start tmux on SSH login:
+# [[ -z "$TMUX" ]] && tmux attach-session -t claude 2>/dev/null || tmux new-session -s claude
+```
+
+After adding, reload with `source ~/.bashrc`.
+
+---
+
 ## tmux Basics
 
 The VM uses `Ctrl-a` as the tmux prefix (not the default `Ctrl-b`).
