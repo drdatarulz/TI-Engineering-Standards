@@ -477,13 +477,34 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
     gh issue edit {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$UPDATED"
   fi
   ```
+- **Post observability metrics** as an issue comment before closing:
+  ```bash
+  gh issue comment {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$(cat <<'EOF'
+  ## Observability Metrics
+
+  | Phase | Tokens | Duration |
+  |-------|--------|----------|
+  | Refine | {REFINE_TOKENS} | {REFINE_DURATION} |
+  | Implement | {IMPL_TOKENS} | {IMPL_DURATION} |
+  | Review (Impl) | {REVIEW_TOKENS} | {REVIEW_DURATION} |
+  | Security Review | {SECURITY_TOKENS} | {SECURITY_DURATION} |
+  | Integration Tests | {TEST_TOKENS} | {TEST_DURATION} |
+  | Review (Tests) | {TEST_REVIEW_TOKENS} | {TEST_REVIEW_DURATION} |
+  | **Total** | **{TOTAL_TOKENS}** | **{TOTAL_DURATION}** |
+
+  Review iterations (impl): {IMPL_REVIEW_ITERS} | Security iterations: {SECURITY_ITERS} | Review iterations (tests): {TEST_REVIEW_ITERS}
+  EOF
+  )"
+  ```
+  Use the per-ticket metrics tracked in `session_metrics.tickets[]` for this ticket. Tokens should be formatted with comma separators (e.g., `45,230`). Duration should be in human-readable format (e.g., `1m 35s`). Omit rows for phases that were skipped (e.g., if no integration tests were run, omit that row).
+
 - Close the issue (if not already auto-closed):
   ```bash
   gh issue close {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}
   ```
   (Board automation moves it to Done)
 
-Note: Acceptance criteria are primarily checked off in Stage 5b before merging, so this step is a safety net. Do NOT post a "Story Complete" summary comment. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) already provide the full audit trail in chronological order.
+Note: Acceptance criteria are primarily checked off in Stage 5b before merging, so this step is a safety net. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) provide the audit trail, and the observability metrics comment provides the cost/performance record.
 
 ---
 
