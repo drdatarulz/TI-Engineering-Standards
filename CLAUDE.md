@@ -70,6 +70,7 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/security-review-v3](skills/security-review-v3/SKILL.md) | OWASP Top 10 security review for PRs |
 | [skills/integration-test-v3](skills/integration-test-v3/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | [skills/orchestrate-v3](skills/orchestrate-v3/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
+| [skills/triage-v3](skills/triage-v3/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
 
 > **Note:** v1 and v2 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
 

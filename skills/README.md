@@ -19,6 +19,12 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 | **[integration-test-v3](integration-test-v3/SKILL.md)** | `/integration-test-v3 AZ-101` | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | **[orchestrate-v3](orchestrate-v3/SKILL.md)** | `/orchestrate-v3 supervised AZ-101, AZ-102` | PR-based pipeline orchestrator with milestone support and observability |
 
+### Investigation & Triage
+
+| Skill | Invocation | Description |
+|-------|-----------|-------------|
+| **[triage-v3](triage-v3/SKILL.md)** | `/triage-v3 [issue description]` | Interactive investigation and bug triage. Explores codebase, diagnoses issues, creates/updates tickets. Never writes code. |
+
 ## How They Fit Together
 
 ### Story Creation Path
@@ -35,6 +41,11 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 5. **integration-test-v3** — Write integration tests on a separate PR
 6. **engineering-review-v3** — Review integration test PR (up to 3 iterations with fix mode)
 7. **orchestrate-v3** — Orchestrates the full pipeline per ticket, manages board updates, review loops, milestones, and observability
+
+### Feedback Loop (testing → new tickets)
+
+1. **triage-v3** — Investigate bugs found during manual testing, produce tickets
+2. Tickets feed back into the development pipeline (refine → implement → review → ...)
 
 ### Milestone Gates
 

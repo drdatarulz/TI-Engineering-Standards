@@ -238,7 +238,9 @@ The orchestrator produces a comprehensive summary including:
 
 ### 5.2 Debug & Iterate
 
-Run the application, test flows manually, identify issues. Debug with Claude Code as needed. Feed observations back into:
+Run the application, test flows manually, identify issues. Use **triage-v3** to formally investigate bugs and turn findings into tickets — this is the bridge from testing back into the development pipeline. Triage runs in read-only mode (never writes code) and produces GitHub issues as output, which feed back into the orchestrator for the next development cycle.
+
+For ad-hoc debugging, use Claude Code directly. Feed observations back into:
 
 - The shared engineering standards repo (if broadly applicable)
 - Project-specific CLAUDE.md or ARCHITECTURE.md
@@ -284,6 +286,11 @@ Run the application, test flows manually, identify issues. Debug with Claude Cod
 | security-review-v3 | OWASP Top 10 security analysis with attack vector requirements |
 | integration-test-v3 | Write integration tests, create PR. Supports fix mode |
 | orchestrate-v3 | Pipeline orchestrator with milestones, review loops, and observability |
+
+### Investigation & Triage
+| Skill | Purpose |
+|-------|---------|
+| triage-v3 | Interactive investigation and bug triage — never writes code, output is always a ticket |
 
 ### Standards
 | File | Purpose |
