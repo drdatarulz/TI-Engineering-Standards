@@ -43,6 +43,16 @@ Enable these automations on every project board:
 - Item closed → Done
 - PR merged → Done
 
+## Sub-Issues (Milestone-to-Story Linking)
+
+GitHub's **sub-issues** feature links stories to their parent milestone marker, creating an epic-style hierarchy. When stories are sub-issues of a milestone, the milestone issue displays a progress tracker (e.g., "3 of 5 complete") that updates automatically as child issues are closed.
+
+**Rules:**
+- Every story that belongs to a milestone **must** be linked as a sub-issue of that milestone's marker issue
+- The `milestone` label must exist on the repo — create it if missing: `gh label create milestone --repo {owner}/{repo} --description "Milestone marker issue (review gate)" --color "0E8A16"`
+- Sub-issue linking uses the story's **database ID** (not the issue number) — retrieve it via the GraphQL API
+- Both the `prd-to-backlog` and `add-story` skills handle this linking automatically after creating issues
+
 ## GTD Labels
 
 Apply GTD labels as needed for workflow management:

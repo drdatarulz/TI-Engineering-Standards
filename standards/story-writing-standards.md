@@ -79,6 +79,22 @@ Milestone markers use the `milestone` label and follow this structure in the iss
 
 The orchestrator treats issues with the `milestone` label as hard stops regardless of operating mode. It runs the smoke test, reports results, and waits for human approval before continuing.
 
+### Linking Stories to Milestones via Sub-Issues
+
+After creating both the milestone marker and its stories, **link each story as a sub-issue of the milestone marker** using GitHub's sub-issues feature. This gives the milestone epic-style progress tracking — GitHub displays "N of M complete" on the parent issue as child stories are closed.
+
+To link a story as a sub-issue:
+
+1. Get the story's database ID (not the issue number):
+   ```bash
+   gh api graphql -f query='query($owner: String!, $repo: String!, $number: Int!) {
+     repository(owner: $owner, name: $repo) { issue(number: $number) { databaseId } }
+   }' -f owner={OWNER} -f repo={REPO} -F number={STORY_ISSUE_NUMBER} --jq '.data.repository.issue.databaseId'
+   ```
+2. Add it as a sub-issue of the milestone marker using the GitHub MCP `sub_issue_write` tool (method: `add`, issue_number: milestone issue number, sub_issue_id: story database ID).
+
+This applies to both bulk PRD decomposition and incremental story additions. Every story that belongs to a milestone must be linked as a sub-issue of that milestone's marker.
+
 ## Backlog Ordering
 
 ### Phase 1: Foundation (Horizontal — Keep Minimal)

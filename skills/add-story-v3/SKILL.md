@@ -196,7 +196,33 @@ After creation:
 
 If the new stories warrant their own milestone (per story-writing standards or user request), create a milestone marker issue with the `milestone` label.
 
-### 4c. Confirm
+**Ensure the `milestone` label exists** — if not, create it:
+```bash
+gh label create milestone --repo {REPO_OWNER}/{REPO_NAME} --description "Milestone marker issue (review gate)" --color "0E8A16"
+```
+
+### 4c. Link Stories as Sub-Issues of Milestone
+
+After creating all stories and the milestone marker, link each story as a sub-issue of the milestone. This gives epic-style progress tracking on the milestone issue.
+
+For each story in the milestone:
+
+1. Get the story's database ID:
+   ```bash
+   gh api graphql -f query='query($owner: String!, $repo: String!, $number: Int!) {
+     repository(owner: $owner, name: $repo) { issue(number: $number) { databaseId } }
+   }' -f owner={REPO_OWNER} -f repo={REPO_NAME} -F number={STORY_ISSUE_NUMBER} --jq '.data.repository.issue.databaseId'
+   ```
+2. Add as sub-issue using the GitHub MCP `sub_issue_write` tool:
+   - `method`: `add`
+   - `owner`: `{REPO_OWNER}`
+   - `repo`: `{REPO_NAME}`
+   - `issue_number`: the milestone marker's issue number
+   - `sub_issue_id`: the story's database ID from step 1
+
+If adding stories to an **existing** milestone, use the same process — get the existing milestone's issue number and add the new stories as sub-issues.
+
+### 4d. Confirm
 
 Tell the user what was created:
 
@@ -213,6 +239,6 @@ Tell the user what was created:
 ```
 
 ---
-<!-- skill-version: 3.0 -->
-<!-- last-updated: 2026-03-05 -->
+<!-- skill-version: 3.1 -->
+<!-- last-updated: 2026-03-09 -->
 <!-- pipeline: v3 -->
