@@ -137,7 +137,17 @@ EOF
 )"
 ```
 
-### 8. REPORT
+### 8. CLEANUP: Return to main
+
+After the PR is created and pushed, return to `main` so the machine is clean for the next task. The branch is safely on the remote (attached to the PR) — keeping it checked out locally risks the next agent mistaking it for the default branch.
+
+```bash
+git checkout main
+git pull --ff-only
+git branch -d {BRANCH_NAME}
+```
+
+### 9. REPORT
 
 Return your results in this exact format:
 
@@ -217,7 +227,14 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
    Do NOT create a new PR — the existing PR #{PR_NUMBER} will show the new commits.
 
-8. **Report**:
+8. **Cleanup: Return to main** — Switch back to `main` so the machine is clean for the next task:
+   ```bash
+   git checkout main
+   git pull --ff-only
+   git branch -d {BRANCH_NAME}
+   ```
+
+9. **Report**:
    ```
    STATUS: Complete | Partial | Blocked
    MODE: fix
