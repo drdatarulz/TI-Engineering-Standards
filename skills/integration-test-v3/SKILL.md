@@ -191,7 +191,18 @@ EOF
 )"
 ```
 
-## Step 8: Report
+## Step 8: Cleanup — Return to main and remove branch
+
+After the PR is created and pushed, return to `main` so the machine is clean for the next task. The branch is safely attached to the PR — keeping it checked out locally risks the next agent mistaking it for the default branch. Delete both the local and remote branch to prevent stale branch accumulation.
+
+```bash
+git checkout main
+git pull --ff-only
+git branch -d {BRANCH_NAME}
+git push origin --delete {BRANCH_NAME}
+```
+
+## Step 9: Report
 
 ```
 STATUS: Complete | Partial | Blocked
@@ -261,7 +272,15 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    git push origin {BRANCH_NAME}
    ```
 
-8. **Report:**
+8. **Cleanup: Return to main and remove branch** — Switch back to `main` and delete the branch (local + remote) so the machine is clean for the next task:
+   ```bash
+   git checkout main
+   git pull --ff-only
+   git branch -d {BRANCH_NAME}
+   git push origin --delete {BRANCH_NAME}
+   ```
+
+9. **Report:**
    ```
    STATUS: Complete | Partial | Blocked
    MODE: fix

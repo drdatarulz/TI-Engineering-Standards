@@ -137,14 +137,15 @@ EOF
 )"
 ```
 
-### 8. CLEANUP: Return to main
+### 8. CLEANUP: Return to main and remove branch
 
-After the PR is created and pushed, return to `main` so the machine is clean for the next task. The branch is safely on the remote (attached to the PR) — keeping it checked out locally risks the next agent mistaking it for the default branch.
+After the PR is created and pushed, return to `main` so the machine is clean for the next task. The branch is safely attached to the PR — keeping it checked out locally risks the next agent mistaking it for the default branch. Delete both the local and remote branch to prevent stale branch accumulation.
 
 ```bash
 git checkout main
 git pull --ff-only
 git branch -d {BRANCH_NAME}
+git push origin --delete {BRANCH_NAME}
 ```
 
 ### 9. REPORT
@@ -227,11 +228,12 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
    Do NOT create a new PR — the existing PR #{PR_NUMBER} will show the new commits.
 
-8. **Cleanup: Return to main** — Switch back to `main` so the machine is clean for the next task:
+8. **Cleanup: Return to main and remove branch** — Switch back to `main` and delete the branch (local + remote) so the machine is clean for the next task:
    ```bash
    git checkout main
    git pull --ff-only
    git branch -d {BRANCH_NAME}
+   git push origin --delete {BRANCH_NAME}
    ```
 
 9. **Report**:
