@@ -25,6 +25,15 @@ When starting a session on **any project**, follow this protocol:
    done
    ```
    Local skills in `.claude/skills/` take precedence — if a project has a customized version, it won't be overwritten.
+6. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
+   ```bash
+   if [ -d ".githooks" ]; then
+     current=$(git config core.hooksPath 2>/dev/null)
+     if [ "$current" != ".githooks" ]; then
+       git config core.hooksPath .githooks
+     fi
+   fi
+   ```
 
 When the user asks to update a standard:
 - Update the relevant file in this repo
