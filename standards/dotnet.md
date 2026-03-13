@@ -3,7 +3,7 @@
 ## Runtime
 
 - **.NET LTS releases** — always target the current LTS version
-- Currently: .NET 8 LTS (net8.0)
+- Currently: .NET 10 LTS (net10.0)
 
 ## API Style — Minimal APIs
 
