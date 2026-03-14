@@ -215,9 +215,23 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 2c. Process result
 
-- If `STATUS: Complete` — extract `PR_NUMBER` from report, continue to Stage 3
+- If `STATUS: Complete` — extract `PR_NUMBER` from report, continue to **Stage 2d**
 - If `STATUS: Partial` — post issue comment describing what's incomplete, move to Waiting/Blocked, skip this ticket
 - If `STATUS: Blocked` — post issue comment with blocker, move to Waiting/Blocked, skip this ticket
+
+#### 2d. Scope Completeness Check
+
+After the implementer reports completion, verify the implementation actually covers the full scope of the ticket. Specifically:
+
+1. **UI Deferral Detection:** If the ticket's acceptance criteria mention any of these: Blazor pages, screens, routes (e.g., `/forms`, `/data-dictionary`), UI components, or `.razor` files — check whether corresponding `.razor` files were created in the PR. If the criteria require UI but no `.razor` files were added:
+   - Check the PR description and implementation notes for deferral language ("deferred", "follow-up", "NOT include UI", "API-only")
+   - If deferral is detected, check whether a follow-up ticket was created
+   - **If no follow-up ticket exists:** Create one automatically. Title: `{STORY_ID}b: {original title} — Blazor UI pages`. Label: `story`. Link as sub-issue of the current milestone. Post an issue comment: "Implementation deferred UI pages. Auto-created follow-up ticket #{NEW_ISSUE_NUMBER}."
+   - **If a follow-up ticket exists:** Note it in the issue comment and continue
+
+2. **Acceptance Criteria Spot-Check:** Compare the ticket's `- [ ]` acceptance criteria against what was implemented. If more than 30% of criteria appear unaddressed (no corresponding code, endpoints, or tests), treat as `STATUS: Partial` — post issue comment and move to Waiting/Blocked.
+
+After the completeness check passes, continue to Stage 3.
 
 ---
 

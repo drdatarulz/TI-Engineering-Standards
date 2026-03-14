@@ -85,6 +85,27 @@ Run through every rule in the 12 standards files you loaded in Step 0. For each 
 
 Also check the project's `CLAUDE.md` for project-specific rules that go beyond the standards.
 
+### Scope Deferral Check (Implementation Mode Only)
+
+After reviewing the code, check for **scope deferral** — situations where the implementation explicitly defers work that the ticket's acceptance criteria required.
+
+**Detection:** Search the PR diff and any new/changed comments, README sections, or issue body updates for language like:
+- "NOT include", "deferred to", "follow-up story", "subsequent ticket", "if time permits"
+- Acceptance criteria that mention UI/Blazor pages but no `.razor` files in the PR
+- Acceptance criteria that mention screens/routes but no corresponding page created
+
+**If scope deferral is detected:**
+
+1. Check whether a follow-up ticket was created by the implementer (search open issues for the deferred scope)
+2. **If no follow-up ticket exists:** This is a **blocking violation**. Post a comment:
+   ```
+   **[Standards Violation: Scope Deferral]**
+   This PR defers scope that the acceptance criteria required (e.g., UI pages), but no follow-up ticket was created. Deferred work must have a corresponding ticket to prevent gaps.
+
+   **Fix:** Either implement the deferred scope in this PR, or create a follow-up issue with clear acceptance criteria and link it in the PR description.
+   ```
+3. **If a follow-up ticket exists and is linked:** This is a **non-blocking suggestion**. Note it but approve.
+
 ### Integration-Tests Mode Checklist
 
 Run through `standards/testing.md` with focus on integration test rules. For each test file, check:
