@@ -356,6 +356,8 @@
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-dev)"></div>Development</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange)"></div>Review Gates</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-review)"></div>Summary</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent-green)"></div>Deployment</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent-blue)"></div>Health</div>
   </div>
 </div>
 
@@ -649,6 +651,93 @@
           <p>Run the app, test flows, debug. Feed improvements back into standards, skills, and project docs.</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="connector">↓</div>
+
+  <!-- PHASE 6 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:rgba(107,207,127,0.15);color:var(--accent-green)">06</div>
+      <div class="phase-title" style="color:var(--accent-green)">Deployment & Promotion</div>
+      <div class="phase-subtitle">GitHub Actions + GitHub Environments</div>
+    </div>
+    <div class="steps">
+
+      <div class="step-row triple">
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-green)"><span class="icon">🚀</span> Deploy to Dev</div>
+          <h3>Automatic on Merge</h3>
+          <p>Every merge to main triggers: build → unit + integration tests → Docker image tagged <code>{sha}-dev</code> → push to registry → Bicep deploy → migrations → smoke tests → Playwright tests.</p>
+          <div class="tools"><span class="tool-tag">GitHub Actions</span><span class="tool-tag">environment: dev</span></div>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-green)"><span class="icon">⏫</span> Promote to Staging</div>
+          <h3>Manual — Click to Approve</h3>
+          <p>When Dev is validated, reviewer approves in GitHub UI. Image retagged <code>{sha}-staging</code> — never rebuilt. Bicep deploy, migrations, smoke + Playwright tests run again.</p>
+          <div class="tools"><span class="tool-tag">GitHub Environments</span><span class="tool-tag">Required reviewers</span></div>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-green)"><span class="icon">🏁</span> Promote to Production</div>
+          <h3>Approval Gate</h3>
+          <p>Same flow as Staging. Image retagged <code>{sha}-prod</code>. Bicep deploy, migrations, health check only — no Playwright or smoke suite against Production.</p>
+          <div class="tools"><span class="tool-tag">Approval gate</span><span class="tool-tag">Health check</span></div>
+        </div>
+      </div>
+
+      <div class="connector">↓</div>
+
+      <div class="step-row">
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-green)"><span class="icon">🏷️</span> Image Tagging</div>
+          <h3>Build Once, Promote by Retag</h3>
+          <p>Images are built once per commit. Promotion retags — never rebuilds. The commit SHA ties every deployed environment back to an exact commit at all times.</p>
+          <div class="tools"><span class="tool-tag">{sha}-dev</span><span class="tool-tag">{sha}-staging</span><span class="tool-tag">{sha}-prod</span></div>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-green)"><span class="icon">🔐</span> GitHub Environments</div>
+          <h3>Protection Rules</h3>
+          <p><strong>dev:</strong> no protection — auto-deploys. <strong>staging:</strong> required reviewers. <strong>production:</strong> required reviewers + approval gate. Cancel superseded runs waiting approval.</p>
+          <div class="tools"><span class="tool-tag">Settings → Environments</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="phase-divider"><span>Feedback Loop — triage-v4 → new tickets → Phase 4</span></div>
+
+  <!-- PHASE 7 -->
+  <div class="phase">
+    <div class="phase-header">
+      <div class="phase-number" style="background:rgba(91,156,245,0.15);color:var(--accent-blue)">07</div>
+      <div class="phase-title" style="color:var(--accent-blue)">Ongoing Project Health</div>
+      <div class="phase-subtitle">Claude Code + Human Review</div>
+    </div>
+    <div class="steps">
+
+      <div class="step-row triple">
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-blue)"><span class="icon">🔄</span> Standards Re-sync</div>
+          <h3>Pull Latest Standards</h3>
+          <p>The engineering standards repo evolves. Auto-sync protocol handles this on session start. If standards changed, assess whether the project needs conformance updates.</p>
+          <div class="tools"><span class="tool-tag">Auto-sync protocol</span></div>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-blue)"><span class="icon">📋</span> Conformance Audit</div>
+          <h3>conformance-v4</h3>
+          <p>Audit the project against all standards — pipeline, environments, code, testing. Produces a gap report with pass/fail per check. No changes made — informational only.</p>
+          <div class="tools"><span class="tool-tag">conformance-v4</span></div>
+        </div>
+        <div class="step">
+          <div class="step-label" style="color:var(--accent-blue)"><span class="icon">🔧</span> Maintenance</div>
+          <h3>Dependencies & Recovery</h3>
+          <p>Dependency updates via task tickets (not ad-hoc). Broken main recovery uses rollback tags. Dormant projects: re-sync, test, deploy to Dev, review board, then resume.</p>
+          <div class="tools"><span class="tool-tag">triage-v4</span><span class="tool-tag">Task tickets</span></div>
+        </div>
+      </div>
+
     </div>
   </div>
 
