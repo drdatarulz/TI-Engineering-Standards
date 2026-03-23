@@ -174,7 +174,7 @@ If any tests fail on a fresh clone, stop and fix before proceeding. A clean base
 
 ### 4.1 Architecture: PR-Based Pipeline with Review Gates
 
-The v3 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift.
+The v4 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift.
 
 ```
 Per Ticket:
@@ -182,7 +182,7 @@ Per Ticket:
 2. IMPLEMENT ───────── implement-ticket-v4 (creates PR #1)
 3. ENGINEERING REVIEW ─ engineering-review-v4 (standards check)
    └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
-4. SECURITY REVIEW ──── security-review-v4 (OWASP Top 10)
+4. SECURITY REVIEW ──── security-review-v4 (OWASP Top 10 + infrastructure)
    └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
    └─ On pass → merge PR #1
 5. INTEGRATION TESTS ── integration-test-v4 (creates PR #2)
@@ -432,7 +432,7 @@ When picking up a project after significant time away:
 
 ---
 
-## Skills Reference (v3)
+## Skills Reference (v4)
 
 ### Story Creation
 | Skill | Purpose |
@@ -446,7 +446,7 @@ When picking up a project after significant time away:
 | refine-story-v4 | Enrich issue with technical detail and acceptance criteria |
 | implement-ticket-v4 | Implement code, create PR. Supports fix mode for review feedback |
 | engineering-review-v4 | Review PR against standards. Implementation, integration-test, and ui-test modes |
-| security-review-v4 | OWASP Top 10 security analysis with attack vector requirements |
+| security-review-v4 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
 | integration-test-v4 | Write integration tests, create PR. Supports fix mode |
 | ui-test-v4 | Write Playwright UI tests, create PR. Supports fix mode |
 | orchestrate-v4 | Pipeline orchestrator with milestones, review loops, and observability |

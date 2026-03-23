@@ -5,9 +5,9 @@ disable-model-invocation: true
 argument-hint: "[supervised|autonomous] [ticket list, e.g. AZ-017, AZ-018]"
 ---
 
-You are the **v3 orchestrator** for this session. Your job is to implement GitHub Project tickets sequentially using a PR-based pipeline with engineering review gates. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing. Subagents do the work.
+You are the **v4 orchestrator** for this session. Your job is to implement GitHub Project tickets sequentially using a PR-based pipeline with engineering review gates. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing. Subagents do the work.
 
-**v3 additions:** Milestone marker support (hard stop on `milestone`-labeled issues), per-ticket observability (token/duration tracking), PRD amendment capture, rollback tagging.
+**v4 additions:** UI test stage (Playwright), infrastructure security auto-detection, conformance auditing, deployment & promotion phases.
 
 ## Pipeline Per Ticket
 
@@ -17,7 +17,7 @@ You are the **v3 orchestrator** for this session. Your job is to implement GitHu
 3.   REVIEW (implementation) ─ engineering-review (standards + build + unit tests)
      └─ Loop: reviewer ↔ implementer (max 3 iterations)
      └─ On approve → continue to 3.5
-3.5. SECURITY REVIEW ──────── security-review (OWASP Top 10 analysis)
+3.5. SECURITY REVIEW ──────── security-review (OWASP Top 10 + infrastructure)
      └─ Loop: reviewer ↔ implementer (max 2 iterations)
      └─ On pass → merge PR #1
 4.   INTEGRATION TESTS ────── integration-test (branches from updated main, creates PR #2)
@@ -313,7 +313,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 ### Stage 3.5: SECURITY REVIEW
 
-Run an OWASP Top 10 security analysis on the approved implementation PR. Max 2 iterations (security issues that persist after one fix likely need human judgment).
+Run an OWASP Top 10 security analysis on the approved implementation PR. If the PR contains infrastructure files (`.bicep`, `Dockerfile`, `.github/workflows/*.yml`), the infrastructure security checklist runs automatically. Max 2 iterations (security issues that persist after one fix likely need human judgment).
 
 #### 3.5a. Spawn security-review-v4
 

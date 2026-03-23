@@ -553,8 +553,8 @@
           <div class="pipeline-stage security" data-stage="3.5">
             <div class="step" style="border-color:rgba(232,99,122,0.2);background:rgba(232,99,122,0.02)">
               <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛡️</span> Security Review</div>
-              <h3>security-review-v4 (OWASP Top 10)</h3>
-              <p>Framework-aware analysis with attack vector requirements. Every finding must explain how to exploit it — no false positives. On pass → merge PR #1.</p>
+              <h3>security-review-v4 (OWASP Top 10 + Infrastructure)</h3>
+              <p>Framework-aware OWASP analysis with attack vector requirements. Auto-detects infrastructure files (Bicep, Docker, GitHub Actions) and runs infrastructure security checklist. On pass → merge PR #1.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 2 iterations</div>
             </div>
           </div>

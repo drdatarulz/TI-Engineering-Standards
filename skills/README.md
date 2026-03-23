@@ -15,7 +15,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 | **[refine-story-v4](refine-story-v4/SKILL.md)** | `/refine-story-v4 AZ-101` | Refine a GitHub issue into an implementation-ready spec |
 | **[implement-ticket-v4](implement-ticket-v4/SKILL.md)** | `/implement-ticket-v4 42` | Implement a single ticket — pushes branch, creates PR. Supports FIX mode |
 | **[engineering-review-v4](engineering-review-v4/SKILL.md)** | `/engineering-review-v4 42` | Review a PR against TI Engineering Standards. Implementation and integration-tests modes |
-| **[security-review-v4](security-review-v4/SKILL.md)** | `/security-review-v4 42` | OWASP Top 10 security review for PRs |
+| **[security-review-v4](security-review-v4/SKILL.md)** | `/security-review-v4 42` | OWASP Top 10 + infrastructure security review for PRs (auto-detects Bicep, Docker, GitHub Actions) |
 | **[integration-test-v4](integration-test-v4/SKILL.md)** | `/integration-test-v4 AZ-101` | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | **[ui-test-v4](ui-test-v4/SKILL.md)** | `/ui-test-v4 AZ-101` | Write Playwright UI tests for a merged implementation. Creates PR. Supports FIX mode |
 | **[orchestrate-v4](orchestrate-v4/SKILL.md)** | `/orchestrate-v4 supervised AZ-101, AZ-102` | PR-based pipeline orchestrator with milestone support and observability |

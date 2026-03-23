@@ -30,7 +30,7 @@ This folder contains the end-to-end workflow for 100% agentic software developme
 1.   REFINE ──────────── refine-story-v4
 2.   IMPLEMENT ───────── implement-ticket-v4 → PR #1
 3.   ENGINEERING REVIEW ─ engineering-review-v4 (↻ max 3 fix iterations)
-3.5. SECURITY REVIEW ──── security-review-v4 (↻ max 2 fix iterations) → merge PR #1
+3.5. SECURITY REVIEW ──── security-review-v4 (OWASP + infra, ↻ max 2 fix iterations) → merge PR #1
 4.   INTEGRATION TESTS ── integration-test-v4 → PR #2
 5.   ENGINEERING REVIEW ─ engineering-review-v4 (↻ max 3 fix iterations) → merge PR #2
 6.   UI TESTS ─────────── ui-test-v4 → PR #3

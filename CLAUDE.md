@@ -77,7 +77,7 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/refine-story-v4](skills/refine-story-v4/SKILL.md) | Refine a GitHub issue into an implementation-ready spec |
 | [skills/implement-ticket-v4](skills/implement-ticket-v4/SKILL.md) | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode |
 | [skills/engineering-review-v4](skills/engineering-review-v4/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
-| [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 security review for PRs |
+| [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 + infrastructure security review for PRs |
 | [skills/integration-test-v4](skills/integration-test-v4/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for a merged implementation. Creates PR. Supports FIX mode |
 | [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
