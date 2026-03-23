@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TI Agentic Development Workflow — v3</title>
+<title>TI Agentic Development Workflow — v4</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
@@ -347,7 +347,7 @@
 
 <div class="header">
   <h1>agentic<span>.</span>workflow</h1>
-  <div class="version">v3 — PR-Based Pipeline with Milestones & Observability</div>
+  <div class="version">v4 — PR-Based Pipeline with Milestones & Observability</div>
   <p>Full lifecycle from brainstorm to reviewed, tested, merged code — orchestrating Claude Web, Claude Code, and GitHub with automated engineering and security review gates.</p>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-discovery)"></div>Discovery</div>
@@ -468,14 +468,14 @@
         <div class="step">
           <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📚</span> Standards Sync</div>
           <h3>Pull Shared Standards</h3>
-          <p>Clone or pull TI-Engineering-Standards. Sync v3 skills into project. Read all 13 standards files.</p>
+          <p>Clone or pull TI-Engineering-Standards. Sync v4 skills into project. Read all standards files.</p>
           <div class="tools"><span class="tool-tag">Auto-sync protocol</span></div>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📊</span> Backlog Generation</div>
-          <h3>prd-to-backlog-v3</h3>
+          <h3>prd-to-backlog-v4</h3>
           <p>Decompose PRD + Screen Inventory + Decisions Log into vertical-slice stories grouped by milestones. Human approves plan before issues are created.</p>
-          <div class="tools"><span class="tool-tag">prd-to-backlog-v3</span></div>
+          <div class="tools"><span class="tool-tag">prd-to-backlog-v4</span></div>
         </div>
       </div>
 
@@ -498,11 +498,11 @@
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(78,205,196,0.15);color:var(--phase-dev)">04</div>
       <div class="phase-title" style="color:var(--phase-dev)">Orchestrated Development</div>
-      <div class="phase-subtitle">orchestrate-v3 — PR-Based Pipeline</div>
+      <div class="phase-subtitle">orchestrate-v4 — PR-Based Pipeline</div>
     </div>
     <div class="steps">
       <div class="orchestrator-box">
-        <div class="orch-label">▸ orchestrate-v3 — Per Ticket Pipeline</div>
+        <div class="orch-label">▸ orchestrate-v4 — Per Ticket Pipeline</div>
 
         <div class="step-row triple" style="margin-top:12px">
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
@@ -528,7 +528,7 @@
           <div class="pipeline-stage active" data-stage="1">
             <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
               <div class="step-label" style="color:var(--phase-dev)"><span class="icon">📖</span> Refine</div>
-              <h3>refine-story-v3</h3>
+              <h3>refine-story-v4</h3>
               <p>Enrich issue with technical detail, codebase context, and expanded acceptance criteria. Autonomous decisions in orchestrator mode.</p>
             </div>
           </div>
@@ -536,7 +536,7 @@
           <div class="pipeline-stage active" data-stage="2">
             <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
               <div class="step-label" style="color:var(--phase-dev)"><span class="icon">⚡</span> Implement</div>
-              <h3>implement-ticket-v3 → PR #1</h3>
+              <h3>implement-ticket-v4 → PR #1</h3>
               <p>Fresh context. Load all standards. Explore → Plan → Implement → Unit Test → Commit → Push → Create PR. Build order: Domain → Fakes → Infrastructure → Api.</p>
             </div>
           </div>
@@ -544,7 +544,7 @@
           <div class="pipeline-stage review" data-stage="3">
             <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
               <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
-              <h3>engineering-review-v3 (implementation mode)</h3>
+              <h3>engineering-review-v4 (implementation mode)</h3>
               <p>Independent context reviews PR against all 13 standards files. Posts line-level comments with standards references. Approves or requests changes.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 3 iterations</div>
             </div>
@@ -553,7 +553,7 @@
           <div class="pipeline-stage security" data-stage="3.5">
             <div class="step" style="border-color:rgba(232,99,122,0.2);background:rgba(232,99,122,0.02)">
               <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛡️</span> Security Review</div>
-              <h3>security-review-v3 (OWASP Top 10)</h3>
+              <h3>security-review-v4 (OWASP Top 10)</h3>
               <p>Framework-aware analysis with attack vector requirements. Every finding must explain how to exploit it — no false positives. On pass → merge PR #1.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 2 iterations</div>
             </div>
@@ -562,7 +562,7 @@
           <div class="pipeline-stage test" data-stage="4">
             <div class="step" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.02)">
               <div class="step-label" style="color:var(--accent-purple)"><span class="icon">🧪</span> Integration Tests</div>
-              <h3>integration-test-v3 → PR #2</h3>
+              <h3>integration-test-v4 → PR #2</h3>
               <p>Independent context writes tests against acceptance criteria (not developer's description). Testcontainers, real database, data isolation. Branches from updated main.</p>
             </div>
           </div>
@@ -570,13 +570,30 @@
           <div class="pipeline-stage review" data-stage="5">
             <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
               <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
-              <h3>engineering-review-v3 (integration-tests mode)</h3>
+              <h3>engineering-review-v4 (integration-tests mode)</h3>
               <p>Reviews test quality, coverage, patterns. On approve → check off acceptance criteria → merge PR #2 → close issue.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ test-writer fix mode — max 3 iterations</div>
             </div>
           </div>
 
-          <div class="pipeline-stage active" data-stage="6">
+          <div class="pipeline-stage test" data-stage="6">
+            <div class="step" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.02)">
+              <div class="step-label" style="color:var(--accent-purple)"><span class="icon">🎭</span> UI Tests</div>
+              <h3>ui-test-v4 → PR #3</h3>
+              <p>Independent context writes Playwright tests using Page Object Model. Semantic selectors, fresh browser context, auth bypass. Branches from updated main.</p>
+            </div>
+          </div>
+
+          <div class="pipeline-stage review" data-stage="7">
+            <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
+              <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
+              <h3>engineering-review-v4 (ui-tests mode)</h3>
+              <p>Reviews UI test quality, Page Object Model patterns, semantic selectors, coverage. On approve → merge PR #3.</p>
+              <div class="review-loop">↻ Loop: reviewer ↔ test-writer fix mode — max 3 iterations</div>
+            </div>
+          </div>
+
+          <div class="pipeline-stage active" data-stage="8">
             <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
               <div class="step-label" style="color:var(--accent-green)"><span class="icon">✔️</span> Close</div>
               <h3>Finalize</h3>

@@ -9,7 +9,7 @@
 ## Frameworks
 
 - **xUnit** — test framework
-- **FluentAssertions** — readable assertions (`.Should().Be()`, `.Should().HaveCount()`, etc.)
+- **Shouldly** — readable assertions (`result.ShouldBe(expected)`, `items.ShouldNotBeEmpty()`, etc.)
 - **Testcontainers** — Docker-based integration test infrastructure
 - **Playwright** — browser-based e2e tests
 
@@ -58,13 +58,21 @@ public class QueueCoordinatorTests
 - Use a shared fixture (`ICollectionFixture`) to start containers and run migrations once
 - Use `WebApplicationFactory<Program>` with real repos + faked external services
 
+## Pre-Existing Test Failures
+
+- **Before making any changes**, record the current test failure count by running the full test suite
+- **After making changes**, if the failure count has increased, that is a blocking issue — stop and fix it
+- **Never proceed, approve, or declare work complete** while the failure count is higher than baseline
+- The fact that you did not introduce a failing test is **not a justification to ignore it** — a rising failure count means the codebase is degrading and must be addressed before moving forward
+- If pre-existing failures are discovered, create a follow-up ticket and surface them to the project owner — do not silently skip or filter them out
+
 ## CI/CD Testing Tiers
 
 | Tier | Tests | When | Infrastructure |
 |------|-------|------|---------------|
 | Unit tests | `*.Tests` projects (fakes) | Every PR / merge to main | None |
 | Integration tests | `Integration.Tests` (Testcontainers) | Every PR / merge to main | Docker on build agent |
-| Environment smoke tests | Deployment runbook checks | After deploying to dev, staging | Real resources |
+| Environment smoke tests | HTTP health check pipeline step | After deploying to dev, staging | Real resources |
 | Playwright UI tests | `Playwright.Tests` | After deploying to dev, staging | Real deployed environment |
 
 - Unit and integration tests gate merges — both must pass before code reaches main

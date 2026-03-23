@@ -60,6 +60,7 @@ Read each of these files — they contain the engineering rules and conventions 
 | [standards/project-tracking.md](standards/project-tracking.md) | GitHub Projects v2 workflow, issue types, board structure |
 | [standards/security.md](standards/security.md) | Auth, input validation, CORS, rate limiting, secrets |
 | [standards/testing.md](standards/testing.md) | Testing philosophy, frameworks, naming, fakes, CI/CD tiers |
+| [standards/environments.md](standards/environments.md) | Environment definitions, Bicep conventions, pipeline structure, promotion flow |
 | [standards/ui.md](standards/ui.md) | Blazor WebAssembly, MudBlazor, frontend patterns |
 | [standards/story-writing-standards.md](standards/story-writing-standards.md) | Story structure, vertical slices, milestones, sizing, acceptance criteria |
 
@@ -71,17 +72,19 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 
 | Skill | Purpose |
 |-------|---------|
-| [skills/prd-to-backlog-v3/SKILL.md](skills/prd-to-backlog-v3/SKILL.md) | Decompose a PRD into a milestoned backlog of vertical-slice stories |
-| [skills/add-story-v3/SKILL.md](skills/add-story-v3/SKILL.md) | Conversationally create incremental stories for an existing project |
-| [skills/refine-story-v3](skills/refine-story-v3/SKILL.md) | Refine a GitHub issue into an implementation-ready spec |
-| [skills/implement-ticket-v3](skills/implement-ticket-v3/SKILL.md) | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode |
-| [skills/engineering-review-v3](skills/engineering-review-v3/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
-| [skills/security-review-v3](skills/security-review-v3/SKILL.md) | OWASP Top 10 security review for PRs |
-| [skills/integration-test-v3](skills/integration-test-v3/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
-| [skills/orchestrate-v3](skills/orchestrate-v3/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
-| [skills/triage-v3](skills/triage-v3/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
+| [skills/prd-to-backlog-v4/SKILL.md](skills/prd-to-backlog-v4/SKILL.md) | Decompose a PRD into a milestoned backlog of vertical-slice stories |
+| [skills/add-story-v4/SKILL.md](skills/add-story-v4/SKILL.md) | Conversationally create incremental stories for an existing project |
+| [skills/refine-story-v4](skills/refine-story-v4/SKILL.md) | Refine a GitHub issue into an implementation-ready spec |
+| [skills/implement-ticket-v4](skills/implement-ticket-v4/SKILL.md) | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode |
+| [skills/engineering-review-v4](skills/engineering-review-v4/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
+| [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 security review for PRs |
+| [skills/integration-test-v4](skills/integration-test-v4/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
+| [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for a merged implementation. Creates PR. Supports FIX mode |
+| [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
+| [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
+| [skills/conformance-v4](skills/conformance-v4/SKILL.md) | Audit a project against TI Engineering Standards — informational only, produces a gap report |
 
-> **Note:** v1 and v2 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
+> **Note:** v1, v2, and v3 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
 
 ---
 
