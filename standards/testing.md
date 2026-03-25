@@ -82,6 +82,34 @@ public class QueueCoordinatorTests
 
 ## Playwright Conventions
 
-- Page Object Model with helper classes
 - Each test creates a fresh `IBrowserContext` for cookie/storage isolation
 - Dev auth bypass for test environments — no real Azure AD in tests
+- Semantic selectors preferred (`GetByRole`, `GetByLabel`, `GetByText`) over CSS selectors
+- Shouldly assertions (same as all other test tiers)
+- Tests tagged with `[Trait("Category", "Playwright")]` for CI filtering
+
+### Running Playwright Tests Locally
+
+Playwright tests run against a full Docker Compose stack with seed data and auth bypass enabled.
+
+```bash
+# 1. Install Playwright browsers (one-time)
+pwsh tests/{Project}.Playwright.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
+
+# 2. Start the stack with Playwright overlay
+docker compose -f docker-compose.yml -f docker-compose.playwright.yml up -d --build
+
+# 3. Wait for readiness
+until curl -sf http://localhost:5001/health/ready; do sleep 2; done
+until curl -sf http://localhost:5002; do sleep 2; done
+
+# 4. Run tests
+FORMIT_BASE_URL=http://localhost:5002 dotnet test tests/{Project}.Playwright.Tests/
+
+# 5. Tear down
+docker compose -f docker-compose.yml -f docker-compose.playwright.yml down
+```
+
+The `docker-compose.playwright.yml` overlay enables auth bypass (`Authentication__UseDevBypass: true`), auto-login, and runs seed data SQL after migrations complete. Seed data files live in `playwright/seed-data.sql` and grow as test stories are implemented.
+
+In CI, the same Docker Compose stack runs as a parallel job in `ci.yml`. Playwright failures block the PR.
