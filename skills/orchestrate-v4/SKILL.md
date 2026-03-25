@@ -7,7 +7,7 @@ argument-hint: "[supervised|autonomous] [ticket list, e.g. AZ-017, AZ-018]"
 
 You are the **v4 orchestrator** for this session. Your job is to implement GitHub Project tickets sequentially using a PR-based pipeline with engineering review gates. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing. Subagents do the work.
 
-**v4 additions:** UI test stage (Playwright), infrastructure security auto-detection, conformance auditing, deployment & promotion phases.
+**v4 additions:** UI test stage (Playwright — runs in CI via Docker Compose, not post-deploy), infrastructure security auto-detection, conformance auditing, deployment & promotion phases.
 
 ## Pipeline Per Ticket
 

@@ -299,17 +299,16 @@ After each development session, feed observations back into the standards and sk
 Every merge to `main` automatically triggers the deploy pipeline. No human action required.
 
 ```
-Build → Unit + Integration tests
-  → Build Docker image (tagged {sha}-dev)
+Build Docker image (tagged {sha}-dev)
   → Push to registry
   → Bicep infrastructure (idempotent)
   → Run migrations
   → Deploy to {project}-dev
-  → Smoke tests → UI tests
+  → Smoke tests (health check)
   → ✅ Eligible for Staging promotion
 ```
 
-If smoke or UI tests fail, the deploy is broken. Fix via a new commit — do not attempt to patch around the pipeline.
+Playwright UI tests run in CI on every PR (not post-deploy). Post-deploy validation is limited to smoke tests (health checks). If smoke fails, the deploy is broken. Fix via a new commit — do not attempt to patch around the pipeline.
 
 ### 6.2 Promote to Staging (manual)
 
@@ -319,7 +318,7 @@ Multiple commits will accumulate in Dev. When ready to cut a release to Staging:
 2. Find the workflow run for the commit you want to promote
 3. Click into the run — the `deploy-staging` job will show a **Review deployments** button
 4. Click it, approve, and the pipeline resumes — retagging the image and deploying to Staging
-5. Smoke + UI tests run automatically against Staging
+5. Smoke tests run automatically against Staging
 6. **Cancel any older runs** still waiting approval for Staging — only one run should be pending per environment at a time
 
 ### 6.3 Promote to Production (manual + approval gate)

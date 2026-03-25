@@ -669,13 +669,13 @@
         <div class="step">
           <div class="step-label" style="color:var(--accent-green)"><span class="icon">🚀</span> Deploy to Dev</div>
           <h3>Automatic on Merge</h3>
-          <p>Every merge to main triggers: build → unit + integration tests → Docker image tagged <code>{sha}-dev</code> → push to registry → Bicep deploy → migrations → smoke tests → Playwright tests.</p>
+          <p>Every merge to main triggers: Docker image tagged <code>{sha}-dev</code> → push to registry → Bicep deploy → migrations → smoke tests (health check). Playwright tests run in CI on every PR, not post-deploy.</p>
           <div class="tools"><span class="tool-tag">GitHub Actions</span><span class="tool-tag">environment: dev</span></div>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--accent-green)"><span class="icon">⏫</span> Promote to Staging</div>
           <h3>Manual — Click to Approve</h3>
-          <p>When Dev is validated, reviewer approves in GitHub UI. Image retagged <code>{sha}-staging</code> — never rebuilt. Bicep deploy, migrations, smoke + Playwright tests run again.</p>
+          <p>When Dev is validated, reviewer approves in GitHub UI. Image retagged <code>{sha}-staging</code> — never rebuilt. Bicep deploy, migrations, smoke tests run. No Playwright tests post-deploy — CI is the gate.</p>
           <div class="tools"><span class="tool-tag">GitHub Environments</span><span class="tool-tag">Required reviewers</span></div>
         </div>
         <div class="step">

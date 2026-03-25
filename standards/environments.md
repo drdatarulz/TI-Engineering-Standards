@@ -161,7 +161,7 @@ jobs:
     if: success()
 ```
 
-When `deploy-dev` completes (smoke + Playwright pass), GitHub pauses at `deploy-staging` and sends a notification to required reviewers. The reviewer clicks **Approve** in the GitHub UI. The pipeline resumes, retags the image, and deploys to Staging. Same pattern for Production.
+When `deploy-dev` completes (smoke passes), GitHub pauses at `deploy-staging` and sends a notification to required reviewers. The reviewer clicks **Approve** in the GitHub UI. The pipeline resumes, retags the image, and deploys to Staging. Same pattern for Production.
 
 **No SHA input required.** The SHA is already embedded in the image tag from the Dev deploy — the pipeline carries it forward automatically.
 
@@ -179,23 +179,25 @@ When you approve a run for Staging or Production, **cancel any older runs** that
 
 ### On PR to main (CI)
 
+Two parallel jobs:
+
 ```
-Restore → Build → Unit tests → Integration tests → ✅ Merge allowed
+Job 1: Restore → Build → Unit tests → Integration tests
+Job 2: Docker Compose up → Health wait → Playwright UI tests → Docker Compose down
+→ Both pass → ✅ Merge allowed
 ```
 
-Both unit and integration tests must pass. See `standards/testing.md` for test tier details.
+Unit, integration, and Playwright tests must all pass. Playwright runs against a Docker Compose stack (API + Client + SQL Server + seed data) with auth bypass enabled. See `standards/testing.md` for test tier details.
 
 ### On merge to main (CD → Dev)
 
 ```
-Build → Unit + Integration tests
-  → Build Docker images (tagged {sha}-dev)
+Build Docker images (tagged {sha}-dev)
   → Push to registry
   → az deployment group create (idempotent Bicep)
   → Run migrations (Migrator container)
   → Deploy to {project}-dev resource group
   → Smoke tests (HTTP health check)
-  → Playwright tests
   → ✅ Dev validated — eligible for Staging promotion
 ```
 
@@ -207,7 +209,6 @@ Retag image ({sha}-dev → {sha}-staging)
   → Run migrations
   → Deploy to {project}-staging resource group
   → Smoke tests
-  → Playwright tests
   → ✅ Staging validated — eligible for Production promotion
 ```
 
@@ -219,7 +220,7 @@ Approval gate
   → az deployment group create (idempotent Bicep)
   → Run migrations
   → Deploy to {project}-prod resource group
-  → Health check only (no Playwright, no smoke suite)
+  → Health check only (no smoke suite)
 ```
 
 ---
@@ -248,20 +249,19 @@ Smoke tests run immediately after every deploy to Dev and Staging. They are ligh
     echo "Smoke test failed" && exit 1
 ```
 
-### Playwright Tests
+### Playwright Tests (CI Gate)
 
-Playwright tests run after smoke passes on Dev and Staging. They require the real deployed environment with auth bypass enabled.
+Playwright tests run in CI on every PR, not post-deploy. They run against a Docker Compose stack that includes the API, Client, SQL Server, database migrations, and seed data — all with auth bypass enabled.
 
-**Required environment variables for the pipeline step:**
+**Required environment variables for the CI step:**
 
 | Variable | Value |
 |----------|-------|
-| `APP_BASE_URL` | URL of the deployed environment |
-| `ASPNETCORE_ENVIRONMENT` | `Development` (Dev) or `Staging` |
+| `FORMIT_BASE_URL` | `http://localhost:{client-port}` (Docker Compose client port) |
 
-**If Playwright fails:** Promotion is blocked. The build is not eligible to advance to the next environment.
+**If Playwright fails:** The PR is blocked from merging. Playwright failures are a blocking CI gate.
 
-No Playwright tests run against Production.
+No Playwright tests run post-deploy or against Production. Post-deploy validation is limited to smoke tests (health checks).
 
 ---
 
@@ -288,10 +288,10 @@ Use this checklist when applying this standard to an existing project or auditin
 
 ### Pipeline
 - [ ] `ci.yml` runs unit + integration tests on every PR (no Category!=Integration filter)
+- [ ] `ci.yml` runs Playwright UI tests on every PR via Docker Compose (blocking gate)
 - [ ] `deploy.yml` deploys to Dev on merge to main
 - [ ] Post-deploy smoke step exists for Dev
-- [ ] Post-deploy UI test step exists for Dev (with `APP_BASE_URL` set)
-- [ ] Staging promotion is manual and includes smoke + Playwright gates
+- [ ] Staging promotion is manual and includes smoke gate
 - [ ] Production promotion requires approval gate
 - [ ] Images are built once and retagged — never rebuilt
 

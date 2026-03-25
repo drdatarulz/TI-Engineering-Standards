@@ -72,12 +72,13 @@ public class QueueCoordinatorTests
 |------|-------|------|---------------|
 | Unit tests | `*.Tests` projects (fakes) | Every PR / merge to main | None |
 | Integration tests | `Integration.Tests` (Testcontainers) | Every PR / merge to main | Docker on build agent |
+| Playwright UI tests | `Playwright.Tests` | Every PR (CI) | Docker Compose stack on build agent |
 | Environment smoke tests | HTTP health check pipeline step | After deploying to dev, staging | Real resources |
-| Playwright UI tests | `Playwright.Tests` | After deploying to dev, staging | Real deployed environment |
 
-- Unit and integration tests gate merges — both must pass before code reaches main
-- Smoke and Playwright tests gate promotions — must pass in dev before promoting to staging, must pass in staging before promoting to prod
-- No integration, smoke, or Playwright tests run against production
+- Unit, integration, and Playwright tests gate merges — all must pass before code reaches main
+- Playwright tests run in CI against a Docker Compose stack (API + Client + SQL Server + seed data) with auth bypass enabled
+- Smoke tests gate deployments — must pass after deploying to dev and staging
+- No Playwright, integration, or smoke tests run against production
 
 ## Playwright Conventions
 

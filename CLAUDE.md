@@ -79,7 +79,7 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/engineering-review-v4](skills/engineering-review-v4/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
 | [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 + infrastructure security review for PRs |
 | [skills/integration-test-v4](skills/integration-test-v4/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
-| [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for a merged implementation. Creates PR. Supports FIX mode |
+| [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for every PR (runs in CI via Docker Compose). Creates PR. Supports FIX mode |
 | [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
 | [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
 | [skills/conformance-v4](skills/conformance-v4/SKILL.md) | Audit a project against TI Engineering Standards — informational only, produces a gap report |

@@ -169,8 +169,26 @@ public class {Feature}Tests : PageTest
 
 ```csharp
 // Base URL should come from environment variable
-// Set APP_BASE_URL in the pipeline step and in local launchSettings
+// Set FORMIT_BASE_URL (or project-specific equivalent) in the CI pipeline step
+// and in local launchSettings for development
 ```
+
+### Docker-Based CI Execution
+
+Playwright tests run in CI against a Docker Compose stack, not against a deployed environment. The CI pipeline:
+
+1. Starts the full Docker Compose stack with the Playwright overlay (`docker-compose.yml` + `docker-compose.playwright.yml`)
+2. The Playwright overlay enables auth bypass, auto-login, and seeds test data
+3. Waits for API health (`/health/ready`) and Client readiness
+4. Installs Playwright Chromium browser
+5. Runs `dotnet test` with `FORMIT_BASE_URL=http://localhost:{client-port}`
+6. Tears down Docker Compose (always, even on failure)
+
+**Key points:**
+- Auth bypass is enabled via the Docker Compose Playwright overlay, not via deployed environment config
+- Seed data is loaded by a `playwright-seed` service in the overlay
+- Playwright test failures **block the PR** — no `continue-on-error`
+- No Playwright tests run post-deploy; smoke tests (health checks) are the post-deploy gate
 
 ## Step 4: Build & Test
 
