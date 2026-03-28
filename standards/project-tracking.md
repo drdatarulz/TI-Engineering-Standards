@@ -23,7 +23,7 @@
 |-------|--------|---------|
 | **Type** | Story, Bug, Task | Classify the work item |
 | **Priority** | High, Medium, Low | Urgency |
-| **Story ID** | {PREFIX}-XXX | Sequential ID for stories (prefix is project-specific) |
+| **Story ID** | {PREFIX}-{issue#} | Uses the GitHub issue number (prefix is project-specific, e.g. SF-7) |
 | **Component** | (project-specific) | Area of codebase |
 | **Due Date** | Date | Optional deadline |
 
@@ -33,7 +33,7 @@
 - **Bug** (`bug` label) — something broken that needs fixing
 - **Task** (`task` label) — non-code work (config, testing, infrastructure, docs)
 
-Templates should be in `.github/ISSUE_TEMPLATE/` (story.md, bug.md, task.md). Reusable templates are in `templates/issue-templates/`. Copy them to your project's `.github/ISSUE_TEMPLATE/` and replace `{PREFIX}` with your project's Story ID prefix.
+Templates should be in `.github/ISSUE_TEMPLATE/` (story.md, bug.md, task.md). Reusable templates are in `templates/issue-templates/`. Copy them to your project's `.github/ISSUE_TEMPLATE/`.
 
 ## Board Automations
 
@@ -77,14 +77,14 @@ When creating issues, they auto-land on the board via the Auto-add workflow. Alw
 
 ### Creating a Story
 
-1. Determine next Story ID: check existing stories and increment.
-2. Create the issue using the story template — fill in title as `{PREFIX}-XXX: Short description`, acceptance criteria, plan, and test coverage.
-3. The issue auto-lands on the board. Set custom fields (Type=Story, Priority, Component, Story ID).
+1. Create the issue using the story template with a descriptive title.
+2. After creation, extract the issue number from the URL and update the title to `{PREFIX}-{issue#}: Short description`.
+3. The issue auto-lands on the board. Set custom fields (Type=Story, Priority, Component, Story ID=`{PREFIX}-{issue#}`).
 4. Move to **Up Next** or **In Progress**.
 
 ## Working on a Story
 
-1. Create and check out the story branch: `story/{PREFIX}-XXX-short-name` from `main`.
+1. Create and check out the story branch: `story/{PREFIX}-{issue#}-short-name` from `main`.
 2. Move the issue to **In Progress** on the project board.
 3. Implement. Check off acceptance criteria in the issue body as you go.
 4. Add implementation notes and test results as comments on the issue.

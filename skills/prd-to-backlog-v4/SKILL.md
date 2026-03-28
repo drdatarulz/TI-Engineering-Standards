@@ -127,16 +127,16 @@ For each milestone, create vertical-slice stories per story-writing standards:
 ## Backlog Plan
 
 ### Foundation ({N} stories)
-1. {PREFIX}-001: [title] — [one-line description]
-2. {PREFIX}-002: [title] — [one-line description]
+1. [title] — [one-line description]
+2. [title] — [one-line description]
 
 ### Milestone 1: [Name] ({N} stories)
-3. {PREFIX}-003: [title] — [one-line description]
-4. {PREFIX}-004: [title] — [one-line description]
+3. [title] — [one-line description]
+4. [title] — [one-line description]
 → MILESTONE: [Name] — [What can be reviewed at this point]
 
 ### Milestone 2: [Name] ({N} stories)
-5. {PREFIX}-005: [title] — [one-line description]
+5. [title] — [one-line description]
 ...
 → MILESTONE: [Name] — [What can be reviewed]
 
@@ -153,34 +153,28 @@ Wait for approval. If the user requests changes, adjust and re-present.
 
 Only proceed after user approves the plan.
 
-### 3a. Determine Next Story ID
-
-```bash
-gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state all --label story --json title --jq '.[].title' | grep -oP '{PREFIX}-\d+' | sort -t- -k2 -n | tail -1
-```
-
-Increment from there.
-
-### 3b. Create Foundation Issues
+### 3a. Create Foundation Issues
 
 For each foundation story:
 
 ```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{PREFIX}-{NNN}: {Title}" \
+ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
+  --title "{Title}" \
   --label "foundation" \
-  --body "{issue body per story template}"
+  --body "{issue body per story template}")
+ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
+gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"
 ```
 
-After creation, set custom fields (Type=Task, Priority, Story ID) and move to **Up Next**.
+After creation, set custom fields (Type=Task, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`) and move to **Up Next**.
 
-### 3c. Create Story Issues (Per Milestone)
+### 3b. Create Story Issues (Per Milestone)
 
 For each vertical-slice story:
 
 ```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{PREFIX}-{NNN}: {Title}" \
+ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
+  --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
 ## Summary
@@ -197,7 +191,7 @@ gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 
 ## Branch
 
-`story/{PREFIX}-{NNN}-short-name`
+`story/{PREFIX}-{ISSUE_NUM}-short-name`
 
 ## Test Coverage
 
@@ -226,9 +220,9 @@ EOF
 )"
 ```
 
-After creation, set custom fields (Type=Story, Priority, Story ID) and move to **Up Next**.
+After creation, extract the issue number from the URL, update the title to `{PREFIX}-{ISSUE_NUM}: {Title}`, and set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`). Move to **Up Next**.
 
-### 3d. Create Milestone Marker Issues
+### 3c. Create Milestone Marker Issues
 
 At the end of each milestone group:
 
@@ -250,20 +244,20 @@ gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 - [ ] UI loads at localhost:{port} without console errors
 
 ## Stories in This Milestone
-- {PREFIX}-{NNN}: {title}
-- {PREFIX}-{NNN}: {title}
+- #{issue_number}: {title}
+- #{issue_number}: {title}
 EOF
 )"
 ```
 
-After creation, set custom fields and move to **Up Next**.
+After creation, set custom fields. Move to **Up Next**.
 
 **Ensure the `milestone` label exists** before creating milestone markers — if not, create it:
 ```bash
 gh label create milestone --repo {REPO_OWNER}/{REPO_NAME} --description "Milestone marker issue (review gate)" --color "0E8A16"
 ```
 
-### 3e. Link Stories as Sub-Issues of Milestones
+### 3d. Link Stories as Sub-Issues of Milestones
 
 After creating all stories and milestone markers, link each story as a sub-issue of its milestone marker. This gives epic-style progress tracking — GitHub displays "N of M complete" on each milestone as stories are closed.
 
@@ -293,12 +287,12 @@ For each milestone, for each story in that milestone:
 **Stories created:** {N}
 **Foundation issues:** {N}
 **Milestones created:** {N}
-**Story ID range:** {PREFIX}-{first} through {PREFIX}-{last}
+**Issue range:** #{first} through #{last}
 
 ### Issue List
 | # | Story ID | Title | Label | Milestone |
 |---|----------|-------|-------|-----------|
-| {number} | {PREFIX}-{NNN} | {title} | {label} | {milestone or "Foundation"} |
+| {number} | {PREFIX}-{number} | {title} | {label} | {milestone or "Foundation"} |
 
 ### Next Steps
 1. Review the created issues on the project board

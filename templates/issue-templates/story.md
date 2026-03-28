@@ -1,7 +1,7 @@
 ---
 name: Story
 about: Code-producing story with acceptance criteria (vertical slice preferred)
-title: "{PREFIX}-XXX: "
+title: ""
 labels: story
 ---
 
@@ -19,7 +19,7 @@ Brief description of what this story delivers — framed from the user's perspec
 
 ## Branch
 
-`story/{PREFIX}-XXX-short-name`
+`story/{PREFIX}-{issue#}-short-name`
 
 ## Test Coverage
 

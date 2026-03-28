@@ -42,17 +42,12 @@ REPO_NAME=$(echo "$REPO_NWO" | cut -d/ -f2)
    gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state closed --label story --limit 10 --json number,title --jq '.[] | {number, title}'
    ```
 
-3. **Determine current story ID range:**
-   ```bash
-   gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state all --label story --json title --jq '.[].title' | grep -oP '{PREFIX}-\d+' | sort -t- -k2 -n | tail -1
-   ```
-
-4. **Scan the codebase** — understand what's built:
+3. **Scan the codebase** — understand what's built:
    - `src/` directory structure — what projects/components exist
    - Recent git log (`git log --oneline -20`) — what's been worked on
    - Existing screens/pages if UI exists
 
-5. **Check for existing milestones:**
+4. **Check for existing milestones:**
    ```bash
    gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state open --label milestone --json number,title --jq '.[] | {number, title}'
    ```
@@ -102,7 +97,7 @@ Present each story in preview format before creating issues:
 ```markdown
 ## Proposed Stories
 
-### {PREFIX}-{NNN}: {Title}
+### {Title}
 **Label:** story
 **Milestone:** {Existing milestone name | "New milestone: {name}" | "None — standalone review gate"}
 
@@ -141,8 +136,8 @@ After user approves:
 ### 4a. Create Each Story Issue
 
 ```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{PREFIX}-{NNN}: {Title}" \
+ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
+  --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
 ## Summary
@@ -159,7 +154,7 @@ gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 
 ## Branch
 
-`story/{PREFIX}-{NNN}-short-name`
+`story/{PREFIX}-{ISSUE_NUM}-short-name`
 
 ## Test Coverage
 
@@ -189,8 +184,10 @@ EOF
 ```
 
 After creation:
-1. Set custom fields (Type=Story, Priority, Story ID)
-2. Move to **Up Next**
+1. Extract the issue number from the URL: `ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')`
+2. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
+3. Set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`)
+4. Move to **Up Next**
 
 ### 4b. Create Milestone Marker (If Needed)
 
@@ -231,10 +228,10 @@ Tell the user what was created:
 
 | # | Story ID | Title | Milestone |
 |---|----------|-------|-----------|
-| {number} | {PREFIX}-{NNN} | {title} | {milestone or "Standalone"} |
+| {number} | {PREFIX}-{number} | {title} | {milestone or "Standalone"} |
 
 **Next steps:**
-- Run `refine-story-v4 {PREFIX}-{NNN}` to add technical detail
+- Run `refine-story-v4 #{number}` to add technical detail
 - Or add to the next `orchestrate-v4` batch
 ```
 

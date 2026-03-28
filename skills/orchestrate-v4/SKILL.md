@@ -2,7 +2,7 @@
 name: orchestrate-v4
 description: "PR-based pipeline orchestrator with engineering review gates, milestone support, and observability. Refine → Implement (PR) → Review loop → Integration Tests (PR) → Review loop → Merge → Close. Recognizes milestone markers as hard stops."
 disable-model-invocation: true
-argument-hint: "[supervised|autonomous] [ticket list, e.g. AZ-017, AZ-018]"
+argument-hint: "[supervised|autonomous] [ticket list, e.g. SF-7, SF-8 or #7, #8]"
 ---
 
 You are the **v4 orchestrator** for this session. Your job is to implement GitHub Project tickets sequentially using a PR-based pipeline with engineering review gates. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing. Subagents do the work.
@@ -36,7 +36,7 @@ You are the **v4 orchestrator** for this session. Your job is to implement GitHu
 Parse `$ARGUMENTS` as follows:
 
 1. **Mode**: If the first word is `supervised` or `autonomous`, use it as the mode and consume it. Otherwise, default to `supervised`.
-2. **Ticket list**: Everything remaining is the ticket list. Tickets are separated by commas. They may be in any format (e.g., `AZ-017`, `AZ-018 #45`, `AZ-019`).
+2. **Ticket list**: Everything remaining is the ticket list. Tickets are separated by commas. They may be provided as issue numbers (e.g., `#7`, `#8`) or Story IDs (e.g., `SF-7`, `SF-8`).
 
 If no tickets are provided, ask the user what tickets to implement.
 
@@ -108,7 +108,7 @@ Store the project ID, field ID, and option IDs for: Inbox, Up Next, In Progress,
 
 ### 0d. Resolve Ticket Issue Numbers
 
-For each ticket in the list, if the GitHub issue number isn't provided, search for it:
+For each ticket in the list, resolve the GitHub issue number. Tickets can be provided as issue numbers (e.g., `#7`, `7`) or as Story IDs (e.g., `SF-7`). If a Story ID is provided, search for the matching issue:
 
 ```bash
 gh issue list --repo REPO_OWNER/REPO_NAME --search "STORY_ID in:title" --json number,title --jq '.[0].number'
@@ -669,27 +669,27 @@ After all tickets are processed (or the loop is halted), produce this summary:
 ### Completed
 | Ticket | Title | Impl PR | Test PR | Playwright PR | Review Iters (Impl) | Security Iters | Review Iters (Test) | Review Iters (Playwright) | Tests Added | Playwright Tests Added |
 |--------|-------|---------|---------|---------------|---------------------|----------------|---------------------|---------------------------|-------------|----------------------|
-| AZ-XXX | ... | #N | #N | #N | N | N | N | N | N | N |
+| {PREFIX}-{N} | ... | #N | #N | #N | N | N | N | N | N | N |
 
 ### Partial
 | Ticket | Title | What Remains |
 |--------|-------|-------------|
-| AZ-YYY | ... | [description] |
+| {PREFIX}-{N} | ... | [description] |
 
 ### Blocked
 | Ticket | Title | Blocker |
 |--------|-------|---------|
-| AZ-ZZZ | ... | [what's needed] |
+| {PREFIX}-{N} | ... | [what's needed] |
 
 ### Skipped
 | Ticket | Title | Reason |
 |--------|-------|--------|
-| AZ-AAA | ... | [why skipped] |
+| {PREFIX}-{N} | ... | [why skipped] |
 
 ### Milestones Reached
 | Milestone | Smoke Test | Stories Included |
 |-----------|-----------|-----------------|
-| M1: Auth + Dashboard | Pass/Fail | AZ-001, AZ-002, AZ-003 |
+| M1: Auth + Dashboard | Pass/Fail | #1, #2, #3 |
 
 ### Observability
 | Ticket | Refine Tokens | Impl Tokens | Review Tokens | Security Tokens | Test Tokens | Playwright Tokens | Total Tokens | Duration |

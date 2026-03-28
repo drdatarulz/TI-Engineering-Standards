@@ -47,12 +47,7 @@ REPO_NAME=$(echo "$REPO_NWO" | cut -d/ -f2)
    gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state open --json number,title,labels --jq '.[] | {number, title, labels: [.labels[].name]}'
    ```
 
-2. **Determine current story ID range:**
-   ```bash
-   gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state all --label story --json title --jq '.[].title' | grep -oP '{PREFIX}-\d+' | sort -t- -k2 -n | tail -1
-   ```
-
-3. **Recent git history** — what's been worked on:
+2. **Recent git history** — what's been worked on:
    ```bash
    git log --oneline -20
    ```
@@ -102,7 +97,7 @@ When you've identified an actionable issue, draft the ticket in chat for user re
 ```markdown
 ## Draft Ticket
 
-### {PREFIX}-{NNN}: {Concise title describing the bug or issue}
+### {Concise title describing the bug or issue}
 **Label:** story
 
 **Summary:**
@@ -146,8 +141,8 @@ Wait for user to approve, adjust, or skip.
 After user approves:
 
 ```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{PREFIX}-{NNN}: {Title}" \
+ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
+  --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
 ## Summary
@@ -181,7 +176,7 @@ gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 
 ## Branch
 
-`story/{PREFIX}-{NNN}-short-name`
+`story/{PREFIX}-{ISSUE_NUM}-short-name`
 
 ## Test Coverage
 
@@ -211,8 +206,10 @@ EOF
 ```
 
 After creation:
-1. Set custom fields (Type=Story, Priority, Story ID)
-2. Move to **Up Next** on the project board
+1. Extract the issue number: `ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')`
+2. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
+3. Set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`)
+4. Move to **Up Next** on the project board
 
 ### 3b. Updating an Existing Issue
 
@@ -244,7 +241,7 @@ EOF
 Post confirmation with the issue link:
 
 ```markdown
-**Ticket created:** #{number} — {PREFIX}-{NNN}: {Title}
+**Ticket created:** #{number} — {PREFIX}-{number}: {Title}
 **Board status:** Up Next
 **Link:** {issue URL}
 ```

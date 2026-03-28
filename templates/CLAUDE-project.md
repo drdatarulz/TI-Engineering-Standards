@@ -98,7 +98,7 @@ dotnet run --project src/{ProjectName}.Migrator/
 ## Work Tracking
 
 <!-- Reference your GitHub Project board URL -->
-<!-- Story ID prefix for this project (e.g., DS-XXX, TX-XXX) -->
+<!-- Story ID prefix for this project (e.g., DS, TX) — combined with GitHub issue number: DS-7, TX-14 -->
 <!-- GitHub Project number (for GraphQL queries) -->
 
 ---

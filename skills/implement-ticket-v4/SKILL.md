@@ -24,7 +24,7 @@ If `{TICKET_TITLE}` appears literally (i.e., was not substituted by an orchestra
 - Fetch the ticket: `gh issue view $ARGUMENTS` (the `--repo` flag is unnecessary if you're in the project directory)
 - Use the issue title as the ticket title and the issue body as the ticket body
 - Determine the branch from `git branch --show-current`
-- Extract the Story ID (prefix-XXX) from the issue title
+- Extract the Story ID (`{PREFIX}-{issue#}`) from the issue title or Story ID custom field
 
 Otherwise, when invoked by the orchestrator, these values are already populated:
 - **Story ID:** {TICKET_NUMBER}

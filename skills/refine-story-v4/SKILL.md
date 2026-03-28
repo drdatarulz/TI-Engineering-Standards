@@ -220,7 +220,7 @@ Task<Result> ProcessAsync(Guid documentId, ProcessingOptions options, Cancellati
 
 ## Branch
 
-`story/XX-XXX-short-name`
+`story/{PREFIX}-{issue#}-short-name`
 
 ## Test Coverage
 
@@ -230,7 +230,7 @@ Task<Result> ProcessAsync(Guid documentId, ProcessingOptions options, Cancellati
 | Unit | Corrupt input | Returns error result |
 | Integration | End-to-end | Blob uploaded correctly |
 
-## Dependency on XX-XXX
+## Dependency on {PREFIX}-{issue#}
 
 [Only if a real dependency exists — describe what's needed and current status]
 
