@@ -66,6 +66,17 @@ public class QueueCoordinatorTests
 - The fact that you did not introduce a failing test is **not a justification to ignore it** — a rising failure count means the codebase is degrading and must be addressed before moving forward
 - If pre-existing failures are discovered, create a follow-up ticket and surface them to the project owner — do not silently skip or filter them out
 
+## Frontend Build Verification
+
+When a project includes a frontend (React, Blazor WASM, or any SPA):
+
+- **The frontend build is a required gate** — it must pass before any commit, same as `dotnet build`
+- **Test runners are not build validators** — tools like Vitest, Jest, and Karma transpile files individually and do NOT perform full type checking. A passing test suite does not prove the frontend compiles.
+- **Always run the frontend build command** (e.g., `npm run build`, which typically runs `tsc -b && vite build`) in addition to tests
+- If a change touches shared types, DTOs, or interfaces consumed by the frontend, verify the frontend build even if no frontend files were directly modified
+
+This applies to implement agents, review agents, and integration test agents — any agent that commits code must verify both backend and frontend builds pass.
+
 ## CI/CD Testing Tiers
 
 | Tier | Tests | When | Infrastructure |
