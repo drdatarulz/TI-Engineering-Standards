@@ -205,11 +205,48 @@ EOF
 )"
 ```
 
-After creation:
-1. Extract the issue number: `ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')`
-2. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
-3. Set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`)
-4. Move to **Up Next** on the project board
+After creation, place the issue on the project board and set all custom fields. Read the project ID, field IDs, and option IDs from `CLAUDE.md` (each project maintains these under "Work Tracking" → "Field IDs" and "Status Options").
+
+```bash
+# 1. Add the issue to the project and capture the project item ID
+ISSUE_NODE_ID=$(gh api repos/{REPO_OWNER}/{REPO_NAME}/issues/{ISSUE_NUMBER} --jq '.node_id')
+ITEM_ID=$(gh api graphql -f query='mutation($proj:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$proj,contentId:$content}){item{id}}}' \
+  -f proj="{PROJECT_ID}" \
+  -f content="$ISSUE_NODE_ID" \
+  --jq '.data.addProjectV2ItemById.item.id')
+
+# 2. Status = Up Next
+gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$val}}){projectV2Item{id}}}' \
+  -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
+  -f field="{STATUS_FIELD_ID}" -f val="{UP_NEXT_OPTION_ID}"
+
+# 3. Type = Story
+gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$val}}){projectV2Item{id}}}' \
+  -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
+  -f field="{TYPE_FIELD_ID}" -f val="{STORY_OPTION_ID}"
+
+# 4. Priority (High/Medium/Low — choose based on severity)
+gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$val}}){projectV2Item{id}}}' \
+  -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
+  -f field="{PRIORITY_FIELD_ID}" -f val="{PRIORITY_OPTION_ID}"
+
+# 5. Component (choose the affected layer from CLAUDE.md Component Options)
+gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{singleSelectOptionId:$val}}){projectV2Item{id}}}' \
+  -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
+  -f field="{COMPONENT_FIELD_ID}" -f val="{COMPONENT_OPTION_ID}"
+
+# 6. Story ID (text field — e.g., "FI-263")
+gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{text:$val}}){projectV2Item{id}}}' \
+  -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
+  -f field="{STORY_ID_FIELD_ID}" -f val="{PREFIX}-{NNN}"
+```
+
+All `{...}` placeholders come from `CLAUDE.md` → "Work Tracking" section. If `CLAUDE.md` does not have field IDs, query them dynamically:
+
+```bash
+# Discover project field IDs
+gh api graphql -f query='{ node(id:"{PROJECT_ID}") { ... on ProjectV2 { fields(first:20) { nodes { ... on ProjectV2Field { id name } ... on ProjectV2SingleSelectField { id name options { id name } } } } } } }'
+```
 
 ### 3b. Updating an Existing Issue
 
@@ -259,6 +296,6 @@ If the user describes another issue, loop back to **Phase 1**.
 Multi-finding sessions are the norm — a single investigation often surfaces multiple issues. Each gets its own ticket.
 
 ---
-<!-- skill-version: 4.0 -->
-<!-- last-updated: 2026-03-23 -->
+<!-- skill-version: 4.1 -->
+<!-- last-updated: 2026-04-01 -->
 <!-- pipeline: v4 -->
