@@ -81,34 +81,71 @@ Add database and dependency health checks as appropriate. The endpoint must retu
 
 ---
 
-## Dev Auth Bypass (Required for Non-Production)
+## Dev Auth Bypass
 
-Local, Dev, and Staging environments must support an auth bypass for automated Playwright tests and local development convenience. Production never uses the bypass.
+Every project must implement a dev auth bypass (`Authentication:UseDevBypass`) so that local development and Playwright CI tests can run without real Azure AD infrastructure. However, **the bypass must default to OFF in every environment** — local, dev, staging, and production alike.
 
-Controlled via configuration (see `standards/configuration.md`):
+### Default-OFF Principle
 
-```json
-// appsettings.Development.json / appsettings.Staging.json
-{
-  "Authentication": {
-    "UseDevBypass": true
-  }
-}
-```
+Auth bypass is a security-sensitive toggle. The safe state is **disabled**. Enabling it must be an explicit, intentional act by the developer — never an infrastructure default.
+
+| Location | `UseDevBypass` | Rationale |
+|----------|---------------|-----------|
+| `appsettings.json` (base) | `false` | Safe default — real auth everywhere |
+| All Bicep parameter files (`dev`, `staging`, `prod`) | `false` | Deployed environments always use real Azure AD |
+| Dockerfile `ARG` defaults | `false` | Container images default to real auth |
+| CI/CD workflow env vars | `false` | Build pipelines default to real auth |
+| `docker-compose.yml` (local dev) | `true` (explicit override) | Intentional local-only convenience |
+| `docker-compose.playwright.yml` (CI overlay) | `true` (explicit override) | Intentional test-only convenience |
+| `.env.development` (frontend local dev) | `true` (explicit override) | Intentional local-only convenience |
+
+**Why this matters:** If a deployed environment (Dev, Staging) has bypass enabled, the backend silently ignores real JWT tokens. Users log in with real credentials but the backend discards their identity and resolves every request to the same fixed dev user. This causes data isolation failures that are invisible to the user — they see a real login flow but share a single identity.
+
+### Startup Warning (Required)
+
+When bypass is enabled, the application **must** log a warning at startup so that misconfiguration is immediately visible in logs:
 
 ```csharp
-// Program.cs
 if (builder.Configuration.GetValue<bool>("Authentication:UseDevBypass"))
 {
-    // Register dev bypass auth handler
+    builder.Services.AddAuthentication(DevBypassAuthHandler.SchemeName)
+        .AddScheme<AuthenticationSchemeOptions, DevBypassAuthHandler>(
+            DevBypassAuthHandler.SchemeName, _ => { });
+    Log.Warning("Authentication dev bypass is ENABLED — all requests will authenticate as the dev user. This must NOT be used in staging or production.");
 }
 else
 {
-    // Register Azure AD auth handler
+    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer(options =>
+        {
+            options.Authority = builder.Configuration["Authentication:Authority"] ?? "";
+            options.Audience = builder.Configuration["Authentication:Audience"] ?? "";
+            options.TokenValidationParameters.ValidateIssuer = true;
+        });
 }
 ```
 
-The bypass must never be enabled in Production. Bicep parameter files for `prod` must set this to `false` via environment variable.
+### Where Bypass Is Enabled
+
+Bypass is only turned on via **explicit overrides in local-only files** that are never deployed to Azure:
+
+```yaml
+# docker-compose.yml — local dev stack
+services:
+  api:
+    environment:
+      Authentication__UseDevBypass: "true"   # Explicit local-only override
+```
+
+```yaml
+# docker-compose.playwright.yml — CI test overlay
+services:
+  api:
+    environment:
+      Authentication__UseDevBypass: "true"   # Explicit test-only override
+```
+
+Bicep parameter files, Dockerfiles, and `appsettings.json` must never set this to `true`.
 
 ---
 
@@ -278,7 +315,10 @@ Use this checklist when applying this standard to an existing project or auditin
 ### Application
 - [ ] `/health` endpoint is implemented and returns 200
 - [ ] Auth bypass is implemented and controlled by `Authentication:UseDevBypass`
-- [ ] Auth bypass is disabled in prod parameter file
+- [ ] Auth bypass defaults to `false` in `appsettings.json` (base config)
+- [ ] Auth bypass is `false` in ALL Bicep parameter files (`dev`, `staging`, `prod`)
+- [ ] Dockerfile `ARG` for bypass defaults to `false`
+- [ ] Startup warning log fires when bypass is enabled
 
 ### GitHub Environments
 - [ ] `dev`, `staging`, and `production` environments are configured in GitHub repo Settings

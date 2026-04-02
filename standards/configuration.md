@@ -65,6 +65,7 @@ export ConnectionStrings__DefaultConnection="Server=..."
 - **Simple boolean config** — e.g., `Authentication:UseDevBypass`, `Features:EnableGraphRelay`
 - Read at startup for DI branching (register real vs. fake implementation)
 - No feature flag framework needed — `IConfiguration.GetValue<bool>()` is sufficient
+- **Security-sensitive flags must default to the safe/restrictive value.** For example, `Authentication:UseDevBypass` defaults to `false` in `appsettings.json` and all Bicep parameter files — it is only overridden to `true` in explicit local-dev files like `docker-compose.yml`. See [environments.md](environments.md) for the full default-OFF rules.
 
 ```csharp
 if (builder.Configuration.GetValue<bool>("Authentication:UseDevBypass"))

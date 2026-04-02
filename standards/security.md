@@ -15,12 +15,15 @@
 - Configure `Authority` and `Audience` via appsettings / environment variables
 - Claims used: `oid` (user object ID), `preferred_username` (email), `name` (display name)
 
-### Development — Dev Bypass
+### Dev Bypass
 
 - Toggle: `Authentication:UseDevBypass` (boolean)
-- When enabled, a custom authentication handler accepts requests without real tokens
+- When enabled, a custom authentication handler accepts requests without real tokens and resolves all requests to a single fixed dev user identity
 - Dev bypass provides configurable claims for testing different user roles
-- **Never enable in production** — enforce via environment-specific configuration
+- **Default is OFF in every environment** — `appsettings.json`, all Bicep parameter files, and Dockerfile ARGs must set this to `false`
+- Bypass is enabled only via explicit local overrides: `docker-compose.yml` env vars, `.env.development` files
+- **Never enable in any deployed environment** (Dev, Staging, or Production) — if the frontend uses real Azure AD login but the backend has bypass enabled, the backend silently discards real JWT tokens and treats all users as the same identity, causing data isolation failures
+- **Startup warning required** — the application must log a warning when bypass is active (see [environments.md](environments.md) for the code pattern)
 
 ## Middleware Order
 
