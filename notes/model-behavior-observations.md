@@ -58,3 +58,37 @@ concise, neutral note — not a defense of its choice.
   should pick.
 - **Status:** Open.
 
+### 2026-05-14 — `readEnvironmentVariable()` in `.bicepparam` files unreliable (Opus 4.7)
+
+- **Observation:** In IntakeIt PR #53, Claude wired the SQL admin password and
+  connection string into the `.bicepparam` files via
+  `readEnvironmentVariable('SQL_ADMIN_PASSWORD', '')` so the deploy workflow
+  could inject secrets through env vars while `az bicep build-params` still
+  validated locally (empty-string default). During the II-52 staging bootstrap
+  this proved unreliable: with the env vars confirmed exported (`env | grep -c`
+  returned 1), `az deployment group create --parameters staging.bicepparam`
+  still received empty strings — Azure rejected the empty SQL password and the
+  Container App secret validation failed with "value or keyVaultUrl and identity
+  should be provided".
+- **Where it surfaced:** drdatarulz/IntakeIt — II-52 staging bootstrap; the
+  bicepparam pattern introduced in PR #53.
+- **What the standards currently say:** Silent. No guidance on how `.bicepparam`
+  files should source injected secret values, or on `readEnvironmentVariable()`
+  vs explicit `--parameters` CLI overrides.
+- **Counterfactual:** A human would likely have passed the secrets purely via
+  `--parameters key=value` on the `az deployment group create` CLI from the
+  start, or used `getSecret()` against a Key Vault — not `readEnvironmentVariable()`.
+- **Workaround applied:** All deploys (local bootstrap + the three GitHub Actions
+  workflows) pass the SQL params explicitly via
+  `--parameters administratorLoginPassword=... --parameters sqlConnectionString=...`,
+  which bypasses the bicepparam's `readEnvironmentVariable()` entirely. The
+  `readEnvironmentVariable()` lines remain in the bicepparam files only so
+  `az bicep build-params` validation passes — they are effectively dead at
+  deploy time.
+- **Decision needed:** Should the standards prescribe explicit `--parameters`
+  overrides as the default mechanism for injecting secrets into Bicep deploys
+  (with `readEnvironmentVariable()` discouraged)? And should the now-dead
+  `readEnvironmentVariable()` lines be cleaned out of the IntakeIt bicepparam
+  files and replaced with a clearer placeholder + comment?
+- **Status:** Open.
+
