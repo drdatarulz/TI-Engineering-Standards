@@ -19,6 +19,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 | **[integration-test-v4](integration-test-v4/SKILL.md)** | `/integration-test-v4 AZ-101` | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | **[ui-test-v4](ui-test-v4/SKILL.md)** | `/ui-test-v4 AZ-101` | Write Playwright UI tests for a merged implementation. Creates PR. Supports FIX mode |
 | **[orchestrate-v4](orchestrate-v4/SKILL.md)** | `/orchestrate-v4 supervised AZ-101, AZ-102` | PR-based pipeline orchestrator with milestone support and observability |
+| **[ci-fix-v4](ci-fix-v4/SKILL.md)** | `/ci-fix-v4 [watch <sha>\|fix <run-id>]` | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel for orchestrator; standalone for ad-hoc repair |
 
 ### Investigation, Triage & Conformance
 
@@ -40,11 +41,14 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 2. **implement-ticket-v4** — Implement and create PR
 3. **engineering-review-v4** — Review PR against standards (up to 3 iterations with fix mode)
 4. **security-review-v4** — OWASP Top 10 + infrastructure security review (up to 2 iterations with fix mode); on pass, merges PR
-5. **integration-test-v4** — Write integration tests on a separate PR
-6. **engineering-review-v4** — Review integration test PR (up to 3 iterations with fix mode); on approve, merges PR
-7. **ui-test-v4** — Write Playwright UI tests on a separate PR
-8. **engineering-review-v4** — Review UI test PR (up to 3 iterations with fix mode); on approve, merges PR
-9. **orchestrate-v4** — Orchestrates the full pipeline per ticket, manages board updates, review loops, milestones, and observability
+5. **ci-fix-v4** _(background)_ — Watch CI/CD runs triggered by the merge; auto-fix if they fail
+6. **integration-test-v4** — Write integration tests on a separate PR
+7. **engineering-review-v4** — Review integration test PR (up to 3 iterations with fix mode); on approve, merges PR
+8. **ci-fix-v4** _(background)_ — Watch CI/CD runs triggered by the merge; auto-fix if they fail
+9. **ui-test-v4** — Write Playwright UI tests on a separate PR
+10. **engineering-review-v4** — Review UI test PR (up to 3 iterations with fix mode); on approve, merges PR
+11. **ci-fix-v4** _(background)_ — Watch CI/CD runs triggered by the merge; auto-fix if they fail
+12. **orchestrate-v4** — Orchestrates the full pipeline per ticket, manages board updates, review loops, milestones, and observability
 
 ### Feedback Loop (testing → new tickets)
 

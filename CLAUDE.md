@@ -81,6 +81,7 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/integration-test-v4](skills/integration-test-v4/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
 | [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for every PR (runs in CI via Docker Compose). Creates PR. Supports FIX mode |
 | [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
+| [skills/ci-fix-v4](skills/ci-fix-v4/SKILL.md) | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel for orchestrator; standalone for ad-hoc repair |
 | [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
 | [skills/conformance-v4](skills/conformance-v4/SKILL.md) | Audit a project against TI Engineering Standards — informational only, produces a gap report |
 

@@ -178,22 +178,30 @@ The v4 pipeline uses pull requests as the unit of work with automated engineerin
 
 ```
 Per Ticket:
-1. REFINE ──────────── refine-story-v4 (enriches issue spec)
-2. IMPLEMENT ───────── implement-ticket-v4 (creates PR #1)
-3. ENGINEERING REVIEW ─ engineering-review-v4 (standards check)
-   └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
-4. SECURITY REVIEW ──── security-review-v4 (OWASP Top 10 + infrastructure)
-   └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
-   └─ On pass → merge PR #1
-5. INTEGRATION TESTS ── integration-test-v4 (creates PR #2)
-6. ENGINEERING REVIEW ─ engineering-review-v4 (integration test quality)
-   └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
-   └─ On approve → merge PR #2
-7. UI TESTS ─── ui-test-v4 (creates PR #3)
-8. ENGINEERING REVIEW ─ engineering-review-v4 (ui test quality)
-   └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
-   └─ On approve → merge PR #3
-9. CLOSE ───────────── check acceptance criteria, close issue
+1.  REFINE ──────────── refine-story-v4 (enriches issue spec)
+2.  IMPLEMENT ───────── implement-ticket-v4 (creates PR #1)
+3.  ENGINEERING REVIEW ─ engineering-review-v4 (standards check)
+    └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
+4.  SECURITY REVIEW ──── security-review-v4 (OWASP Top 10 + infrastructure)
+    └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
+    └─ On pass → merge PR #1
+    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
+5.  INTEGRATION TESTS ── integration-test-v4 (creates PR #2)
+6.  ENGINEERING REVIEW ─ engineering-review-v4 (integration test quality)
+    └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
+    └─ On approve → merge PR #2
+    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
+7.  UI TESTS ─── ui-test-v4 (creates PR #3)
+8.  ENGINEERING REVIEW ─ engineering-review-v4 (ui test quality)
+    └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
+    └─ On approve → merge PR #3
+    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
+9.  CLOSE ───────────── drain CI watchers, check acceptance criteria, close issue
+
+    Background CI/CD side-channel:
+    ┌─ ci-fix-v4 WATCH reports failure
+    └─ ci-fix-v4 FIX (background) ─── diagnoses logs, creates fix PR, merges
+       └─ If FIX blocked → circuit breaker halts orchestrator
 ```
 
 ### 4.2 Milestone Gates
@@ -219,16 +227,29 @@ Even in autonomous mode, the orchestrator halts entirely if:
 - A PR merge conflict occurs — needs human judgment
 - Build fails on main after a merge — main is corrupted (rollback tag available)
 - 3 review iterations exhausted on 2 consecutive tickets — pattern problem
+- A CI/CD fix agent reports Blocked — a pipeline failure that cannot be auto-fixed means main is broken and deployments are stuck
 
-### 4.5 Rollback Safety
+### 4.5 Background CI/CD Health Watching
+
+After every PR merge, the orchestrator spawns **ci-fix-v4** in WATCH mode as a background agent. This runs in parallel with the next pipeline stage — the orchestrator does not block on it.
+
+- **If CI/CD passes:** The watcher reports success and the orchestrator logs it. No action needed.
+- **If CI/CD fails:** The watcher reports the failure. The orchestrator spawns **ci-fix-v4** in FIX mode — also in the background. The fix agent downloads failure logs, diagnoses the root cause, creates a fix branch, pushes a repair PR, and merges it. All of this happens on its own branch, parallel to whatever ticket is currently in progress.
+- **If the fix cannot be applied:** The fix agent reports Blocked, which triggers a circuit breaker — the orchestrator halts after the current stage completes.
+
+This eliminates the blind spot where CI/CD breaks silently and multiple tickets pile up without deploying. The orchestrator discovers failures within minutes of the merge that caused them, and in most cases fixes them automatically without interrupting the current ticket's pipeline.
+
+The ci-fix-v4 skill can also be invoked standalone (`/ci-fix-v4`) to diagnose and repair CI/CD issues outside of the orchestrator pipeline.
+
+### 4.6 Rollback Safety
 
 Before any work begins on a ticket, the orchestrator tags main (`pre-{STORY_ID}`). If a merge corrupts main, the tag provides a clean rollback point. Tags are deleted after successful completion.
 
-### 4.6 Ticket Readiness Gate
+### 4.7 Ticket Readiness Gate
 
 Before spawning agents for a ticket, the orchestrator verifies the issue has acceptance criteria and a non-empty description. Tickets that aren't ready are skipped and logged.
 
-### 4.7 Observability
+### 4.8 Observability
 
 The orchestrator captures per-ticket metrics from each sub-agent:
 
@@ -239,7 +260,7 @@ The orchestrator captures per-ticket metrics from each sub-agent:
 
 These are reported in the session summary for cost tracking and identifying stories that consumed disproportionate resources (indicating poor scoping or ambiguity).
 
-### 4.8 PRD Amendment Tracking
+### 4.9 PRD Amendment Tracking
 
 When developer CONCERNS or integration tester NOTES reveal something that contradicts or is missing from the PRD, the orchestrator captures it in a PRD amendments log. This is reported in the session summary so the PRD remains a living document.
 
@@ -393,10 +414,11 @@ Periodically review NuGet and npm package versions for security updates. This is
 
 If `main` is ever in a broken state (build fails, tests fail on main):
 
-1. Do not merge anything new until main is green
-2. Check the orchestrator's rollback tag (`pre-{STORY_ID}`) if the break was introduced during a development session
-3. Create a triage ticket via triage-v4 — even for pipeline breaks
-4. Fix via a normal branch → PR → review flow, not a direct push to main
+1. **Try ci-fix-v4 first** — run `/ci-fix-v4` standalone to auto-diagnose and fix. If the orchestrator is running, it will have already attempted this via the background watcher.
+2. If ci-fix-v4 reports Blocked (cannot auto-fix), do not merge anything new until main is green.
+3. Check the orchestrator's rollback tag (`pre-{STORY_ID}`) if the break was introduced during a development session.
+4. Create a triage ticket via triage-v4 for the underlying issue.
+5. Fix via a normal branch → PR → review flow, not a direct push to main.
 
 ### 7.5 Returning to a Dormant Project
 
@@ -446,6 +468,7 @@ When picking up a project after significant time away:
 | implement-ticket-v4 | Implement code, create PR. Supports fix mode for review feedback |
 | engineering-review-v4 | Review PR against standards. Implementation, integration-test, and ui-test modes |
 | security-review-v4 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
+| ci-fix-v4 | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel after each merge; standalone for ad-hoc repair |
 | integration-test-v4 | Write integration tests, create PR. Supports fix mode |
 | ui-test-v4 | Write Playwright UI tests, create PR. Supports fix mode |
 | orchestrate-v4 | Pipeline orchestrator with milestones, review loops, and observability |

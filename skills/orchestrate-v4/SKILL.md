@@ -7,7 +7,7 @@ argument-hint: "[supervised|autonomous] [ticket list, e.g. SF-7, SF-8 or #7, #8]
 
 You are the **v4 orchestrator** for this session. Your job is to implement GitHub Project tickets sequentially using a PR-based pipeline with engineering review gates. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing. Subagents do the work.
 
-**v4 additions:** UI test stage (Playwright — runs in CI via Docker Compose, not post-deploy), infrastructure security auto-detection, conformance auditing, deployment & promotion phases.
+**v4 additions:** UI test stage (Playwright — runs in CI via Docker Compose, not post-deploy), infrastructure security auto-detection, conformance auditing, deployment & promotion phases, background CI/CD health watching via ci-fix-v4.
 
 ## Pipeline Per Ticket
 
@@ -79,7 +79,9 @@ session_metrics = {
   total_test_tokens: 0,
   total_playwright_tokens: 0,
   total_duration_ms: 0,
-  prd_amendments: []
+  prd_amendments: [],
+  ci_watches: [],       // tracks background CI watcher results
+  ci_fixes: []          // tracks background CI fix agent results
 }
 ```
 
@@ -338,8 +340,10 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
 - Pull main: `git checkout main && git pull origin main`
+- Capture the merge SHA: `MERGE_SHA=$(git rev-parse HEAD)`
 - Delete local branch: `git branch -d {BRANCH_NAME} 2>/dev/null`
-- Continue to Stage 4
+- **Spawn CI watcher (background)** — see [Background CI/CD Health Watching](#background-cicd-health-watching)
+- Continue to Stage 4 immediately (do not wait for the watcher)
 
 **If `STATUS: Blocked` and iteration < 2:**
 - Spawn implement-ticket-v4 in FIX mode:
@@ -447,8 +451,10 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
 - Pull main: `git checkout main && git pull origin main`
+- Capture the merge SHA: `MERGE_SHA=$(git rev-parse HEAD)`
 - Delete local branch: `git branch -d {BRANCH_NAME} 2>/dev/null`
-- Continue to Stage 6
+- **Spawn CI watcher (background)** — see [Background CI/CD Health Watching](#background-cicd-health-watching)
+- Continue to Stage 6 immediately (do not wait for the watcher)
 
 **If `STATUS: ChangesRequested` and iteration < 3:**
 - Post issue comment:
@@ -553,8 +559,10 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
 - Pull main: `git checkout main && git pull origin main`
+- Capture the merge SHA: `MERGE_SHA=$(git rev-parse HEAD)`
 - Delete local branch: `git branch -d {BRANCH_NAME} 2>/dev/null`
-- Continue to Stage 8
+- **Spawn CI watcher (background)** — see [Background CI/CD Health Watching](#background-cicd-health-watching)
+- Continue to Stage 8 immediately (do not wait for the watcher)
 
 **If `STATUS: ChangesRequested` and iteration < 3:**
 - Post issue comment:
@@ -620,9 +628,15 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   | **Total** | **{TOTAL_TOKENS}** | **{TOTAL_DURATION}** |
 
   Review iterations (impl): {IMPL_REVIEW_ITERS} | Security iterations: {SECURITY_ITERS} | Review iterations (tests): {TEST_REVIEW_ITERS} | Review iterations (playwright): {PLAYWRIGHT_REVIEW_ITERS}
+
+  ### CI/CD Health
+  | Merge | PR | Status | Fix PR |
+  |-------|----|--------|--------|
+  | {SHA} | #{PR} | {passed/fixed/blocked} | #{FIX_PR or n/a} |
   EOF
   )"
   ```
+  Omit the CI/CD Health table if all watchers reported `Passed` (i.e., nothing interesting happened).
   Use the per-ticket metrics tracked in `session_metrics.tickets[]` for this ticket. Tokens should be formatted with comma separators (e.g., `45,230`). Duration should be in human-readable format (e.g., `1m 35s`). Omit rows for phases that were skipped (e.g., if no integration tests were run, omit that row).
 
 - Close the issue (if not already auto-closed):
@@ -647,6 +661,72 @@ In `autonomous` mode, skip this gate and continue to the next ticket.
 
 ---
 
+## Background CI/CD Health Watching
+
+After every PR merge (implementation, integration tests, or UI tests), spawn a **ci-fix-v4** agent in WATCH mode as a **background agent**. This runs in parallel with the next stage — the orchestrator does not block on it.
+
+### Spawning the Watcher
+
+Read `.claude/skills/ci-fix-v4/SKILL.md` and substitute:
+- `{MODE}` → `WATCH`
+- `{MERGE_SHA}` → the merge commit SHA (captured after `git pull`)
+- `{PR_NUMBER}` → the PR that was just merged
+- `{STORY_ID}` → the current story ID
+- `{REPO_OWNER}` / `{REPO_NAME}` → resolved repo identity
+
+Pass to Agent tool with `subagent_type: "general-purpose"` and **`run_in_background: true`**.
+
+Track each watcher in `session_metrics.ci_watches[]`:
+```
+{ merge_sha, pr_number, story_id, stage, status: "pending" }
+```
+
+### Processing Watcher Results
+
+When a background watcher completes, check its status:
+
+**If `STATUS: Passed`:**
+- Update the watcher entry: `status: "passed"`
+- No further action — continue current work
+
+**If `STATUS: Failed`:**
+- Update the watcher entry: `status: "failed"`
+- **Spawn ci-fix-v4 in FIX mode** as a background agent:
+  - Read `.claude/skills/ci-fix-v4/SKILL.md` and substitute:
+    - `{MODE}` → `FIX`
+    - `{FAILED_RUN_IDS}` → from the watcher's report
+    - `{MERGE_SHA}` → from the watcher's report
+    - `{STORY_ID}` → from the watcher's report
+    - `{REPO_OWNER}` / `{REPO_NAME}` → resolved repo identity
+  - Pass to Agent tool with `subagent_type: "general-purpose"` and **`run_in_background: true`**
+  - Track in `session_metrics.ci_fixes[]`:
+    ```
+    { merge_sha, story_id, failed_run_ids, status: "pending" }
+    ```
+- Continue current work — do not block
+
+**If `STATUS: Timeout` or `STATUS: NoRuns`:**
+- Update the watcher entry with the reported status
+- Log a warning but do not halt — these are informational. They may indicate a workflow configuration issue but are not blocking.
+
+### Processing Fix Agent Results
+
+When a background fix agent completes, check its status:
+
+**If `STATUS: Fixed`:**
+- Update the fix entry: `status: "fixed"`, `fix_pr: {FIX_PR_NUMBER}`
+- No further action — the fix has already been merged
+
+**If `STATUS: Blocked`:**
+- Update the fix entry: `status: "blocked"`, `reason: {REASON}`
+- **This is a circuit breaker** — a CI/CD failure that cannot be auto-fixed means main is broken and deployments are stuck. Halt the orchestrator after the current stage completes.
+
+### Drain Before Close (Stage 8)
+
+Before posting the final observability metrics for a ticket, **drain all pending CI watchers and fix agents** for that ticket. If any are still running, wait for them to complete before closing the ticket. This ensures the ticket's issue comment reflects the full CI/CD outcome.
+
+---
+
 ## Circuit Breakers (Orchestrator Halts Entirely)
 
 Even in autonomous mode, **STOP the entire loop** if:
@@ -654,6 +734,7 @@ Even in autonomous mode, **STOP the entire loop** if:
 - **A PR merge conflict occurs** — needs human judgment
 - **Build fails on main after a merge** — main is corrupted
 - **3 review iterations exhausted** on a single ticket — already handled per-ticket, but if this happens on 2 consecutive tickets, halt
+- **A CI/CD fix agent reports Blocked** — a pipeline failure that cannot be auto-fixed means main is broken and deployments are stuck
 
 When halted, report the full session summary and explain why you stopped.
 
@@ -715,6 +796,7 @@ After all tickets are processed (or the loop is halted), produce this summary:
 - Total integration tests added: X
 - Total UI tests added: X
 - Total files changed: X
+- CI/CD watches: X passed, X failed, X fixed, X blocked
 
 ### PRD Amendments
 | Ticket | Finding | Suggested PRD Update |
@@ -725,6 +807,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 4.0 -->
-<!-- last-updated: 2026-03-23 -->
+<!-- skill-version: 4.1 -->
+<!-- last-updated: 2026-05-26 -->
 <!-- pipeline: v4 -->
