@@ -12,6 +12,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 |-------|-----------|-------------|
 | **[prd-to-backlog-v4](prd-to-backlog-v4/SKILL.md)** | `/prd-to-backlog-v4 docs/PRD.md` | Decompose a PRD into a milestoned backlog of vertical-slice stories |
 | **[add-story-v4](add-story-v4/SKILL.md)** | `/add-story-v4 [description]` | Conversationally create incremental stories for an existing project |
+| **[reconcile-backlog-v4](reconcile-backlog-v4/SKILL.md)** | `/reconcile-backlog-v4 docs/PRD-v1.md docs/PRD-v2.md` | Reconcile PRD version changes against an existing backlog and codebase. Diffs, classifies, and executes creates/updates |
 | **[refine-story-v4](refine-story-v4/SKILL.md)** | `/refine-story-v4 AZ-101` | Refine a GitHub issue into an implementation-ready spec |
 | **[implement-ticket-v4](implement-ticket-v4/SKILL.md)** | `/implement-ticket-v4 42` | Implement a single ticket — pushes branch, creates PR. Supports FIX mode |
 | **[engineering-review-v4](engineering-review-v4/SKILL.md)** | `/engineering-review-v4 42` | Review a PR against TI Engineering Standards. Implementation and integration-tests modes |
@@ -34,6 +35,7 @@ Shared Claude Code skills that are auto-synced to all TI projects during the [au
 
 1. **prd-to-backlog** — Bulk: decompose PRD into milestoned backlog
 2. **add-story** — Incremental: add stories to an existing backlog
+3. **reconcile-backlog** — Reconcile changes between PRD versions against an existing backlog (creates, updates, or skips tickets as needed)
 
 ### Development Pipeline (per ticket, managed by orchestrate-v4)
 

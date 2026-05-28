@@ -144,7 +144,20 @@ When adding stories mid-project (not during initial PRD decomposition), use `add
 4. Determines milestone placement
 5. Creates issues after human approval
 
-### 3.6 Local Development Setup
+### 3.6 PRD Reconciliation (reconcile-backlog-v4)
+
+When a PRD is revised mid-project (scope changes, new decisions, stakeholder feedback), use `reconcile-backlog-v4` to reconcile the changes against the existing backlog and codebase. The skill:
+
+1. Diffs the old and new PRDs section by section, identifying material changes
+2. Fetches the full backlog (open and closed issues) and scans the codebase to understand what's already built
+3. Classifies each change as: **CREATE** (new ticket), **UPDATE** (modify existing open ticket), **FLAG** (closed ticket needs rework — creates a delta ticket), or **SKIP** (cosmetic/doc-only)
+4. Writes a checklist file to `docs/` for state tracking and recovery
+5. Presents the full reconciliation plan for human approval before touching GitHub
+6. Executes approved actions using `add-story-v4` (for new tickets) and `refine-story-v4` (to re-refine updated tickets)
+
+This keeps the backlog in sync with the PRD as a living document, rather than requiring a full re-decomposition.
+
+### 3.7 Local Development Setup
 
 After the repo and backlog exist, verify the project runs locally before development begins.
 
@@ -253,10 +266,13 @@ Before spawning agents for a ticket, the orchestrator verifies the issue has acc
 
 The orchestrator captures per-ticket metrics from each sub-agent:
 
-- Token usage per stage (refine, implement, review, security, integration test)
+- **Model per stage** — every sub-agent reports which model it ran on (e.g., `Opus 4.7`, `Sonnet 4.6`) via the `MODEL:` line in its STATUS block. The orchestrator also reports its own model. This enables per-phase cost analysis since different models have different token costs.
+- Token usage per stage (refine, implement, review, security, integration test, Playwright)
 - Duration per stage
 - Number of review iterations
 - Test counts
+
+Per-ticket observability comments use a `Phase | Model | Tokens | Duration` table so cost variance by model is visible at a glance. The session summary uses a condensed `{model} / {tokens}` format per cell.
 
 These are reported in the session summary for cost tracking and identifying stories that consumed disproportionate resources (indicating poor scoping or ambiguity).
 
@@ -455,11 +471,12 @@ When picking up a project after significant time away:
 
 ## Skills Reference (v4)
 
-### Story Creation
+### Story Creation & Backlog Maintenance
 | Skill | Purpose |
 |-------|---------|
 | prd-to-backlog-v4 | Bulk PRD decomposition into milestoned backlog |
 | add-story-v4 | Incremental story creation for existing projects |
+| reconcile-backlog-v4 | Reconcile PRD version changes against an existing backlog and codebase |
 
 ### Development Pipeline (per ticket, managed by orchestrate-v4)
 | Skill | Purpose |

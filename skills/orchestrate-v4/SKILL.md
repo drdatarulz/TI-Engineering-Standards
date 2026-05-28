@@ -615,17 +615,19 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   gh issue comment {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$(cat <<'EOF'
   ## Observability Metrics
 
-  | Phase | Tokens | Duration |
-  |-------|--------|----------|
-  | Refine | {REFINE_TOKENS} | {REFINE_DURATION} |
-  | Implement | {IMPL_TOKENS} | {IMPL_DURATION} |
-  | Review (Impl) | {REVIEW_TOKENS} | {REVIEW_DURATION} |
-  | Security Review | {SECURITY_TOKENS} | {SECURITY_DURATION} |
-  | Integration Tests | {TEST_TOKENS} | {TEST_DURATION} |
-  | Review (Tests) | {TEST_REVIEW_TOKENS} | {TEST_REVIEW_DURATION} |
-  | Playwright Tests | {PLAYWRIGHT_TOKENS} | {PLAYWRIGHT_DURATION} |
-  | Review (Playwright) | {PLAYWRIGHT_REVIEW_TOKENS} | {PLAYWRIGHT_REVIEW_DURATION} |
-  | **Total** | **{TOTAL_TOKENS}** | **{TOTAL_DURATION}** |
+  **Orchestrator model:** {ORCHESTRATOR_MODEL}
+
+  | Phase | Model | Tokens | Duration |
+  |-------|-------|--------|----------|
+  | Refine | {REFINE_MODEL} | {REFINE_TOKENS} | {REFINE_DURATION} |
+  | Implement | {IMPL_MODEL} | {IMPL_TOKENS} | {IMPL_DURATION} |
+  | Review (Impl) | {REVIEW_MODEL} | {REVIEW_TOKENS} | {REVIEW_DURATION} |
+  | Security Review | {SECURITY_MODEL} | {SECURITY_TOKENS} | {SECURITY_DURATION} |
+  | Integration Tests | {TEST_MODEL} | {TEST_TOKENS} | {TEST_DURATION} |
+  | Review (Tests) | {TEST_REVIEW_MODEL} | {TEST_REVIEW_TOKENS} | {TEST_REVIEW_DURATION} |
+  | Playwright Tests | {PLAYWRIGHT_MODEL} | {PLAYWRIGHT_TOKENS} | {PLAYWRIGHT_DURATION} |
+  | Review (Playwright) | {PLAYWRIGHT_REVIEW_MODEL} | {PLAYWRIGHT_REVIEW_TOKENS} | {PLAYWRIGHT_REVIEW_DURATION} |
+  | **Total** | — | **{TOTAL_TOKENS}** | **{TOTAL_DURATION}** |
 
   Review iterations (impl): {IMPL_REVIEW_ITERS} | Security iterations: {SECURITY_ITERS} | Review iterations (tests): {TEST_REVIEW_ITERS} | Review iterations (playwright): {PLAYWRIGHT_REVIEW_ITERS}
 
@@ -638,6 +640,10 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   ```
   Omit the CI/CD Health table if all watchers reported `Passed` (i.e., nothing interesting happened).
   Use the per-ticket metrics tracked in `session_metrics.tickets[]` for this ticket. Tokens should be formatted with comma separators (e.g., `45,230`). Duration should be in human-readable format (e.g., `1m 35s`). Omit rows for phases that were skipped (e.g., if no integration tests were run, omit that row).
+
+  **Capturing the model per phase.** Every per-stage subagent skill (`refine-story-v4`, `implement-ticket-v4`, `engineering-review-v4`, `security-review-v4`, `integration-test-v4`, `ui-test-v4`) reports its model in the `MODEL:` line of its STATUS block. Extract that value verbatim and use it in the table above. Use the friendly name (e.g., `Opus 4.7`, `Sonnet 4.6`, `Haiku 4.5`) rather than the model ID. When a phase runs multiple iterations on different models (rare, but possible if you override per iteration), list them comma-separated (e.g., `Opus 4.7, Sonnet 4.6`).
+
+  **Capturing the orchestrator's own model.** Report the model the orchestrator (this session) is running on — read it from the system prompt's "You are powered by the model named …" line. Use the same friendly-name format.
 
 - Close the issue (if not already auto-closed):
   ```bash
@@ -773,9 +779,14 @@ After all tickets are processed (or the loop is halted), produce this summary:
 | M1: Auth + Dashboard | Pass/Fail | #1, #2, #3 |
 
 ### Observability
-| Ticket | Refine Tokens | Impl Tokens | Review Tokens | Security Tokens | Test Tokens | Playwright Tokens | Total Tokens | Duration |
-|--------|--------------|-------------|---------------|-----------------|-------------|-------------------|-------------|----------|
-| AZ-XXX | 12,400 | 45,230 | 18,100 | 9,800 | 22,400 | 18,600 | 126,530 | 115s |
+
+**Orchestrator model:** [friendly name, e.g., `Opus 4.7`]
+
+| Ticket | Refine | Impl | Review | Security | Test | Playwright | Total Tokens | Duration |
+|--------|--------|------|--------|----------|------|------------|-------------|----------|
+| AZ-XXX | Sonnet 4.6 / 12,400 | Opus 4.7 / 45,230 | Sonnet 4.6 / 18,100 | Opus 4.7 / 9,800 | Sonnet 4.6 / 22,400 | Sonnet 4.6 / 18,600 | 126,530 | 115s |
+
+_(Per-stage cells use `{model} / {tokens}` format so cost variance by model is visible at a glance. Models are reported by each subagent in its STATUS block.)_
 
 **Session Totals:**
 - Total tokens (all agents): X
@@ -807,6 +818,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 4.1 -->
-<!-- last-updated: 2026-05-26 -->
+<!-- skill-version: 4.2 -->
+<!-- last-updated: 2026-05-28 -->
 <!-- pipeline: v4 -->
