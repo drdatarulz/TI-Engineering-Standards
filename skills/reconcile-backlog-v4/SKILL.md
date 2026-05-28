@@ -301,68 +301,30 @@ Update the checklist file with any adjustments before proceeding.
 
 Only proceed after user approves the plan.
 
-### 5a. Create New Tickets
+### 5a. Create New Tickets (via add-story-v4)
 
-For each approved new ticket (NT-*):
+For each approved new ticket (NT-*), **invoke the `add-story-v4` skill** rather than creating issues directly. The add-story skill handles story-writing standards, issue creation, title formatting, custom field assignment, milestone linking, and board placement.
 
-```bash
-ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{Title}" \
-  --label "story" \
-  --body "$(cat <<'EOF'
-## Summary
+**How to invoke:** Call the `add-story-v4` skill with a prompt that includes:
+- The proposed title
+- The summary (framed from user's perspective)
+- The acceptance criteria from the checklist
+- The target milestone
+- The source context: "PRD reconciliation {Old Version} → {New Version}, {Decision reference}"
 
-{Description — framed from user's perspective}
+The add-story skill will:
+1. Review the current backlog and codebase for context
+2. Create the issue with proper story template and acceptance criteria
+3. Set the title to `{PREFIX}-{ISSUE_NUM}: {Title}`
+4. Set custom fields (Type=Story, Priority, Story ID)
+5. Move to **Up Next**
+6. Link as sub-issue of the appropriate milestone marker
 
-**Milestone:** {Milestone Name}
-**Source:** PRD reconciliation {Old Version} → {New Version}, {Decision reference}
+After each story is created, update the checklist: mark the row as `✅ Created #{ISSUE_NUM}`
 
-## Acceptance Criteria
+**Important:** Process new tickets one at a time. Wait for the add-story skill to complete before starting the next one.
 
-- [ ] {Criterion 1}
-- [ ] {Criterion 2}
-- [ ] {Criterion 3}
-
-## Branch
-
-`story/{PREFIX}-{ISSUE_NUM}-short-name`
-
-## Test Coverage
-
-| Tier | Required | Notes |
-|------|----------|-------|
-| Unit tests | [x] Yes / [ ] N/A | |
-| Integration tests | [x] Yes / [ ] N/A | |
-| UI / E2E tests | [ ] Yes / [x] N/A | |
-
-## Plan
-
-_Fill in before starting implementation._
-
-## Implementation Notes
-
-_Fill in during implementation._
-
-## Test Results
-
-_Fill in when done._
-
-## Files Changed
-
-_Fill in when done._
-EOF
-)"
-```
-
-After creation:
-1. Extract the issue number: `ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')`
-2. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
-3. Set custom fields (Type=Story, Priority, Story ID)
-4. Move to **Up Next**
-5. Link as sub-issue of the appropriate milestone marker
-6. Update checklist: mark row as `✅ Created #{ISSUE_NUM}`
-
-### 5b. Update Existing Tickets
+### 5b. Update Existing Tickets (then refine via refine-story-v4)
 
 For each approved ticket update (UT-*):
 
@@ -388,38 +350,26 @@ For each approved ticket update (UT-*):
    )"
    ```
 
-4. Update checklist: mark row as `✅ Updated #{ISSUE_NUM}`
+4. **Run `refine-story-v4` on the updated ticket** to bring it up to implementation-ready spec. Invoke the skill with the issue number (e.g., `refine-story-v4 #{ISSUE_NUM}`). The refine skill will review the updated acceptance criteria against the codebase, add technical detail (plan, files to change, test approach), and post its findings as an issue comment.
 
-### 5c. Create Flag Tickets
+5. Update checklist: mark row as `✅ Updated & Refined #{ISSUE_NUM}`
 
-For each flagged item that needs a code change:
+**Important:** Process ticket updates one at a time. Wait for the refine-story skill to complete before starting the next one.
 
-Create a new ticket scoped to the specific delta (not a re-implementation):
+### 5c. Create Flag Tickets (via add-story-v4)
 
-```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "{PREFIX}: {Description of what needs to change}" \
-  --label "task" \
-  --body "$(cat <<'EOF'
-## Summary
+For each flagged item that needs a code change, **invoke the `add-story-v4` skill** to create the ticket. The flag ticket is scoped to the specific delta (not a re-implementation of the original ticket).
 
-PRD {New Version} changed {what} (per {Decision reference}). The existing implementation (from #{original_issue}) needs to be updated.
+**How to invoke:** Call the `add-story-v4` skill with a prompt that includes:
+- The proposed title (describing what needs to change)
+- Context: "PRD {New Version} changed {what} (per {Decision reference}). The existing implementation (from #{original_issue}) needs to be updated."
+- The specific acceptance criteria from the checklist
+- The original ticket number for reference
+- The target milestone
 
-**Original ticket:** #{original_issue}
-**What changed in the PRD:** {specific change}
-**What needs to change in the code:** {specific code changes needed}
+The add-story skill handles issue creation, title formatting, custom fields, milestone linking, and board placement.
 
-## Acceptance Criteria
-
-- [ ] {Specific change 1}
-- [ ] {Specific change 2}
-- [ ] Existing tests still pass
-- [ ] New tests added if behavior changed
-EOF
-)"
-```
-
-After creation, update title with story ID, set fields, and update checklist.
+After each flag ticket is created, update the checklist: mark the row as `✅ Created #{ISSUE_NUM}`
 
 ### 5d. Finalize Checklist
 
@@ -470,8 +420,9 @@ Full reconciliation details: `{checklist_file_path}`
 
 ### Next Steps
 1. Review created/updated issues on the project board
-2. Run `refine-story-v4` on new stories to add technical detail
-3. Use `orchestrate-v4` to begin implementation
+2. All updated tickets have been refined via `refine-story-v4` — review refinement comments on each
+3. Run `refine-story-v4` on new stories if additional technical detail is needed
+4. Use `implement-ticket-v4` to begin implementation
 ```
 
 ---
@@ -489,6 +440,6 @@ If the skill is re-invoked or context is compressed mid-run:
 3. **Resume from the incomplete phase** — do not repeat completed work
 
 ---
-<!-- skill-version: 4.0 -->
+<!-- skill-version: 4.1 -->
 <!-- last-updated: 2026-05-27 -->
 <!-- pipeline: v4 -->
