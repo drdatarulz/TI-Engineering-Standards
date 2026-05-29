@@ -95,23 +95,45 @@ Systematically check each category against what the issue currently provides. Fo
 
 **B. Technical Approach** — Is the library/tool/technique specified? Are there alternatives worth considering? Does the issue explain *why* this approach?
 
-**C. File I/O Flow** — For stories involving file processing: who downloads the input? Where does it go? Who uploads the output? Who cleans up temp files? Is blob storage involved?
+**C. External API Documentation (HARD GATE)** — Does this story involve calling an external third-party API (not our own endpoints)? Signs: provider implementation, HttpClient usage, endpoint URLs, auth credentials in config, or the story references a third-party service by name.
 
-**D. Interface Completeness** — Does the interface method have the right parameters? Is `CancellationToken` included? Are return types correct? Does the signature need to change?
+If YES, check whether **actual API documentation** is available — meaning one of:
+- OpenAPI / Swagger spec URL or file
+- Verified sample request and response (curl or equivalent)
+- Developer portal docs with endpoint paths, auth mechanism, and response schema
 
-**E. Configuration** — What settings are needed? What section of `appsettings.json`? What are sensible defaults?
+**PRD descriptions of what the API returns are NOT API documentation.** A PRD describes the *product intent*; API docs describe the *wire format*. These are different things. Do not treat one as the other.
 
-**F. Infrastructure / Docker** — Are new system packages, NuGet packages, or Docker layers needed? Impact on container size?
+If actual API docs are NOT available or referenced in the issue:
+- **Standalone mode:** Stop and ask the user to provide the API documentation before continuing refinement. Do not guess endpoints, auth mechanisms, request formats, or response schemas.
+- **Orchestrator mode:** Return status BLOCKED:
 
-**G. Error Handling** — What happens with corrupt input, missing dependencies, timeouts, or partial failures?
+  ```
+  STATUS: Blocked
+  STORY_ID: {STORY_ID}
+  ISSUE_NUMBER: {ISSUE_NUMBER}
+  REASON: Story requires external API integration ({provider name}) but no verified API documentation is available. Provide OpenAPI spec, developer portal URL, or verified sample request/response before refinement can proceed.
+  ```
 
-**H. Acceptance Criteria Completeness** — Are criteria specific and testable? Do they cover happy path, edge cases, and error scenarios?
+If API docs ARE available, fetch them (WebFetch the OpenAPI spec or docs URL) and use the verified endpoints, auth, request format, and response schema as the sole source of truth for the Technical Approach and Configuration sections. Do not supplement with guesses from training data.
 
-**I. Files Expected to Change** — Can we enumerate every file that will be created or modified?
+**D. File I/O Flow** — For stories involving file processing: who downloads the input? Where does it go? Who uploads the output? Who cleans up temp files? Is blob storage involved?
 
-**J. Cross-Story Dependencies** — Does this story depend on another that isn't done yet? Will this story's output be consumed by a later story?
+**E. Interface Completeness** — Does the interface method have the right parameters? Is `CancellationToken` included? Are return types correct? Does the signature need to change?
 
-**K. Risks / Watch-outs** — Large container size, slow processing, flaky external tools, licensing concerns?
+**F. Configuration** — What settings are needed? What section of `appsettings.json`? What are sensible defaults?
+
+**G. Infrastructure / Docker** — Are new system packages, NuGet packages, or Docker layers needed? Impact on container size?
+
+**H. Error Handling** — What happens with corrupt input, missing dependencies, timeouts, or partial failures?
+
+**I. Acceptance Criteria Completeness** — Are criteria specific and testable? Do they cover happy path, edge cases, and error scenarios?
+
+**J. Files Expected to Change** — Can we enumerate every file that will be created or modified?
+
+**K. Cross-Story Dependencies** — Does this story depend on another that isn't done yet? Will this story's output be consumed by a later story?
+
+**L. Risks / Watch-outs** — Large container size, slow processing, flaky external tools, licensing concerns?
 
 Skip categories that don't apply to the story (e.g., skip File I/O for a pure UI story).
 
@@ -299,6 +321,6 @@ OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 4.0 -->
-<!-- last-updated: 2026-03-23 -->
+<!-- skill-version: 4.1 -->
+<!-- last-updated: 2026-05-29 -->
 <!-- pipeline: v4 -->
