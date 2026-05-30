@@ -118,11 +118,42 @@ that calls the API's endpoints. If direct access is genuinely warranted,
 get explicit approval from the project owner and document the exception.
 ```
 
-### Scope Deferral Check (Implementation Mode Only)
+### Scope Deferral & Acceptance Criteria Integrity Check (Implementation Mode Only)
 
-After reviewing the code, check for **scope deferral** — situations where the implementation explicitly defers work that the ticket's acceptance criteria required.
+After reviewing the code, perform TWO checks:
 
-**Detection:** Search the PR diff and any new/changed comments, README sections, or issue body updates for language like:
+#### Check 1: Acceptance criteria vs. code (HARD GATE)
+
+Fetch the linked issue and compare every **checked** (`- [x]`) acceptance criterion against the PR diff. For each checked criterion, verify that corresponding code exists in the PR.
+
+**This is the single most important review check.** A checked criterion with no backing code means the implementer claimed work was done that wasn't. This is worse than a missing feature — it's invisible scope loss that downstream agents (testers, orchestrator) will trust and never revisit.
+
+```bash
+# Fetch the issue body and extract checked criteria
+gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq '.body' | grep '\- \[x\]'
+```
+
+For each checked criterion:
+- Can you find corresponding code in the PR diff? (endpoints, UI components, migrations, tests, etc.)
+- If the criterion mentions a UI element (button, toggle, red border, navigation), is there a `.razor` change?
+- If the criterion mentions a database change, is there a migration?
+- If the criterion mentions an API endpoint, is there an endpoint registration?
+
+**If a criterion is checked but has no corresponding code:** This is a **blocking violation**.
+
+```
+**[Standards Violation: Phantom Acceptance Criteria]**
+The acceptance criterion "{criterion text}" is checked off but no corresponding
+code exists in this PR. Checked criteria must have backing code — if the work
+was deferred, the criterion must remain unchecked and a follow-up ticket created.
+
+**Fix:** Either implement the criterion in this PR, or uncheck it and create a
+follow-up ticket on the project board.
+```
+
+#### Check 2: Scope deferral language
+
+Search the PR diff and any new/changed comments, README sections, or issue body updates for language like:
 - "NOT include", "deferred to", "follow-up story", "subsequent ticket", "if time permits"
 - Acceptance criteria that mention UI/Blazor pages but no `.razor` files in the PR
 - Acceptance criteria that mention screens/routes but no corresponding page created
@@ -137,7 +168,9 @@ After reviewing the code, check for **scope deferral** — situations where the 
 
    **Fix:** Either implement the deferred scope in this PR, or create a follow-up issue with clear acceptance criteria and link it in the PR description.
    ```
-3. **If a follow-up ticket exists and is linked:** This is a **non-blocking suggestion**. Note it but approve.
+3. **If a follow-up ticket exists:** Verify it is **on the project board** with Status, Type, Priority, and Story ID fields set. A ticket that isn't on the board doesn't exist — it will be forgotten.
+   - **If on the board:** Non-blocking suggestion. Note it but approve.
+   - **If NOT on the board:** This is a **blocking violation**. The follow-up ticket must be added to the board before the PR can be approved.
 
 ### Integration-Tests Mode Checklist
 
