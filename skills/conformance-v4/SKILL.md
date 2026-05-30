@@ -159,6 +159,35 @@ Check against `standards/architecture.md`:
 - Infrastructure types absent from interfaces
 - Fakes project exists: `{Project}.Fakes`
 
+### 3a.1 Service Data Access — API as the Boundary
+
+For every project that is a **worker, CRON job, or background service** (NOT the API, NOT the Migrator), check whether it accesses data through the API or directly through infrastructure:
+
+```bash
+# Find worker/service projects (exclude Api, Migrator, Domain, Infrastructure, Web, test projects)
+find src -maxdepth 1 -type d | grep -v -E 'Api|Migrator|Domain|Infrastructure|Web|obj|bin' | while read dir; do
+  if [ -f "$dir/Program.cs" ]; then
+    echo "=== $(basename $dir) ==="
+    # Check for direct infrastructure registrations
+    grep -n "ISubmissionRepository\|IBlobStorageService\|ITeamMailboxConfigRepository\|I.*Repository\|IAuditWriter\|ISubmissionAuditWriter" "$dir/Program.cs" 2>/dev/null | head -10
+    # Check for HttpClient-based API access (the correct pattern)
+    grep -n "HttpClient\|AddHttpClient\|IApiClient" "$dir/Program.cs" 2>/dev/null | head -5
+  fi
+done
+```
+
+Per `standards/architecture.md` → "Service Data Access — API as the Boundary":
+
+| Check | Result | Finding |
+|-------|--------|---------|
+| Workers access data through API endpoints (not direct DB/storage) | | |
+| No direct `I*Repository` registrations in worker DI | | |
+| No direct `IBlobStorageService` registrations in worker DI | | |
+| Workers use `HttpClient` to call API endpoints | | |
+| Any exceptions are documented and approved by project owner | | |
+
+If a worker has direct infrastructure access, flag it as a gap. Note the standard's guidance: "do not partially convert — leave as-is until a dedicated conversion ticket is created."
+
 ### 3b. API Layer
 
 Read 3–5 endpoint files. Check against `standards/api-design.md` and `standards/dotnet.md`:
