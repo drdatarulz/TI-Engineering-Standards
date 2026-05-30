@@ -86,6 +86,38 @@ Run through every rule in the 12 standards files you loaded in Step 0. For each 
 
 Also check the project's `CLAUDE.md` for project-specific rules that go beyond the standards.
 
+### Service Data Access Check (Implementation Mode Only)
+
+This is an **architectural-level** check that applies to the PR as a whole, not per-file. It catches violations of the "API as the Boundary" rule in `standards/architecture.md`.
+
+**When to run:** When the PR adds or modifies code in a **worker or service project** (background workers, CRON jobs, hosted services — any project that is NOT the API or Migrator). Detect by checking whether the PR changes files in projects like `*.Worker/`, `*.EmailIntake/`, or any `BackgroundService` / Container Apps Job project.
+
+**What to check:**
+
+1. **Direct infrastructure resolution.** Does the worker's `Program.cs` or DI setup register repositories (`I*Repository`), storage services (`IBlobStorageService`), audit writers (`I*AuditWriter`), or other data-access abstractions directly? Per `standards/architecture.md` → "Service Data Access — API as the Boundary", workers should access data through API endpoints via `HttpClient`, not by resolving infrastructure services.
+
+2. **New direct data access in existing workers.** Even if the worker already has direct DB access (a pre-existing violation), new code in the PR should not add *more* direct data access without raising it. Per the standard: "do not partially convert — leave as-is until a dedicated conversion ticket is created."
+
+3. **Correct pattern.** A compliant worker injects `HttpClient` (or a typed API client) and calls API endpoints. It does NOT inject `ISubmissionRepository`, `IBlobStorageService`, `ITeamMailboxConfigRepository`, or similar infrastructure interfaces.
+
+**If a violation is found:**
+
+- If the worker is **new** (created in this PR): this is a **blocking violation**. The worker should be built as an API client from the start.
+- If the worker **already exists** with direct DB access and this PR adds more of the same pattern: this is an **advisory finding**. Note it, but do not block — the standard says conversions are all-or-nothing per service via a dedicated ticket. Do recommend creating a conversion ticket.
+
+```
+**[Standards Violation: Service Data Access]**
+This worker resolves {interface names} directly instead of calling API endpoints.
+Per `standards/architecture.md` → "Service Data Access — API as the Boundary",
+workers should access data through the API via HTTP, not through direct
+infrastructure registrations.
+
+**Standard:** `standards/architecture.md` — Service Data Access — API as the Boundary
+**Fix:** Replace direct infrastructure DI registrations with a typed HTTP client
+that calls the API's endpoints. If direct access is genuinely warranted,
+get explicit approval from the project owner and document the exception.
+```
+
 ### Scope Deferral Check (Implementation Mode Only)
 
 After reviewing the code, check for **scope deferral** — situations where the implementation explicitly defers work that the ticket's acceptance criteria required.
