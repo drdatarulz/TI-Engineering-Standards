@@ -238,6 +238,16 @@ After the implementer reports completion, verify the implementation actually cov
 
 2. **Acceptance Criteria Spot-Check:** Compare the ticket's `- [ ]` acceptance criteria against what was implemented. If more than 30% of criteria appear unaddressed (no corresponding code, endpoints, or tests), treat as `STATUS: Partial` — post issue comment and move to Waiting/Blocked.
 
+3. **Follow-Up Ticket Injection (Non-Negotiable):** If a follow-up ticket was created (either by the implementer or auto-created in step 1 above), it **must be appended to the current orchestrator run's ticket queue**. Follow-up tickets do not wait for a future session — they run in the current batch, after the parent ticket completes.
+
+   **How to inject:**
+   - Resolve the follow-up issue number
+   - Verify it is on the project board with all fields set (Status, Type, Priority, Component, Story ID). If not, add it and set the fields.
+   - Append the issue number to the ticket list so it will be picked up after the current ticket's pipeline (stages 3–8) completes
+   - Log the injection: `"Follow-up ticket #{FOLLOW_UP_NUMBER} injected into current run after #{CURRENT_TICKET_NUMBER}"`
+
+   **Rationale:** A follow-up ticket that isn't in the current run will be forgotten. The orchestrator is the only agent that manages sequencing — if it doesn't pick up the ticket, no one will until a human notices the gap. This is how II-210's deferred UI work (II-226) sat untouched for weeks.
+
 After the completeness check passes, continue to Stage 3.
 
 ---
