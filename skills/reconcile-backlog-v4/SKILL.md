@@ -320,9 +320,11 @@ The add-story skill will:
 5. Move to **Up Next**
 6. Link as sub-issue of the appropriate milestone marker
 
-After each story is created, update the checklist: mark the row as `✅ Created #{ISSUE_NUM}`
+After each story is created, **run `refine-story-v4` on the new ticket** to bring it to implementation-ready spec. Invoke the skill with the issue number (e.g., `refine-story-v4 #{ISSUE_NUM}`). The refine skill will review the acceptance criteria against the codebase, add a technical plan (files to change, test approach), and post its findings as an issue comment.
 
-**Important:** Process new tickets one at a time. Wait for the add-story skill to complete before starting the next one.
+After refinement completes, update the checklist: mark the row as `✅ Created & Refined #{ISSUE_NUM}`
+
+**Important:** Process new tickets one at a time. Wait for the add-story skill AND the refine-story skill to complete before starting the next one.
 
 ### 5b. Update Existing Tickets (then refine via refine-story-v4)
 
@@ -369,7 +371,9 @@ For each flagged item that needs a code change, **invoke the `add-story-v4` skil
 
 The add-story skill handles issue creation, title formatting, custom fields, milestone linking, and board placement.
 
-After each flag ticket is created, update the checklist: mark the row as `✅ Created #{ISSUE_NUM}`
+After each flag ticket is created, **run `refine-story-v4` on the new ticket** to bring it to implementation-ready spec. Invoke the skill with the issue number (e.g., `refine-story-v4 #{ISSUE_NUM}`). The refine skill will review the acceptance criteria against the codebase, add a technical plan, and post its findings as an issue comment.
+
+After refinement completes, update the checklist: mark the row as `✅ Created & Refined #{ISSUE_NUM}`
 
 ### 5d. Finalize Checklist
 
@@ -420,9 +424,8 @@ Full reconciliation details: `{checklist_file_path}`
 
 ### Next Steps
 1. Review created/updated issues on the project board
-2. All updated tickets have been refined via `refine-story-v4` — review refinement comments on each
-3. Run `refine-story-v4` on new stories if additional technical detail is needed
-4. Use `implement-ticket-v4` to begin implementation
+2. All tickets (new, updated, and flagged) have been refined via `refine-story-v4` — review refinement comments on each
+3. Use `implement-ticket-v4` to begin implementation
 ```
 
 ---
