@@ -123,6 +123,30 @@ Email? email = await emailRepository.GetByIdAsync(id);
 if (email is null) return Results.NotFound();
 ```
 
+## External API / Provider Call Failures
+
+When calling third-party APIs or external services, catch blocks must not return data that is indistinguishable from a successful response. The caller must be able to determine whether the returned data came from the provider or is a fallback due to failure.
+
+- **Signal the outcome** — return a result type that carries a status indicator (success, no-data, or error with HTTP status code), or let the exception propagate
+- **Never return plausible defaults from a catch block** — returning a domain object populated with defaults (e.g., `FloodZone = "X"`, `claims = 0`, `score = 0`) produces data that looks correct but isn't. The caller has no way to distinguish real data from a masked failure.
+- **Log with structured fields** — include provider name, endpoint category, HTTP status code, and duration so provider health can be monitored
+
+```csharp
+// BAD — silent default masquerading as real data
+catch (Exception ex)
+{
+    _logger.LogWarning(ex, "Provider call failed");
+    return new FloodResult { FloodZone = "X" }; // caller thinks this is real
+}
+
+// GOOD — caller can distinguish success from failure
+catch (HttpRequestException ex)
+{
+    _logger.LogWarning(ex, "FEMA NFHL query failed: {StatusCode}", ex.StatusCode);
+    return new FloodResult { Status = ProviderOutcome.Error, ErrorDetail = ex.Message };
+}
+```
+
 ## Pagination
 
 - **Envelope pattern** — consistent shape across all list endpoints

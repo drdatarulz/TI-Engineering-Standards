@@ -102,6 +102,33 @@ If the PR diff touches any provider section in `appsettings.json` (e.g., `UseStu
 **Fix:** Update the `{ENV_VAR_NAME}` env var in `container-app.bicep` to `{new_value}`.
 ```
 
+### Silent Provider Error Check (Implementation Mode Only)
+
+When the PR adds or modifies code that calls external APIs or third-party services (`HttpClient` usage, provider implementations, integration clients), inspect every `catch` block for the **silent default anti-pattern**: a catch that returns a value indistinguishable from a successful response.
+
+**What to look for:**
+
+1. A `catch` block that returns a domain object populated with default values (e.g., `FloodZone = "X"`, `score = 0`, `claims = 0`)
+2. A `catch` block that returns `0`, `false`, or `null` where those values have a real meaning (e.g., `0` means "zero claims found" — the caller cannot tell "zero claims" from "the claims API is down")
+3. No status/outcome indicator on the return type — the caller cannot distinguish "the provider returned this data" from "the provider failed and we guessed"
+4. `LogWarning` or `LogError` as the only signal, with a return that hides the failure from the caller
+
+**Why this matters:** Silent defaults produce plausible-but-wrong results. A failed flood data call returning Zone X gives the user a green "A" grade for a property that might be in a VE flood zone. The system appears healthy — no errors, no alerts — but the data is wrong. This class of bug is undetectable without provider-level health monitoring.
+
+**If a violation is found:** This is a **blocking violation**.
+
+```
+**[Standards Violation: Silent Provider Error]**
+This catch block at `{file}:{line}` returns `{value}` which is indistinguishable
+from a successful provider response. The caller cannot tell whether this data is
+real or a fallback due to failure.
+
+**Standard:** `standards/error-handling.md` — External API / Provider Call Failures
+**Fix:** Return a result type that signals the outcome (success vs. error with
+HTTP status code), or let the exception propagate. Do not mask provider failures
+as plausible data.
+```
+
 ### Service Data Access Check (Implementation Mode Only)
 
 This is an **architectural-level** check that applies to the PR as a whole, not per-file. It catches violations of the "API as the Boundary" rule in `standards/architecture.md`.
