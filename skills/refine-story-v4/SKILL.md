@@ -95,27 +95,63 @@ Systematically check each category against what the issue currently provides. Fo
 
 **B. Technical Approach** — Is the library/tool/technique specified? Are there alternatives worth considering? Does the issue explain *why* this approach?
 
-**C. External API Documentation (HARD GATE)** — Does this story involve calling an external third-party API (not our own endpoints)? Signs: provider implementation, HttpClient usage, endpoint URLs, auth credentials in config, or the story references a third-party service by name.
+**C. External API Spec on Disk (HARD GATE — see `standards/api-integration.md`)** — Does this story involve calling an external third-party API (not our own endpoints)? Signs: provider implementation, HttpClient usage, endpoint URLs, auth credentials in config, or the story references a third-party service by name.
 
-If YES, check whether **actual API documentation** is available — meaning one of:
-- OpenAPI / Swagger spec URL or file
-- Verified sample request and response (curl or equivalent)
-- Developer portal docs with endpoint paths, auth mechanism, and response schema
+If YES, check whether the provider's **API spec file exists on disk** at `docs/api-specs/`:
 
-**PRD descriptions of what the API returns are NOT API documentation.** A PRD describes the *product intent*; API docs describe the *wire format*. These are different things. Do not treat one as the other.
+```bash
+ls docs/api-specs/{provider}* 2>/dev/null
+```
 
-If actual API docs are NOT available or referenced in the issue:
-- **Standalone mode:** Stop and ask the user to provide the API documentation before continuing refinement. Do not guess endpoints, auth mechanisms, request formats, or response schemas.
-- **Orchestrator mode:** Return status BLOCKED:
+Acceptable spec formats: OpenAPI JSON/YAML, ArcGIS REST layer JSON, or a manually documented schema (`.md`) that contains every endpoint path, request format, response field names with types, and at least one verified sample response.
 
-  ```
-  STATUS: Blocked
-  STORY_ID: {STORY_ID}
-  ISSUE_NUMBER: {ISSUE_NUMBER}
-  REASON: Story requires external API integration ({provider name}) but no verified API documentation is available. Provide OpenAPI spec, developer portal URL, or verified sample request/response before refinement can proceed.
-  ```
+**The following are NOT API specs and NEVER satisfy this gate:**
+- PRD descriptions of what the API returns (product intent ≠ wire format)
+- Ticket acceptance criteria describing expected behavior
+- Training-data knowledge of what the API "probably" returns
+- A description like "returns wildfire scoring with grade" without field-level detail
 
-If API docs ARE available, fetch them (WebFetch the OpenAPI spec or docs URL) and use the verified endpoints, auth, request format, and response schema as the sole source of truth for the Technical Approach and Configuration sections. Do not supplement with guesses from training data.
+**If no spec file exists on disk:**
+
+1. Check the project's API Integration Reference doc for a spec URL
+2. If a URL exists, attempt to fetch and save it:
+   ```bash
+   curl -s -o docs/api-specs/{provider}-openapi.json {url}
+   python3 -c "import json; json.load(open('docs/api-specs/{provider}-openapi.json')); print('Valid JSON')"
+   ```
+3. If fetch succeeds, use the spec as source of truth and continue refinement
+4. If fetch fails or no URL exists:
+   - **Standalone mode:** Stop and tell the user: *"This story requires integration with {provider} but no API spec exists at `docs/api-specs/`. Provide an OpenAPI spec, developer portal URL, or documented response schema before refinement can continue."* Do not guess endpoints, auth mechanisms, request formats, or response schemas.
+   - **Orchestrator mode:** Return status BLOCKED:
+
+     ```
+     STATUS: Blocked
+     STORY_ID: {STORY_ID}
+     ISSUE_NUMBER: {ISSUE_NUMBER}
+     REASON: Story requires external API integration ({provider name}) but no API spec found at docs/api-specs/. Provide OpenAPI spec, ArcGIS layer definition, or documented response schema before refinement can proceed.
+     CHECKLIST_ITEM: "External API spec on disk" — FAILED
+     ```
+
+**If the spec file exists on disk:**
+
+1. Read the spec and identify the relevant endpoint schemas
+2. Use the spec's field names, types, and nesting as the **sole source of truth** for the Technical Approach
+3. Include a `## Spec Reference` section in the refined issue body:
+   ```markdown
+   ## Spec Reference
+
+   - **Spec file:** `docs/api-specs/{provider}-openapi.json`
+   - **Endpoint:** `POST /advanced_wildfire_profile_request`
+   - **Response schema:** `AdvancedWildfireResponse` → `metrics` (object with `Pixel_Risk_Score`, `PxlRiskClass`, `Six_Class`, `Risk_Score`, `Probability`, `Odds`)
+   - **Field mapping:** [table of spec field → C# property → C# type]
+   ```
+4. In the Technical Approach, reference specific schema names and field definitions from the spec — not prose descriptions
+5. In the Acceptance Criteria, add this checklist item:
+   ```markdown
+   - [ ] External API spec validation: All JsonPropertyName values match the spec. All C# types are compatible with spec types. No fields were inferred.
+   ```
+
+Do not supplement spec data with guesses from training data. If the spec is ambiguous or incomplete, note the ambiguity in the issue and flag it for the user — do not fill in the gaps with assumptions.
 
 **D. File I/O Flow** — For stories involving file processing: who downloads the input? Where does it go? Who uploads the output? Who cleans up temp files? Is blob storage involved?
 
@@ -321,6 +357,6 @@ OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 4.1 -->
-<!-- last-updated: 2026-05-29 -->
+<!-- skill-version: 4.2 -->
+<!-- last-updated: 2026-06-02 -->
 <!-- pipeline: v4 -->

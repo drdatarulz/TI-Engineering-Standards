@@ -73,6 +73,45 @@ All rules from the 12 standards files apply — you loaded them in the Context L
 - Check the Fakes project for existing fakes you'll need or need to extend
 - Identify which files need to change and what new files are needed
 
+### 1.5. EXTERNAL API SPEC VALIDATION (HARD GATE — see `standards/api-integration.md`)
+
+**Check:** Does this ticket involve writing or modifying C# models for an external third-party API? Signs: files under `Providers/*/`, `[JsonPropertyName]` attributes for external responses, `HttpClient` calls to third-party endpoints, or the ticket references a third-party provider by name.
+
+**If YES:**
+
+1. Identify the provider name(s) from the code path (e.g., `Providers/Athena/`, `Providers/PropertyLens/`)
+2. Check for the spec on disk:
+   ```bash
+   ls docs/api-specs/{provider}* 2>/dev/null
+   ```
+3. **If NO spec exists:** STOP. Do not write any provider models. Report:
+   ```
+   STATUS: Blocked
+   MODE: initial
+   TICKET: {STORY_ID}
+   BLOCKED_REASON: External API integration requires a spec file at docs/api-specs/{provider}-*.json but none was found. Cannot write provider models without a verified API contract. Obtain the spec (OpenAPI, ArcGIS layer definition, or documented response schema) before implementation can proceed.
+   CHECKLIST_ITEM: "External API spec on disk" — FAILED
+   ```
+
+4. **If the spec EXISTS:** Read it and validate the ticket's Technical Approach against it:
+   - Do the field names in the TA match the spec? (e.g., spec says `Pixel_Risk_Score`, TA says `pixel_risk_score` → mismatch)
+   - Do the types in the TA match the spec? (e.g., spec shows an object, TA says `decimal?` → mismatch)
+   - If mismatches are found, use the **spec** as the source of truth, not the TA. Log each deviation.
+
+5. **When writing provider models**, enforce these rules:
+   - Every `[JsonPropertyName("...")]` value MUST match the exact field name from the spec or example response
+   - Every C# property type MUST be compatible with the spec-defined type (object → class/dictionary, number → decimal/int, string → string)
+   - Do not invent fields that are not in the spec
+   - If intentionally skipping spec fields, add a one-line comment listing what was skipped
+
+6. **After writing models**, run a self-check:
+   - List every `[JsonPropertyName]` in the new/modified model files
+   - Verify each one appears in the spec
+   - Verify type compatibility
+   - Include the validation result in the REPORT under a `SPEC_VALIDATION:` section
+
+**If NO** (internal API or no provider models involved): skip this step.
+
 ### 2. PLAN (before writing code)
 - Determine implementation approach based on existing patterns in the codebase
 - Verify the approach respects the build order: Domain -> Fakes -> Infrastructure -> Api
@@ -182,6 +221,12 @@ TESTS:
 DECISIONS:
 - Any pattern choices, trade-offs, or interpretations of ambiguous requirements
 
+SPEC_VALIDATION: (only if external API models were written)
+- Spec file: docs/api-specs/{provider}-openapi.json
+- Fields validated: [count] of [count] JsonPropertyName attributes match spec
+- Type mismatches: [none | list]
+- Skipped spec fields: [none | list]
+
 CONCERNS:
 - Anything that felt wrong, might need revisiting, or affects future tickets
 
@@ -268,6 +313,6 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
 
 ---
-<!-- skill-version: 4.0 -->
-<!-- last-updated: 2026-03-23 -->
+<!-- skill-version: 4.1 -->
+<!-- last-updated: 2026-06-02 -->
 <!-- pipeline: v4 -->

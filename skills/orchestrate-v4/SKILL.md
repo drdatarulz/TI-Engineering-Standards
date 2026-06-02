@@ -191,9 +191,37 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 1c. Process result
 
-- If `STATUS: AlreadyRefined` — continue to Stage 2
-- If `STATUS: Refined` — continue to Stage 2
+- If `STATUS: AlreadyRefined` — continue to Stage 1d
+- If `STATUS: Refined` — continue to Stage 1d
+- If `STATUS: Blocked` (e.g., missing external API spec) — move issue to Waiting/Blocked, post comment with `REASON`, skip this ticket
 - If `STATUS: NeedsManualReview` — move issue to Waiting/Blocked, post comment, skip this ticket
+
+#### 1d. External API Spec Gate (HARD GATE — see `standards/api-integration.md`)
+
+Before dispatching to implementation, check whether the refined ticket involves external API integration. Read the issue body and check for signs: provider names (e.g., Athena, PropertyLens, E2Value, FEMA), `HttpClient` references, endpoint URLs, or a `## Spec Reference` section.
+
+**If the ticket involves an external API:**
+
+1. Check for the spec on disk:
+   ```bash
+   ls docs/api-specs/{provider}* 2>/dev/null
+   ```
+2. **If no spec exists:** The orchestrator blocks this ticket immediately. Do NOT dispatch to implement-ticket-v4.
+   - Move issue to Waiting/Blocked
+   - Post issue comment:
+     ```
+     ## Blocked: External API Spec Missing
+
+     This ticket requires integration with **{provider}** but no API spec was found at `docs/api-specs/`.
+
+     **Required action:** Obtain the API spec (OpenAPI JSON, ArcGIS layer definition, or documented response schema) and commit it to `docs/api-specs/{provider}-openapi.json` before implementation can proceed.
+
+     **Why this gate exists:** Provider C# models must be built from verified API contracts, not from PRD descriptions or assumptions. See `standards/api-integration.md`.
+     ```
+   - Skip this ticket and continue to the next one
+3. **If the spec exists:** Continue to Stage 2
+
+**If the ticket does NOT involve an external API:** Continue to Stage 2.
 
 ---
 
@@ -828,6 +856,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 4.2 -->
-<!-- last-updated: 2026-05-28 -->
+<!-- skill-version: 4.3 -->
+<!-- last-updated: 2026-06-02 -->
 <!-- pipeline: v4 -->
