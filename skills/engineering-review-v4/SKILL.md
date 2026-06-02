@@ -86,6 +86,22 @@ Run through every rule in the 12 standards files you loaded in Step 0. For each 
 
 Also check the project's `CLAUDE.md` for project-specific rules that go beyond the standards.
 
+### Infrastructure Drift Check (Implementation Mode Only)
+
+If the PR diff touches any provider section in `appsettings.json` (e.g., `UseStub`, `BaseUrl`, `TimeoutSeconds`, or a new provider block), verify that `infra/modules/container-app.bicep` stays in sync:
+
+- **`UseStub` flag changed** — The bicep env var MUST match. A `UseStub` mismatch means the deployed environment runs stubs when the intent was live (or vice versa). This is a **blocking violation**.
+- **New secret added** (API key, password, connection string) — Must be wired through `infra/main.bicep` param → `keyvault.bicep` secret → `container-app.bicep` secretRef. Missing secret wiring is a **blocking violation**.
+- **Non-secret config changed** (BaseUrl, TimeoutSeconds, etc.) — If no bicep env var exists, the value baked into the container image's `appsettings.json` is used at runtime, which is correct. Only flag if a bicep env var already exists for that setting and now contradicts the new value.
+
+```
+**[Standards Violation: Infrastructure Drift]**
+`{setting}` was changed in `appsettings.json` but `infra/modules/container-app.bicep` still has the old value. Deployed environments will use the bicep value, not `appsettings.json`.
+
+**Standard:** Project-specific — infra/app config must stay in sync for overridden settings
+**Fix:** Update the `{ENV_VAR_NAME}` env var in `container-app.bicep` to `{new_value}`.
+```
+
 ### Service Data Access Check (Implementation Mode Only)
 
 This is an **architectural-level** check that applies to the PR as a whole, not per-file. It catches violations of the "API as the Boundary" rule in `standards/architecture.md`.

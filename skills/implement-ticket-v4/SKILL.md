@@ -121,6 +121,7 @@ All rules from the 12 standards files apply — you loaded them in the Context L
 - Follow the build order — don't jump ahead
 - Write fakes for any new interfaces immediately
 - Write tests alongside each piece of implementation, not after
+- **Infrastructure drift check:** If you changed any provider section in `appsettings.json` (e.g., `UseStub`, `BaseUrl`, `TimeoutSeconds`, new provider sections), check `infra/modules/container-app.bicep` for the corresponding environment variable. If the bicep env var exists, update it to match. If a new setting has no bicep env var and the deployed default would be wrong (e.g., `UseStub` flipped from `true` to `false`), add the env var — and if it's a secret, add it to `infra/modules/keyvault.bicep` and `infra/main.bicep` as well. Non-secret config that matches the baked-in `appsettings.json` default does not need a bicep entry.
 
 ### 4. TEST
 
