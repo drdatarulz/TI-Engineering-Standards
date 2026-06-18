@@ -6,6 +6,28 @@
 - Tests verify behavior and outcomes, not implementation details
 - If a test is brittle, the design is wrong — fix the design, not the test
 
+## Test Integrity
+
+A test that cannot fail is not a test. These rules apply to **every tier** (unit, integration, UI).
+
+### Silent failures — every test must reach an assertion
+
+Every test method must reach at least one assertion on every execution path. A test that exits without asserting reports green while the feature it claims to verify may be broken — a silently passing test is a lie. **Prohibited:**
+
+- **Exception swallowing:** `try { /* assert */ } catch (TimeoutException) { return; }`
+- **Guard-and-bail:** `if (await element.CountAsync() == 0) return;` before the real assertion
+- **Conditional assertion:** `if (await element.IsVisibleAsync()) { /* assert */ }` — the assertion never runs when the element is absent
+
+If a precondition genuinely can't be met (missing seed data, feature not deployed), the test must **fail with a clear message**, not pass quietly. A failing test is a signal.
+
+### Assert correct behavior — fix the bug, not the test
+
+Tests assert what the application **should** do, never what a bug currently causes it to do. If a known bug prevents the expected outcome, the test should fail — that failure is how the bug is tracked. Never rewrite an assertion to match broken behavior (e.g., asserting an error snackbar appears because delete is broken, instead of asserting the row is removed). Write the assertion for correct behavior, let it fail, and **fix the code, not the test.** A test that verifies broken behavior keeps passing long after the bug is fixed — at which point it is actively wrong and no one notices.
+
+### Never skip tests for known bugs
+
+Never use `Skip` / `[Fact(Skip = "...")]` (or equivalents) to disable tests for known-broken features. Skipped tests vanish from failure counts, dashboards, and CI summaries — a failing test is visible, a skipped one is forgotten. Let it run, let it fail, and track the count; when the bug is fixed the test passes automatically with no one needing to remember to unskip it.
+
 ## Frameworks
 
 - **xUnit** — test framework
@@ -98,6 +120,30 @@ This applies to implement agents, review agents, and integration test agents —
 - Semantic selectors preferred (`GetByRole`, `GetByLabel`, `GetByText`) over CSS selectors
 - Shouldly assertions (same as all other test tiers)
 - Tests tagged with `[Trait("Category", "Playwright")]` for CI filtering
+
+### No hardcoded waits
+
+Never use fixed-duration waits (`Task.Delay`, `WaitForTimeoutAsync`, `Thread.Sleep`) to wait for UI state — they are either too short (flaky) or too long (slow), and they hide *what* you are actually waiting for. Use condition-based waits, which auto-resolve as soon as the condition is met and fail fast at a configurable timeout:
+
+| Instead of | Use |
+|---|---|
+| `await Task.Delay(2000)` | `await element.WaitForAsync()` |
+| `await page.WaitForTimeoutAsync(1000)` | `await Expect(element).ToBeVisibleAsync()` |
+| `await Task.Delay(500)` before asserting text | `await Expect(element).ToHaveTextAsync("expected")` |
+| `await Task.Delay(3000)` waiting for navigation | `await page.WaitForURLAsync("/expected-path")` |
+| `await Task.Delay(1000)` waiting for element to disappear | `await Expect(element).ToBeHiddenAsync()` |
+
+### Page Object Model — no inline locators
+
+Test methods must not contain element locators. All locators live in Page Object Model (POM) classes; tests interact with the page exclusively through POM methods. The POM is the single source of truth for how to find and interact with a screen — when the UI changes, you update one POM method instead of hunting through dozens of test files.
+
+```csharp
+// Prohibited — locator in the test; every test using it breaks independently when the selector changes
+await _page.Locator(".submit-button").ClickAsync();
+
+// Required — locator in the POM; one place to update
+await _screenPage.SubmitAsync();
+```
 
 ### Running Playwright Tests Locally
 
