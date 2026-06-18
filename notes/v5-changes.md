@@ -92,13 +92,18 @@
   observed the running feature*. Waiting until the end of a batch to run all of them for the first
   time risks building later stories on top of an already-broken earlier one. Split the work by job:
 
-  - **Authoring correctness → per story.** `ui-test-v5` runs **that story's new UI tests immediately
-    after authoring them** (narrow scope, just the new ones) and fix-loops right there before the
-    story's test cycle is declared done.
-  - **Regression → end-of-batch boundary.** The end-of-orchestration run stays, but its job narrows
-    to catching regressions a *later* story introduced into an *earlier* story's UI.
-  - **Critical-path smoke set, run per story alongside the new tests.** Catches in-batch regressions
-    story-by-story instead of all at the end.
+  - **Authoring correctness → per story.** After authoring a story's UI tests, `ui-test-v5` **runs
+    just those new tests** and fix-loops right there before the story's test cycle is declared done.
+    **Execution goes through the #8 path, not locally** — the orchestration runs inside a Docker
+    container and *cannot run Docker itself*, so Playwright/Compose must execute on the self-hosted
+    runner. Mechanically: a **scoped `workflow_dispatch`** of `ui-tests.yml` against the story's
+    branch, **filtered to the new tests**; the skill polls the run and fix-loops on the result.
+    (Latency per dispatch is why this stays *scoped*, not the full suite.)
+  - **Regression → end-of-batch boundary.** The end-of-orchestration run stays — same `ui-tests.yml`
+    on the runner but **unfiltered (full suite)** — its job narrowed to catching regressions a
+    *later* story introduced into an *earlier* story's UI.
+  - **Critical-path smoke set, run per story alongside the new tests** (same scoped runner dispatch).
+    Catches in-batch regressions story-by-story instead of all at the end.
 
   **Critical-path set — the cap (this is the reviewable rule):**
   - It's an **absolute band, not a percentage.** A percentage *of total tests* backfires — the suite
@@ -270,8 +275,9 @@ over-*production*.
     Self-test path: dispatch workflow with `echo` → `docker run --rm hello-world` → `dotnet test`.
   - **Concrete workflow set** (all `runs-on: self-hosted`): `fast-tests.yml` → on `pull_request`
     (per-PR gate); `integration-tests.yml` → required pre-merge check; `ui-tests.yml` → on
-    `workflow_dispatch` (orchestrator fires at the boundary). Status confirmed working in a separate
-    session (2026-06-18).
+    `workflow_dispatch` — fired **two ways**: *scoped* (branch ref + filter input) for the per-story
+    authoring run and critical-path smoke (thread B), and *unfiltered* for the end-of-batch full
+    suite. Status confirmed working in a separate session (2026-06-18).
 
 - **#9 — Fold UI-test anti-patterns into the standards. DONE (committed `de70473`).**
   `notes/ui-test-anti-patterns.md` (SDET-reviewed) had five rules; applied to `standards/testing.md`:
