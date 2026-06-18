@@ -115,9 +115,23 @@
     per-story critical-path runtime stays bounded forever regardless of suite size.
   - Optional secondary guardrail only: a *% of UI tests* (never total) upper bound — the absolute
     ceiling will almost always bind first.
-  - **System assigns, gate bounds.** Criticality is **declared at `refine-story` time** (where the
-    journey's importance is understood); `engineering-review-v5` **enforces the floor/ceiling**.
-    Don't have an agent infer criticality from nothing — it drifts.
+  - **Where the rule is documented:** in `standards/testing.md` — the single source of truth both
+    skills cite (same pattern as the thread-A tier table), so neither skill carries its own drifting
+    copy. It lands with the **broader v5 `testing.md` rewrite**, not piecemeal — unlike the #9
+    anti-patterns (purely additive), this rule references the tier table and the not-yet-built
+    `engineering-review-v5`, so it's entangled with the v5 skill work.
+  - **How it's enforced (the mechanic):** the cap is only enforceable if "critical-path" is a **tag**.
+    UI tests covering a critical journey get `[Trait("CriticalPath", "true")]` (same xUnit idiom as
+    the existing `[Trait("Category","Playwright")]`), which makes the set **countable**
+    (`dotnet test --filter "CriticalPath=true"` or a grep) — *that countability is exactly why
+    floor/ceiling work and a percentage didn't: a count needs no denominator.*
+    - `refine-story-v5` **declares** which of a story's journeys are critical (where the journey's
+      importance is understood) → the `ui-test` author applies the tag.
+    - `engineering-review-v5` **counts the repo-wide tagged set.** **Ceiling ≤10 is the hard gate**
+      (REQUEST_CHANGES → demote the least-critical; bounds both bloat and per-story runtime). **Floor
+      ≥3 is advisory** (can't force existential journeys onto a one-page app) — flag, don't block.
+    - Don't have an agent infer criticality from nothing — it drifts; the declaration is human/refine
+      input, the count is mechanical.
 
 ---
 
