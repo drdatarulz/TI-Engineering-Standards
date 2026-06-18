@@ -214,3 +214,15 @@ per-PR gate covers. **When you run tests and how they're shaped are the same pro
    never auto-deletes.
 
 **Metric that governs all of it:** optimize **cost at constant defect-detection**, not test count.
+
+---
+
+## 8. → Moved to its own document
+
+The working-session decisions that grew out of this assessment now live in their own spec:
+**[`notes/v5-changes.md`](v5-changes.md)** — the going-forward **v5 pipeline & standards changes**.
+
+This assessment (§§1–7) remains the *origin and rationale*; `v5-changes.md` is the *actionable spec*
+(trigger model, test tiers, the subtractive review gate, UI-test volume, the orchestration
+architecture, the self-hosted-runner execution model, and the UI-test anti-patterns now in
+`standards/testing.md`).
