@@ -1,12 +1,21 @@
 ---
-name: implement-ticket-v4
-description: "Implement a single ticket following TI Engineering Standards. Pushes branch, creates PR, posts issue comment. Supports FIX mode to address review feedback on an existing PR."
+name: implement-ticket-v5
+description: "Implement a single ticket following TI Engineering Standards — writes Unit + Contract tests per the issue's behavior-first tier table (no business logic in Contract). Pushes branch, creates PR, posts issue comment. Supports FIX mode (fix the code, not the test) to address review feedback on an existing PR."
 argument-hint: "[issue-number or full ticket details]"
 ---
 
 You are implementing a single ticket. Your working directory is the project root (the directory containing `CLAUDE.md`).
 
 **Mode Detection:** When `{FIX_MODE}` is `true`, you are in FIX mode — skip to the Fix Mode section below. Otherwise, proceed with the full implementation workflow.
+
+## Test tiers this skill owns (Unit + Contract)
+
+This skill writes the **fast tier** — Unit and Contract tests — and **only** those. Integration tests (`integration-test-v5`) and UI tests (`ui-test-v5`) are separate stages and PRs. **Consume the issue's behavior-first Test Coverage table** (seeded by `refine-story-v5`) rather than re-deriving coverage: write the test for each behavior whose assigned Tier is **Unit** or **Contract**, at that tier, once. Per `standards/testing.md` → Test Tiers and Test Rules:
+
+- **Unit** (`{Project}.Domain.Tests`) — business logic, branches, edge cases, validation rules, over fakes, no host.
+- **Contract** (`{Project}.Api.Tests`) — endpoint wiring through `WebApplicationFactory` over fakes: routing, model binding, validation shape, status/error mapping, serialization, auth. **No business logic here (TR-2)** — a happy/edge/error walk of a domain rule belongs in Unit.
+- **No Testcontainers/Docker in either fast-tier project (TR-11)** — they must run with no Docker daemon.
+- These are the producer rows you sign off at the end: **TR-2, TR-7, TR-8, TR-11**. Cite the rules by ID; don't restate them.
 
 ## Step 0: Resolve Project Context
 
@@ -127,9 +136,10 @@ All rules from the 12 standards files apply — you loaded them in the Context L
 
 Use the build and test commands from the project's `CLAUDE.md`:
 - Build the full solution
-- Run the relevant test project(s)
+- Run the **fast tier** — the Unit (`Domain.Tests`) and Contract (`Api.Tests`) projects. These run with **no Docker daemon** (TR-11); if a test needs Testcontainers it is mis-tiered — move that behavior to the Integration stage, don't add Docker to the fast tier.
 - All tests must pass — both new and existing
-- If tests fail, fix them. You have 3 attempts to fix failing tests before reporting as partial.
+- If a test fails, **fix the code, not the test (TR-7).** A failing test is a signal the code is wrong; the default response is a code change. Only edit a test if it was genuinely written wrong (e.g. asserts the bug instead of the correct behavior) — never weaken or delete a test to make it pass. You have 3 attempts to fix failing tests before reporting as partial.
+- Every test must reach a real assertion — no silent passes, no `Skip`, no asserting buggy behavior (TR-8).
 - Confirm the full solution builds with no errors
 
 ### 5. COMMIT & PUSH
@@ -159,9 +169,21 @@ gh pr create --base main --head {BRANCH_NAME} --title "{STORY_ID}: {TICKET_TITLE
 
 ## Test Coverage
 
-- New tests: [count]
-- All unit tests pass: yes/no
+- New Unit tests: [count]
+- New Contract tests: [count]
+- All fast-tier tests pass: yes/no
 - Full solution builds: yes/no
+
+## TR checklist — implementation (producer)
+
+Fill PASS/FAIL **with evidence** (line reference or pasted command output — never a bare check). `engineering-review-v5` re-checks these adversarially in `implementation` mode.
+
+| TR | Rule | Producer | Evidence |
+|----|------|----------|----------|
+| TR-2 | No business logic in the Contract tier | PASS/FAIL | [Contract tests assert wiring/status/shape only; logic scenarios live in Domain.Tests at lines …] |
+| TR-7 | Fix the code, not the test | PASS/FAIL | [no test weakened/deleted to pass; failures fixed in src at …] |
+| TR-8 | No silent failures / no asserting buggy behavior / no `Skip` | PASS/FAIL | [every new test reaches an assertion; grep shows no `Skip`] |
+| TR-11 | No Testcontainers/Docker in the fast tier | PASS/FAIL | [no Testcontainers reference in Domain.Tests/Api.Tests; fast job ran with no daemon] |
 
 Relates to #{ISSUE_NUMBER}
 EOF
@@ -243,6 +265,8 @@ If STATUS is Blocked, explain clearly what decision or dependency you need. Do N
 
 When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an existing PR. Do NOT re-explore or re-plan from scratch.
 
+> **Fix the code, not the test (TR-7).** A failing or flagged test is a signal the *code* is wrong — the default fix is a code change. Do **not** weaken, delete, or rewrite a test to make it pass or to silence the reviewer. The only time a test changes is when it was genuinely written wrong (asserts buggy behavior, has a silent path, uses a hardcoded wait); fixing *that* is correcting the test, not gaming it. If a review comment seems to ask you to assert broken behavior, push back in your report rather than comply.
+
 ### Provided by orchestrator:
 - **PR Number:** {PR_NUMBER}
 - **Iteration:** {ITERATION}
@@ -314,6 +338,6 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
 
 ---
-<!-- skill-version: 4.1 -->
-<!-- last-updated: 2026-06-02 -->
-<!-- pipeline: v4 -->
+<!-- skill-version: 5.0 -->
+<!-- last-updated: 2026-06-21 -->
+<!-- pipeline: v5 -->
