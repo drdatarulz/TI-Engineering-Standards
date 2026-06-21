@@ -37,10 +37,12 @@ so each per-skill edit diffs cleanly against its v4 origin. Done so far:
   Docker in fast tier (TR-11); fix-code-not-test (TR-7); producer grid (TR-2/7/8/11) in PR body.
 - **3.3 integration-test-v5** (`495ba14`) — real-infra only, no contract re-assertion (TR-3);
   fix-code-not-test (TR-7); producer grid (TR-3/7/8) in PR body.
+- **3.4 ui-test-v5** (`047a146`) — UI scope gate / conditional skip (TR-5); journey-scoped, not a
+  per-screen matrix (TR-4); critical-path tagging (TR-6); #9 anti-patterns (TR-8/TR-9); execution
+  rewritten to scoped `workflow_dispatch` on the self-hosted runner (#8, replacing "block the PR");
+  fix-code-not-test (TR-7); producer grid (TR-4/5/6/7/8/9) in PR body.
 
-**Next action: continue Phase 3** with the remaining four sub-tasks, in order:
-- **3.4 ui-test-v5** — journey-scoped; conditional skip (TR-5); scoped `workflow_dispatch` to the
-  runner; tag critical-path (TR-6); obey #9 anti-patterns; producer grid (TR-4/5/6/7/8/9).
+**Next action: continue Phase 3** with the remaining three sub-tasks, in order:
 - **3.5 engineering-review-v5** — the enforcement keystone: two-way (missing AND redundant, #2),
   tier-boundary checks, critical-path count (≤10 hard / ≥3 advisory), fix-code-not-test gate,
   anti-pattern flags; three modes; **full mode-scoped reviewer grid** (impl→TR-2/7/8/11;
@@ -195,7 +197,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   TR-2, TR-7, TR-8, TR-11.
 - [x] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
   FIX-mode fix-code-not-test rule. **#10:** emit producer rows TR-3, TR-7, TR-8.
-- [ ] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
+- [x] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
   declared out-of-scope, per-surface); per-story run = **scoped `workflow_dispatch`** to the runner
   (#8); tag critical-path tests; obey the #9 anti-patterns (POM, condition-waits, no silent fails,
   no skips). **#10:** emit producer rows TR-4, TR-5, TR-6 (tag), TR-7, TR-8, TR-9.
