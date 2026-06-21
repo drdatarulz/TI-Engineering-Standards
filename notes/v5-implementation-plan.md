@@ -11,10 +11,17 @@
 
 ## Start here when you're back
 
-1. Skim **Phase 0** and answer the four decision gates (5 min) — they unblock everything.
-2. Then execute **Phase 1** (the `standards/testing.md` v5 rewrite) — already in progress when we
-   paused; it's the keystone and low-risk.
-3. Proceed down the phases in order.
+**State as of 2026-06-21 (all committed/pushed to `main`):**
+- **Phase 0 — COMPLETE.** All four gates locked: G1 copy-to-`-v5`; G2 pilot selected (user-owned);
+  G3 tier names confirmed (Unit/Contract/Integration/UI, "Contract" locked); G4
+  `[Trait("CriticalPath","true")]`.
+- **Plan fully elaborated** this session — #10 checklist enforcement (in `v5-changes.md`), Phase 2
+  split (standards-repo substrate vs. per-repo actuation), 3.1 behavior-first refine table, 3.5 review
+  modes (three, not two), 4.2 state homes + tracking-issue lifecycle, 4.4 dumb-driver physical home,
+  Phase 6 process docs. Nothing is *built* yet beyond #9.
+
+**Next action: execute Phase 1** — the `standards/testing.md` v5 rewrite (the keystone, now unblocked
+since tier names are locked). Then proceed down the phases in order. Phases 1 and 2 can run in parallel.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
