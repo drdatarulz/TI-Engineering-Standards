@@ -20,11 +20,19 @@
   Contract prohibition, TR-1..TR-11 checklist (#10), rewritten "When to Write Tests" and "CI/CD
   Testing Tiers", critical-path UI rule, Contract Test Conventions. Siblings swept:
   `environments.md` (PR/CI + Playwright sections + conformance checklist), `architecture.md`
-  (test-project tier mapping), `CLAUDE.md` (Contract pointer). **On `v5-build`, NOT merged to `main`.**
+  (test-project tier mapping), `CLAUDE.md` (Contract pointer).
+- **Phase 2 — COMPLETE** (commit `550b4ea` on `v5-build`). CI/execution substrate:
+  `templates/workflows/{fast,integration,ui}-tests.yml` (+ README), all `runs-on: self-hosted`,
+  no-Docker fast tier via unreachable `DOCKER_HOST` (TR-11); `developer-tools/setup-branch-protection.sh`
+  (gh-api, strict required checks); `developer-tools/orchestrate-loop.sh` (canonical dumb driver,
+  three guards, greps `RUN_COMPLETE`); `CLAUDE.md` auto-sync step 6 (workflows → `.github/workflows`);
+  `environments.md` v5-CI-requirements subsection. **On `v5-build`, NOT merged to `main`.**
 
-**Next action: execute Phase 2** — CI/execution substrate (template workflows, branch-protection
-script, canonical dumb driver, sync wiring) per Phase 2 below. Phase 2 is independent of Phase 1's
-output and can proceed once review of Phase 1 clears. Then Phase 3 (skills) depends on both.
+**Next action: execute Phase 3** — the `-v5` skills (copy v4→v5 per G1; each cites `testing.md` by
+TR-ID; #10 producer/reviewer grids). Depends on Phase 1 + Phase 2 (both done). Largest phase — expect
+to split across runs. **Embedded decision to resolve when reached:** the #10 grid granularity
+(per-ticket single grid vs. per-stage grids — current lean per-stage); also the three other open
+"pick one" calls land in Phase 4 (run-complete form, Ready-vs-Up-Next naming) — not Phase 3.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -97,31 +105,31 @@ The **per-repo actuation** (instantiate, set branch protection, install runner, 
 standards-repo work; it moves to Phase 5 (rollout, pilot first). Mirrors the existing skills-sync
 pattern: this repo ships the shareable thing, each project instantiates it once.
 
-- [ ] **2.1 — Author parameterized template workflows** (new home, e.g. `templates/workflows/`; all
+- [x] **2.1 — Author parameterized template workflows** (new home, e.g. `templates/workflows/`; all
   `runs-on: self-hosted`; project name + test-project paths as fill-ins):
   - `fast-tests.yml` → on `pull_request` (Domain + Contract/fakes projects; **no Docker**).
   - `integration-tests.yml` → required pre-merge check (Testcontainers, real SQL).
   - `ui-tests.yml` → on `workflow_dispatch`, accepting **inputs**: `ref` (branch) + `filter`
     (scoped per-story run) — also runnable unfiltered (full boundary run).
-- [ ] **2.2 — Bake the no-Docker constraint into the `fast-tests.yml` template** so the job genuinely
+- [x] **2.2 — Bake the no-Docker constraint into the `fast-tests.yml` template** so the job genuinely
   has no Docker daemon — a stray Testcontainers reference fails loudly (the self-enforcing half of 1.6).
-- [ ] **2.3 — Author a branch-protection setup script** (`developer-tools/`): a `gh api` script (or
+- [x] **2.3 — Author a branch-protection setup script** (`developer-tools/`): a `gh api` script (or
   documented ruleset) a repo runs once to require the `fast-tests` + `integration-tests` checks and
   **branch-up-to-date-with-`main`**. Branch protection is GitHub *settings*, not a file — the reusable
   artifact is the script. (Merge queue noted as optional, only if traffic demands.)
-- [ ] **2.4 — Document the requirement** so conformance/review can check it: the trigger model itself
+- [x] **2.4 — Document the requirement** so conformance/review can check it: the trigger model itself
   lands in `testing.md` via **1.4**; add the **branch-protection + self-hosted-runner requirement** to
   `environments.md` (every v5 project *must* have these three workflows + protection + a runner).
-- [ ] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
+- [x] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
   project's `.github/workflows/` on sync (skipping any the project already customized) — same
   precedence rule as skills. The runner setup guide is **Phase 6.6** (`developer-tools/`).
-- [ ] **2.6 — Author the canonical dumb driver** `developer-tools/orchestrate-loop.sh` (the relaunch
+- [x] **2.6 — Author the canonical dumb driver** `developer-tools/orchestrate-loop.sh` (the relaunch
   loop for #6 / 4.4): generic/project-agnostic, parameterized (`--project-dir`, `--n`, `--timeout`,
   `--max-iter`), relaunches `claude -p --dangerously-skip-permissions` until `RUN_COMPLETE`, with the
   three guards (timeout, relaunch-on-exit, max-iterations + circuit-breaker). **Not** synced via the
   skills path (chicken-and-egg — it launches Claude); it lives in the standards clone (the mandatory
   sibling) and is invoked through the project's thin `scripts/orchestrate.sh` wrapper (template, 6.5).
-- [ ] **Deliverable:** template workflows + branch-protection script + canonical driver +
+- [x] **Deliverable:** template workflows + branch-protection script + canonical driver +
   documented requirement + sync wiring — all committed to **this** repo. Nothing repo-specific.
 
 ---
