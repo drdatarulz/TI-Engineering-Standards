@@ -48,13 +48,19 @@ so each per-skill edit diffs cleanly against its v4 origin. Done so far:
   mode checklists off the v4 additive matrix; Step 2.5 mode-scoped reviewer grid embedded in review
   body on both approve and request-changes; report adds TR_GRID/REDUNDANT_CUT/CRITICAL_PATH_COUNT.
 
-**Next action: continue Phase 3** with the remaining two sub-tasks, in order:
-- **3.6 ci-fix-v5** — carry fix-code-not-test (TR-7).
-- **3.7** — update `CLAUDE.md` standards index + skills table to v5 (keep v4 listed/running until
-  Phase 5 proves v5 — do NOT move v4 to archive yet, per G1 rationale "v4 keeps running while v5 is
-  built"; the archive move is the cross-cutting/Phase-5 step).
+- **3.6 ci-fix-v5** (`bfe252e`) — lead with fix-code-not-test (TR-7); corrected the v4 F4 bullet that
+  defaulted to updating the test expectation (now: only when new behavior is verified-correct, else Blocked).
+- **3.7 CLAUDE.md** (`45974f1`) — skills table points the six rebuilt skills at `-v5`; v4 copies kept
+  in `skills/` and synced until Phase 5 proves v5 (NOT archived yet); orchestrate stays v4.
 
-Remaining open "pick one" calls land in Phase 4 (run-complete form, Ready-vs-Up-Next naming) — not Phase 3.
+**Phase 3 — COMPLETE.** All six `-v5` skills built + CLAUDE.md cut over, on `v5-build`, NOT merged.
+
+**Next action: Phase 4 — orchestration architecture** (`orchestrate-v5` mode switch + the dumb driver
+is already built in 2.6). Resolve the embedded Phase-4 "pick one" decisions when reached: **run-complete
+representation** (label vs custom field vs issue-closed), **Ready-vs-Up-Next status naming** (#6 says
+"Ready", `project-tracking.md` board says "Up Next" — map or update the standard), and the
+tracking-issue **body schema**. See Phase 4 (4.1–4.4) below; also add the per-run tracking-issue
+concept to `standards/project-tracking.md`.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -215,9 +221,9 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
     `ui-tests` — `SKILL.md:11–14`). The v5 copy's description must say **three modes**. Tier→mode
     mapping: Unit + Contract → `implementation` (one pass — `implement-ticket-v5` produces both, so
     there's no separate "contract" mode); Integration → `integration-tests`; UI → `ui-tests`.
-- [ ] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
-- [ ] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
-- [ ] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
+- [x] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
+- [x] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
+- [x] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
 
 ---
 
