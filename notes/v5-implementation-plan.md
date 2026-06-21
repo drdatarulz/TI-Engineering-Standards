@@ -105,8 +105,14 @@ pattern: this repo ships the shareable thing, each project instantiates it once.
 - [ ] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
   project's `.github/workflows/` on sync (skipping any the project already customized) — same
   precedence rule as skills. The runner setup guide is **Phase 6.6** (`developer-tools/`).
-- [ ] **Deliverable:** template workflows + branch-protection script + documented requirement +
-  sync wiring — all committed to **this** repo. Nothing repo-specific.
+- [ ] **2.6 — Author the canonical dumb driver** `developer-tools/orchestrate-loop.sh` (the relaunch
+  loop for #6 / 4.4): generic/project-agnostic, parameterized (`--project-dir`, `--n`, `--timeout`,
+  `--max-iter`), relaunches `claude -p --dangerously-skip-permissions` until `RUN_COMPLETE`, with the
+  three guards (timeout, relaunch-on-exit, max-iterations + circuit-breaker). **Not** synced via the
+  skills path (chicken-and-egg — it launches Claude); it lives in the standards clone (the mandatory
+  sibling) and is invoked through the project's thin `scripts/orchestrate.sh` wrapper (template, 6.5).
+- [ ] **Deliverable:** template workflows + branch-protection script + canonical driver +
+  documented requirement + sync wiring — all committed to **this** repo. Nothing repo-specific.
 
 ---
 
@@ -226,6 +232,21 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 - [ ] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
   guards = `timeout` per session, relaunch-on-exit, **max-iterations cap** + circuit-breaker.
   Limiter/loop **optional** (small runs go top-to-bottom, no bash).
+  - **Physical home — two-part layout** (the driver is the *outermost* layer: it launches `claude -p`,
+    so it **cannot** ride the skills-sync path — chicken-and-egg, sync runs *inside* a Claude session,
+    the driver runs *around* one):
+    - **Canonical driver → standards repo** at `developer-tools/orchestrate-loop.sh` (committed,
+      **generic/project-agnostic** — all project specifics live in the board + CLAUDE.md, which the
+      orchestrator reads). Parameterized: `--project-dir`, `--n`, `--timeout`, `--max-iter`. Single
+      source of truth; evolves here. Authored in **Phase 2.6**. Always present on a box because the
+      standards repo is the mandatory sibling (`../TI-Engineering-Standards/`).
+    - **Thin per-project entrypoint → `scripts/orchestrate.sh`** in each project (~3 lines, stable,
+      safe to vendor): `git -C ../TI-Engineering-Standards pull --ff-only` → exec the canonical driver
+      with `--project-dir "$(pwd)"`. Self-updates the driver every run; logic stays single-source.
+      Ships via the project template (**6.5**).
+  - **Operator flow on a Docker box:** `git clone <project>` → `git pull` → `./scripts/orchestrate.sh`.
+  - **Inner invocation:** the driver launches `claude -p` with `--dangerously-skip-permissions` (the
+    existing `claude-yolo` mode, `developer-tools/claude-vm-scripts.md`) for headless autonomy.
 - [ ] **Deliverable:** `orchestrate-v5` skill + driver script.
 
 ---
@@ -267,8 +288,12 @@ was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
   the v5 diagram, refresh `-v4`→`-v5` skill names.
 - [ ] **6.4 — `workflow/screen-inventory-template.md`**: add the **per-surface UI-scope decision**
   (#3 / TR-5) — record per surface whether it's in/out of UI-tier scope.
-- [ ] **6.5 — `templates/CLAUDE-project.md`**: update test-run patterns to the four tiers + trigger
-  model; add the Contract tier; reference the TR checklist; refresh skill names per G1.
+- [ ] **6.5 — `templates/CLAUDE-project.md` + the project entrypoint wrapper:** update test-run
+  patterns to the four tiers + trigger model; add the Contract tier; reference the TR checklist;
+  refresh skill names per G1. **Also ship the thin driver wrapper** — a `templates/scripts/orchestrate.sh`
+  (~3 lines: `git -C ../TI-Engineering-Standards pull --ff-only` → exec `developer-tools/orchestrate-loop.sh`
+  with `--project-dir "$(pwd)"`) that projects vendor as `scripts/orchestrate.sh`, plus a documented
+  one-command flow in the template CLAUDE.md: `git clone <project>` → `git pull` → `./scripts/orchestrate.sh`.
 - [ ] **6.6 — `developer-tools/`**: document the **self-hosted runner** setup (#8 — install-as-service,
   WSL2/Linux, Docker access, persistent-runner hygiene) — likely a new doc alongside the existing
   hooks/VM-scripts.
