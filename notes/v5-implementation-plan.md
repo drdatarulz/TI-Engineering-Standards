@@ -11,17 +11,20 @@
 
 ## Start here when you're back
 
-**State as of 2026-06-21 (all committed/pushed to `main`):**
+**State as of 2026-06-21 (Phase 1 committed on branch `v5-build`, awaiting review):**
 - **Phase 0 — COMPLETE.** All four gates locked: G1 copy-to-`-v5`; G2 pilot selected (user-owned);
   G3 tier names confirmed (Unit/Contract/Integration/UI, "Contract" locked); G4
   `[Trait("CriticalPath","true")]`.
-- **Plan fully elaborated** this session — #10 checklist enforcement (in `v5-changes.md`), Phase 2
-  split (standards-repo substrate vs. per-repo actuation), 3.1 behavior-first refine table, 3.5 review
-  modes (three, not two), 4.2 state homes + tracking-issue lifecycle, 4.4 dumb-driver physical home,
-  Phase 6 process docs. Nothing is *built* yet beyond #9.
+- **Phase 1 — COMPLETE** (commit `885efa6` on `v5-build`). `standards/testing.md` rewritten to the
+  four-tier + trigger model: Test Tiers table + governing rule, Contract-as-no-infra-sibling (G3),
+  Contract prohibition, TR-1..TR-11 checklist (#10), rewritten "When to Write Tests" and "CI/CD
+  Testing Tiers", critical-path UI rule, Contract Test Conventions. Siblings swept:
+  `environments.md` (PR/CI + Playwright sections + conformance checklist), `architecture.md`
+  (test-project tier mapping), `CLAUDE.md` (Contract pointer). **On `v5-build`, NOT merged to `main`.**
 
-**Next action: execute Phase 1** — the `standards/testing.md` v5 rewrite (the keystone, now unblocked
-since tier names are locked). Then proceed down the phases in order. Phases 1 and 2 can run in parallel.
+**Next action: execute Phase 2** — CI/execution substrate (template workflows, branch-protection
+script, canonical dumb driver, sync wiring) per Phase 2 below. Phase 2 is independent of Phase 1's
+output and can proceed once review of Phase 1 clears. Then Phase 3 (skills) depends on both.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -58,30 +61,30 @@ These are quick calls that shape later phases. Recommendation given for each.
 **Goal:** `standards/testing.md` becomes the v5 source of truth; kill the live contradiction (it
 still says UI/integration "gate every PR").
 
-- [ ] **1.1 — Add a "Test Tiers" section** (thread A): the tier table (Unit / Contract / Integration /
+- [x] **1.1 — Add a "Test Tiers" section** (thread A): the tier table (Unit / Contract / Integration /
   UI — *owns* / *never put here*), with the governing rule above it: *"test each behavior once, at the
   cheapest tier that can catch its failure mode."*
-- [ ] **1.2 — Add the precise prohibition:** *"do not exercise business logic through the HTTP/fakes
+- [x] **1.2 — Add the precise prohibition:** *"do not exercise business logic through the HTTP/fakes
   host — the Contract tier asserts the contract only."* (Plus optional one-line pointer from
   `CLAUDE.md` "Things NOT To Do.")
-- [ ] **1.3 — Rewrite "When to Write Tests"** so endpoints don't mandate **both** unit *and*
+- [x] **1.3 — Rewrite "When to Write Tests"** so endpoints don't mandate **both** unit *and*
   integration. Logic → unit; contract/seam → Contract tier; real-infra behavior → integration.
-- [ ] **1.4 — Rewrite "CI/CD Testing Tiers"** to the v5 trigger model: fast tier → every PR;
+- [x] **1.4 — Rewrite "CI/CD Testing Tiers"** to the v5 trigger model: fast tier → every PR;
   integration → **required pre-merge check** (branch up to date); UI → **orchestration boundary via
   `workflow_dispatch`**, *not* a per-PR gate; all on the **self-hosted runner**. Remove "Playwright
   gates every PR."
-- [ ] **1.5 — Add the critical-path UI rule** to Playwright Conventions: floor 3 / ceiling 10,
+- [x] **1.5 — Add the critical-path UI rule** to Playwright Conventions: floor 3 / ceiling 10,
   `[Trait("CriticalPath","true")]`, ceiling = hard cap, floor = advisory; declared at refine, counted
   at review.
-- [ ] **1.6 — Add the "no-Docker fast tier" line** (#5c): fast-tier projects must not reference
+- [x] **1.6 — Add the "no-Docker fast tier" line** (#5c): fast-tier projects must not reference
   Testcontainers/Docker; the per-PR fast job runs with no Docker daemon.
-- [ ] **1.6a — Add the "Test Rules" (TR-*) checklist** (#10): one numbered, ID'd block under the tier
+- [x] **1.6a — Add the "Test Rules" (TR-*) checklist** (#10): one numbered, ID'd block under the tier
   table (TR-1…TR-11), each tagged **[CI]** or **[JUDGMENT]**, with the owner-producer(s) and which
   rows are **reviewer-only** (TR-10, TR-6 ceiling). This is the single source both producer and
   reviewer skills cite by ID — it must land before Phase 3.
-- [ ] **1.7 — Sweep sibling standards** for contradictions with the new trigger/tier model
+- [x] **1.7 — Sweep sibling standards** for contradictions with the new trigger/tier model
   (`api-integration.md`, `architecture.md`, `environments.md`); fix references.
-- [ ] **Deliverable:** updated `standards/testing.md` (+ any sibling tweaks); commit. **Review gate:**
+- [x] **Deliverable:** updated `standards/testing.md` (+ any sibling tweaks); commit. **Review gate:**
   read the diff end-to-end before moving on.
 
 ---
