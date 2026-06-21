@@ -25,7 +25,18 @@ When starting a session on **any project**, follow this protocol:
    done
    ```
    Local skills in `.claude/skills/` take precedence — if a project has a customized version, it won't be overwritten.
-6. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
+6. **Sync CI workflows** (v5): Copy the template workflows into the project's `.github/workflows/` (skipping any the project already has), then fill in the placeholder tokens once and commit. Same precedence rule as skills — a customized local copy is never overwritten:
+   ```bash
+   mkdir -p .github/workflows
+   for wf in ../TI-Engineering-Standards/templates/workflows/*.yml; do
+     wf_name=$(basename "$wf")
+     if [ ! -f ".github/workflows/$wf_name" ]; then
+       cp "$wf" ".github/workflows/$wf_name"
+     fi
+   done
+   ```
+   After the first copy, replace `{ProjectName}` / `{PROJECT}` / ports per `templates/workflows/README.md`, then run `developer-tools/setup-branch-protection.sh` once to make `fast-tests` + `integration-tests` required checks.
+7. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
    ```bash
    if [ -d ".githooks" ]; then
      current=$(git config core.hooksPath 2>/dev/null)
