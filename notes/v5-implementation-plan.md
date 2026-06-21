@@ -28,11 +28,30 @@
   three guards, greps `RUN_COMPLETE`); `CLAUDE.md` auto-sync step 6 (workflows → `.github/workflows`);
   `environments.md` v5-CI-requirements subsection. **On `v5-build`, NOT merged to `main`.**
 
-**Next action: execute Phase 3** — the `-v5` skills (copy v4→v5 per G1; each cites `testing.md` by
-TR-ID; #10 producer/reviewer grids). Depends on Phase 1 + Phase 2 (both done). Largest phase — expect
-to split across runs. **Embedded decision to resolve when reached:** the #10 grid granularity
-(per-ticket single grid vs. per-stage grids — current lean per-stage); also the three other open
-"pick one" calls land in Phase 4 (run-complete form, Ready-vs-Up-Next naming) — not Phase 3.
+**Phase 3 — IN PROGRESS** (on `v5-build`). Grid-granularity decision **LOCKED: per-stage grids**
+(recorded in `v5-changes.md` #10). All six v5 skills scaffolded as verbatim v4 copies (`7868bff`),
+so each per-skill edit diffs cleanly against its v4 origin. Done so far:
+- **3.1 refine-story-v5** (`abad79c`) — behavior-first tier table (TR-1), Critical? column (TR-6),
+  #7 auto-reveal (interactive only), refine producer grid (TR-1/6) in the issue comment.
+- **3.2 implement-ticket-v5** (`7ca10a5`) — owns Unit+Contract; no logic in Contract (TR-2); no
+  Docker in fast tier (TR-11); fix-code-not-test (TR-7); producer grid (TR-2/7/8/11) in PR body.
+- **3.3 integration-test-v5** (`495ba14`) — real-infra only, no contract re-assertion (TR-3);
+  fix-code-not-test (TR-7); producer grid (TR-3/7/8) in PR body.
+
+**Next action: continue Phase 3** with the remaining four sub-tasks, in order:
+- **3.4 ui-test-v5** — journey-scoped; conditional skip (TR-5); scoped `workflow_dispatch` to the
+  runner; tag critical-path (TR-6); obey #9 anti-patterns; producer grid (TR-4/5/6/7/8/9).
+- **3.5 engineering-review-v5** — the enforcement keystone: two-way (missing AND redundant, #2),
+  tier-boundary checks, critical-path count (≤10 hard / ≥3 advisory), fix-code-not-test gate,
+  anti-pattern flags; three modes; **full mode-scoped reviewer grid** (impl→TR-2/7/8/11;
+  integration→TR-3/7/8; ui→TR-4/5/6/7/8/9; **TR-10 every run**); fix the stale "Two modes"
+  description → three modes.
+- **3.6 ci-fix-v5** — carry fix-code-not-test (TR-7).
+- **3.7** — update `CLAUDE.md` standards index + skills table to v5 (keep v4 listed/running until
+  Phase 5 proves v5 — do NOT move v4 to archive yet, per G1 rationale "v4 keeps running while v5 is
+  built"; the archive move is the cross-cutting/Phase-5 step).
+
+Remaining open "pick one" calls land in Phase 4 (run-complete form, Ready-vs-Up-Next naming) — not Phase 3.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -140,7 +159,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 **Checklist (#10) threads through every skill below:** each producer **emits its owned TR rows**
 (PASS/FAIL + evidence) before declaring done; the reviewer emits the **full mode-scoped grid**.
 
-- [ ] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
+- [x] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
   seeding); **declare critical-path** journeys; **#7** auto-reveal withheld considerations at the end
   (interactive mode only). **#10:** emit producer rows TR-1, TR-6 (tagging declaration).
   - **The mechanic — restructure the existing Test Coverage table from *tier-first* to
@@ -171,10 +190,10 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Downstream payoff:** `implement`/`integration-test`/`ui-test` **consume their assigned rows**
     instead of re-deriving coverage; the reviewer's TR-1 check collapses to "does every behavior have
     exactly one tier, and is it the cheapest sufficient one?"
-- [ ] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
+- [x] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
   Contract); **FIX-mode** carries "fix the code, not the test." **#10:** emit producer rows
   TR-2, TR-7, TR-8, TR-11.
-- [ ] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
+- [x] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
   FIX-mode fix-code-not-test rule. **#10:** emit producer rows TR-3, TR-7, TR-8.
 - [ ] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
   declared out-of-scope, per-surface); per-story run = **scoped `workflow_dispatch`** to the runner
