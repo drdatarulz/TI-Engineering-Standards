@@ -1,12 +1,16 @@
 ---
-name: integration-test-v4
-description: "Write integration tests for a merged implementation. Branches from main, follows existing Testcontainers patterns, creates PR. Supports FIX mode to address review feedback."
+name: integration-test-v5
+description: "Write integration tests for a merged implementation — real-infrastructure behavior ONLY (no contract re-assertion, TR-3). Branches from main, follows existing Testcontainers patterns, creates PR. Supports FIX mode (fix the code, not the test) to address review feedback."
 argument-hint: "[story-id or issue-number]"
 ---
 
 You are writing integration tests for a recently merged implementation. Your working directory is the project root (the directory containing `CLAUDE.md`).
 
 **Mode Detection:** When `{FIX_MODE}` is `true`, skip to the Fix Mode section below. Otherwise, proceed with the full test-writing workflow.
+
+## The tier this skill owns (Integration — real infra only)
+
+This skill writes the **Integration tier** and only behavior that **real infrastructure** can catch — SQL, constraints, migrations, transactions, queue/blob. Per `standards/testing.md` → Test Tiers and **TR-3**: do **not** re-assert the HTTP contract (routing, model binding, validation shape, status/error mapping, serialization) — that is the Contract tier's job and was already covered by `implement-ticket-v5` in the merged implementation PR. Consume the issue's behavior-first Test Coverage table: write the tests for behaviors assigned the **Integration** tier, once each. Your producer rows are **TR-3, TR-7, TR-8** — cite by ID; don't restate.
 
 ## Provided by Orchestrator
 
@@ -66,19 +70,18 @@ Based on what was implemented, plan which integration tests to write:
 - Edge cases: empty results, not-found, boundary values
 - Unique constraint violations where applicable
 
-**New endpoints → Endpoint integration tests:**
-- Full HTTP request/response cycle
-- Validation error scenarios
-- Not-found scenarios
-- Pagination behavior for list endpoints
+**New endpoints → Integration tests for the real-infra behavior only:**
+- The endpoint's effect on **real persisted state** (a POST actually writes the row; a GET reads what SQL stored; pagination returns the right rows from a real result set)
+- Behavior that depends on **real constraints/transactions** (a duplicate request hits the unique constraint; a multi-step write rolls back on failure)
+- **Do NOT** re-assert the HTTP contract through the endpoint — validation-error *shape*, 404 *mapping*, model binding, serialization. Those are Contract-tier behaviors (`Api.Tests`, faked) and re-testing them here is the inverted-pyramid disease the v5 model exists to stop (TR-3). If the only thing a proposed endpoint test checks is "returns 400 for a bad body," delete it — it already exists one tier down.
 
 **New migrations → Migration verification:**
 - Only if new tables/columns were added and aren't already covered by repository tests
 
-**Scope boundaries:**
+**Scope boundaries (TR-3):**
 - Integration tests exercise real SQL via Testcontainers — NOT fakes
-- Do NOT duplicate unit test scenarios — unit tests cover logic with fakes, integration tests cover real infrastructure
-- Focus on what CAN'T be tested with fakes: SQL queries, constraints, migrations, HTTP pipeline
+- Do NOT duplicate Unit scenarios (logic with fakes) **or** Contract scenarios (HTTP wiring with fakes). The Integration tier covers **only** what CAN'T be reached one tier down: real SQL queries, constraints, migrations, transactions, queue/blob.
+- A useful test: *"would this still pass against the fakes host?"* If yes, it belongs in Unit or Contract, not here.
 
 ## Step 3: Write Tests
 
@@ -130,10 +133,10 @@ public class {ClassName}Tests
 Use the build and test commands from the project's `CLAUDE.md`:
 
 1. Build the full solution
-2. Run all unit tests (regression check)
-3. Run integration tests
+2. Run the fast tier (Unit + Contract) as a regression check
+3. Run integration tests (Testcontainers — needs the Docker daemon)
 
-If any tests fail, fix them. You have **3 attempts** to fix failing tests before reporting as partial.
+If a test fails, **fix the code, not the test (TR-7)** — a failing test signals the code is wrong; only correct a test that was genuinely written wrong, never weaken one to pass. Every test must reach a real assertion — no silent passes, no `Skip`, no asserting buggy behavior (TR-8). You have **3 attempts** to fix failing tests before reporting as partial.
 
 ## Step 5: Commit & Push
 
@@ -165,6 +168,16 @@ Integration tests for the implementation merged in PR #{IMPLEMENTATION_PR}.
 - Data isolation via unique test data per test
 - Shouldly for all assertions
 - No mocking frameworks
+
+## TR checklist — integration (producer)
+
+Fill PASS/FAIL **with evidence** (never a bare check). `engineering-review-v5` re-checks these adversarially in `integration-tests` mode.
+
+| TR | Rule | Producer | Evidence |
+|----|------|----------|----------|
+| TR-3 | No contract re-assertion in Integration | PASS/FAIL | [every test exercises real SQL/constraints/transactions; none would pass against the fakes host] |
+| TR-7 | Fix the code, not the test | PASS/FAIL | [no test weakened to pass; failures fixed in src at …] |
+| TR-8 | No silent failures / no asserting buggy behavior / no `Skip` | PASS/FAIL | [every test reaches an assertion; grep shows no `Skip`] |
 
 Relates to #{ISSUE_NUMBER}
 EOF
@@ -235,6 +248,8 @@ CONCERNS:
 
 When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an existing integration test PR.
 
+> **Fix the code, not the test (TR-7).** If an integration test fails or is flagged, the default fix is a code change — do not weaken, delete, or rewrite a test to make it pass. Only correct a test that was genuinely written wrong (asserts buggy behavior, has a silent path, re-asserts the contract instead of real-infra behavior). If a comment asks you to assert broken behavior, push back in your report rather than comply.
+
 ### Provided by orchestrator:
 - **PR Number:** {PR_NUMBER}
 - **Iteration:** {ITERATION}
@@ -302,6 +317,6 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
 
 ---
-<!-- skill-version: 4.0 -->
-<!-- last-updated: 2026-03-23 -->
-<!-- pipeline: v4 -->
+<!-- skill-version: 5.0 -->
+<!-- last-updated: 2026-06-21 -->
+<!-- pipeline: v5 -->
