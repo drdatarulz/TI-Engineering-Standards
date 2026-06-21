@@ -43,6 +43,19 @@ Enable these automations on every project board:
 - Item closed → Done
 - PR merged → Done
 
+## Orchestration Run Tracking (v5)
+
+The v5 orchestrator (`orchestrate-v5`) relaunches as **fresh processes** (it self-selects WORKING/CLEANUP mode each launch), so per-**run** state can't live in a session's memory — it is externalized to a dedicated **per-run tracking issue**, a durable GitHub object that survives process death.
+
+- **One active run = one open issue labeled `orchestration-run`.** Body = **live state** (current ticket, chunk progress, last pyramid ratio, gate-audit status — overwritten each session); comments = **append-only event log**.
+- **Find-or-create on startup**, keyed off the `orchestration-run` **label** (not a run ID — that keeps the relaunch loop stateless): no open labelled issue → create one (run start); exactly one → read it to recover state; two or more (a prior run crashed un-closed) → treat the **newest as active**, close the stale one(s).
+- **Run-complete = the issue is closed.** At a fixpoint (no Up Next tickets and a CLEANUP pass that injected nothing) the orchestrator closes the tracking issue and emits `RUN_COMPLETE`. Active = open; complete = closed.
+- **Crash recovery:** on startup, tickets left **In Progress** by a dead session are resumed or reset to **Up Next**.
+- **Ownership:** the orchestrator owns this issue end to end. The dumb relaunch loop (`developer-tools/orchestrate-loop.sh`) never touches GitHub — it only restarts the process and greps stdout for `RUN_COMPLETE`.
+- Create the label once if missing: `gh label create orchestration-run --repo {owner}/{repo} --color FBCA04 --description "Active v5 orchestration run"`.
+
+The orchestrator's work **queue is the board** (Status **Up Next** = the ready state; there is no separate "Ready" column). WORKING mode pulls Up Next; crash recovery resets In Progress → Up Next.
+
 ## Sub-Issues (Milestone-to-Story Linking)
 
 GitHub's **sub-issues** feature links stories to their parent milestone marker, creating an epic-style hierarchy. When stories are sub-issues of a milestone, the milestone issue displays a progress tracker (e.g., "3 of 5 complete") that updates automatically as child issues are closed.

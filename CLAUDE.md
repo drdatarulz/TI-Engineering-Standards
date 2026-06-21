@@ -82,7 +82,7 @@ Read each of these files — they contain the engineering rules and conventions 
 
 Shared skills live in `skills/` and are auto-copied to each project's `.claude/skills/` during sync. Projects can override any skill by placing a customized version in their own `.claude/skills/` directory.
 
-The six **test-pipeline** skills are now **v5** (four-tier model + TR enforcement — see [standards/testing.md](standards/testing.md)). The other skills are unchanged at v4. `orchestrate-v5` is not built yet (Phase 4) — `orchestrate-v4` still drives the pipeline.
+The seven **pipeline** skills are now **v5** (four-tier model + TR enforcement — see [standards/testing.md](standards/testing.md)) — the six test-pipeline skills plus the mode-switching `orchestrate-v5`. The other skills are unchanged at v4.
 
 | Skill | Purpose |
 |-------|---------|
@@ -94,7 +94,7 @@ The six **test-pipeline** skills are now **v5** (four-tier model + TR enforcemen
 | [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 + infrastructure security review for PRs |
 | [skills/integration-test-v5](skills/integration-test-v5/SKILL.md) | Write integration tests for a merged implementation — real-infra behavior only (no contract re-assertion). Creates PR. Supports FIX mode |
 | [skills/ui-test-v5](skills/ui-test-v5/SKILL.md) | Write Playwright UI tests — journey-scoped, conditional, critical-path tagged. Runs via scoped `workflow_dispatch` on the self-hosted runner. Creates PR. Supports FIX mode |
-| [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability (v5 in Phase 4) |
+| [skills/orchestrate-v5/SKILL.md](skills/orchestrate-v5/SKILL.md) | Mode-switching pipeline orchestrator (WORKING/CLEANUP) built for relaunch by the dumb loop; per-run tracking issue, board-driven queue, TR gate-audit, observability |
 | [skills/ci-fix-v5](skills/ci-fix-v5/SKILL.md) | Monitor GitHub Actions and auto-fix CI/CD failures — fix the code, not the test. Background side-channel for orchestrator; standalone for ad-hoc repair |
 | [skills/reconcile-backlog-v4](skills/reconcile-backlog-v4/SKILL.md) | Reconcile PRD version changes against an existing backlog and codebase. Diffs, classifies, and executes creates/updates |
 | [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
@@ -102,7 +102,7 @@ The six **test-pipeline** skills are now **v5** (four-tier model + TR enforcemen
 
 > **Note:** v1, v2, and v3 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
 >
-> **v4 → v5 transition:** the v4 copies of the six rebuilt skills (`refine-story-v4`, `implement-ticket-v4`, `integration-test-v4`, `ui-test-v4`, `engineering-review-v4`, `ci-fix-v4`) **remain in `skills/`** and are still synced — v4 keeps running until v5 is proven on the pilot (Phase 5). Only then do the v4 copies move to `skills/archive/`.
+> **v4 → v5 transition:** the v4 copies of the seven rebuilt skills (`refine-story-v4`, `implement-ticket-v4`, `integration-test-v4`, `ui-test-v4`, `engineering-review-v4`, `ci-fix-v4`, `orchestrate-v4`) **remain in `skills/`** and are still synced — v4 keeps running until v5 is proven on the pilot (Phase 5). Only then do the v4 copies move to `skills/archive/`.
 
 ---
 
