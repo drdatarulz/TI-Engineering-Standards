@@ -24,16 +24,25 @@
 ## Phase 0 — Decision gates (lock before building)
 
 These are quick calls that shape later phases. Recommendation given for each.
+**Resolved 2026-06-21:** all four gates decided. Phase 0 complete.
 
-- [ ] **G1 — Skill strategy: copy `v4 → v5` vs. edit in place.** *Recommend copy-to-`-v5`* (mirrors
-  the existing v1–v4 archive pattern; clean version boundary; v4 keeps running while v5 is built).
-  Trade: more files to maintain. Decide once; it governs all of Phase 3.
-- [ ] **G2 — Pilot project.** Which repo do we roll v5 on first (FormIt, or another)? The note's
-  philosophy is *pilot, don't global-sweep.* Everything in Phases 2–5 lands in the pilot first.
-- [ ] **G3 — Contract tier name.** Spec uses **"Contract"** (the `WebApplicationFactory`-over-fakes
-  tier). Confirm vs. "Component." *Recommend "Contract."* Affects the tier table wording.
-- [ ] **G4 — CriticalPath trait.** Confirm `[Trait("CriticalPath", "true")]` as the tag that makes
-  the critical-path set countable. *Recommend yes* (same idiom as `[Trait("Category","Playwright")]`).
+- [x] **G1 — Skill strategy: copy `v4 → v5` vs. edit in place. → COPY-TO-`-v5`.** Mirrors the existing
+  v1–v4 archive pattern; clean version boundary; v4 keeps running while v5 is built. Trade accepted:
+  more files to maintain. Governs all of Phase 3.
+- [x] **G2 — Pilot project. → DECIDED (user-owned).** Pilot repo selected; the user handles v5
+  integration there in a separate instance. The Phase 1/3 standards-and-skills work is **repo-agnostic**,
+  so the build here doesn't depend on the pilot's identity.
+- [x] **G3 — Tier names. → CONFIRMED: Unit / Contract / Integration / UI**, "Contract" locked
+  (over "Component"). The four-tier model stands as specced.
+  - **Documentation directive (2026-06-21):** when `testing.md` / the tier table is written, document
+    Contract as the **no-infra sibling of Integration**, not a wholly separate tier. Both run the
+    endpoint inside the real .NET host (`WebApplicationFactory`) — same host machinery; the *only*
+    difference is fakes (Contract, contract-only, no Docker — "nothing special needed") vs. the real
+    database (Integration). Use this to explain *why* Contract is fast: integration-style wiring tests
+    with the slow dependency faked out.
+- [x] **G4 — CriticalPath trait. → `[Trait("CriticalPath", "true")]`.** Same idiom as
+  `[Trait("Category","Playwright")]`; makes the set countable via `--filter`/grep (the reason
+  floor/ceiling work without a denominator).
 
 ---
 
