@@ -1,12 +1,14 @@
 ---
-name: refine-story-v4
-description: "Refine a GitHub issue into an implementation-ready spec. Supports orchestrator mode (auto-decisions, issue comments, structured status report) and standalone mode (interactive)."
+name: refine-story-v5
+description: "Refine a GitHub issue into an implementation-ready spec with a behavior-first test plan — each behavior assigned exactly one tier (TR-1), critical journeys declared (TR-6). Supports orchestrator mode (auto-decisions, issue comments, structured status report) and standalone mode (interactive)."
 argument-hint: "[STORY-ID e.g. AZ-014]"
 ---
 
-# Refine Story v2 Skill
+# Refine Story v5 Skill
 
 You are refining a GitHub issue into a complete, implementation-ready specification. Follow these phases exactly.
+
+This skill is the **seed** step of *define → seed → enforce*: `standards/testing.md` defines the test tiers and Test Rules (TR-*), refine seeds them into the issue (a behavior-first test plan), and `engineering-review-v5` enforces them. Cite the TR rules by ID; do not restate them.
 
 **Orchestrator Mode:** When `{ORCHESTRATOR_MODE}` is `true` (substituted by the orchestrator), skip interactive questions (Phase 3) and make best-judgment decisions. When running standalone (the literal `{ORCHESTRATOR_MODE}` appears unsubstituted), use interactive mode.
 
@@ -171,6 +173,8 @@ Do not supplement spec data with guesses from training data. If the spec is ambi
 
 **L. Risks / Watch-outs** — Large container size, slow processing, flaky external tools, licensing concerns?
 
+**M. Test tiering (behavior-first) — `standards/testing.md` → Test Tiers + TR-1, TR-6.** Decompose the acceptance criteria into individual **behaviors** (≈ one per criterion). For each behavior, answer the governing question — *"what is the cheapest tier that can catch **this** behavior's failure mode?"* — and assign it **exactly one** tier (TR-1): logic → Unit; contract/seam (routing, model binding, validation shape, status/error mapping, serialization, auth) → Contract; behavior only real infrastructure can exercise → Integration; critical user journey → UI. Then mark which UI-tier journeys are **critical path** (TR-6) — auth, the core create→read flow, the money path. The feature as a whole still spans tiers; what you must prevent is the **same behavior** landing at two tiers. This produces the behavior-first Test Coverage table in Phase 4 — do not seed a behavior at multiple tiers.
+
 Skip categories that don't apply to the story (e.g., skip File I/O for a pure UI story).
 
 ## Phase 3: Interactive Refinement (Standalone Mode Only)
@@ -195,6 +199,12 @@ For each gap that requires a user decision:
   - The gap can be filled from existing patterns in the project
 
 After all decisions are resolved, present a summary of all decisions made before proceeding to Phase 4.
+
+### Auto-reveal withheld considerations (interactive mode only)
+
+At the end of an interactive refinement, **automatically volunteer anything you considered but chose not to surface** — options you weighed and set aside, tradeoffs you resolved silently, things the human might want to weigh in on but that you didn't raise as a question. Do this *without being asked* — the user otherwise has to prompt for it every time. Keep it plain prose; **no taxonomy** (don't bucket into assumptions/ambiguities/exclusions), just surface the withheld considerations directly. The user can keep probing in conversation from there.
+
+**If `{ORCHESTRATOR_MODE}` is `true`, SKIP this entirely** — no self-review, no escalation, just proceed to Phase 4.
 
 ## Phase 4: Update the Issue
 
@@ -274,19 +284,23 @@ Task<Result> ProcessAsync(Guid documentId, ProcessingOptions options, Cancellati
 |------|--------|
 | `src/ProjectName.Infrastructure/...` | Implement stub |
 | `tests/ProjectName.Fakes/...` | Update fake |
-| `tests/ProjectName.Api.Tests/...` | Add unit tests |
+| `tests/ProjectName.Domain.Tests/...` | Add Unit tests (logic behaviors) |
+| `tests/ProjectName.Api.Tests/...` | Add Contract tests (wiring/seam behaviors) |
 
 ## Branch
 
 `story/{PREFIX}-{issue#}-short-name`
 
-## Test Coverage
+## Test Coverage (behavior-first)
 
-| Tier | Scenario | Assertion |
-|------|----------|-----------|
-| Unit | Happy path | Returns expected output |
-| Unit | Corrupt input | Returns error result |
-| Integration | End-to-end | Blob uploaded correctly |
+One row per **behavior** (≈ per acceptance criterion), keyed so a behavior **cannot appear twice**. Each behavior gets exactly **one** Tier (TR-1) — the cheapest that can catch its failure mode — and a Critical? flag for UI-tier journeys (TR-6). See `standards/testing.md` → Test Tiers. Do **not** add a second row for the same behavior at a more expensive tier.
+
+| # | Behavior | Tier | Critical? | Why this tier |
+|---|----------|------|-----------|---------------|
+| 1 | Compute price for a valid cart | Unit | — | pure logic |
+| 2 | Reject malformed request body (400 shape) | Contract | — | wiring/seam |
+| 3 | Order persists with FK + unique constraint | Integration | — | needs real SQL |
+| 4 | User completes checkout end-to-end | UI | ✓ | the money path |
 
 ## Dependency on {PREFIX}-{issue#}
 
@@ -331,9 +345,20 @@ gh issue comment {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$(cat <<
 - [List which template sections were filled in]
 
 **Open questions:** [None | list any that need manual attention]
+
+### TR checklist — refine (producer)
+
+Refine owns the test-plan rows. Fill PASS/FAIL **with evidence** (never a bare check). `engineering-review-v5` re-checks these adversarially.
+
+| TR | Rule | Producer | Evidence |
+|----|------|----------|----------|
+| TR-1 | Each behavior assigned exactly one tier (no multi-tier seeding) | PASS/FAIL | [N behaviors in the Test Coverage table, each with exactly one Tier; none repeated across tiers] |
+| TR-6 | Critical-path journeys declared (floor 3 advisory) | PASS/FAIL | [list the behaviors marked Critical? ✓, or "no UI surface" if none] |
 EOF
 )"
 ```
+
+> TR-1 and TR-6's *declaration* are refine's to own; the reviewer's TR-6 ceiling count (≤10 repo-wide) and TR-10 (redundancy) are not checkable here — they belong to `engineering-review-v5`. See `standards/testing.md` → Test Rules (TR) checklist.
 
 ### 4d. Move Issue to "Up Next" (Standalone Mode Only)
 
@@ -353,10 +378,12 @@ STORY_ID: {STORY_ID}
 ISSUE_NUMBER: {ISSUE_NUMBER}
 DECISIONS_COUNT: [number of decisions made]
 SECTIONS_UPDATED: [comma-separated list]
+BEHAVIORS_COUNT: [rows in the behavior-first Test Coverage table]
+CRITICAL_PATH_COUNT: [behaviors marked Critical? ✓ | 0]
 OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 4.2 -->
-<!-- last-updated: 2026-06-02 -->
-<!-- pipeline: v4 -->
+<!-- skill-version: 5.0 -->
+<!-- last-updated: 2026-06-21 -->
+<!-- pipeline: v5 -->
