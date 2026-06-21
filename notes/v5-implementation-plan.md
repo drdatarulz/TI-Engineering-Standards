@@ -79,22 +79,34 @@ still says UI/integration "gate every PR").
 
 ---
 
-## Phase 2 — CI / execution substrate  *(#8 / #1; runner already proven)*
+## Phase 2 — CI / execution substrate (standards-repo artifacts)  *(#8 / #1; runner already proven)*
 
-**Goal:** make the trigger model real on the pilot repo; independently testable without skill changes.
+**Goal:** build the **reusable substrate** in *this* repo so no project hand-writes the trigger model.
+Phase 2 produces templates + a setup script + documented requirements + sync wiring — all repo-agnostic.
+The **per-repo actuation** (instantiate, set branch protection, install runner, self-test) is *not*
+standards-repo work; it moves to Phase 5 (rollout, pilot first). Mirrors the existing skills-sync
+pattern: this repo ships the shareable thing, each project instantiates it once.
 
-- [ ] **2.1 — Author the three workflows** (all `runs-on: self-hosted`):
-  - `fast-tests.yml` → on `pull_request` (Domain + Contract/fakes projects; no Docker).
-  - `integration-tests.yml` → required pre-merge check (Testcontainers).
+- [ ] **2.1 — Author parameterized template workflows** (new home, e.g. `templates/workflows/`; all
+  `runs-on: self-hosted`; project name + test-project paths as fill-ins):
+  - `fast-tests.yml` → on `pull_request` (Domain + Contract/fakes projects; **no Docker**).
+  - `integration-tests.yml` → required pre-merge check (Testcontainers, real SQL).
   - `ui-tests.yml` → on `workflow_dispatch`, accepting **inputs**: `ref` (branch) + `filter`
     (scoped per-story run) — also runnable unfiltered (full boundary run).
-- [ ] **2.2 — Confirm the no-Docker fast job** genuinely has no Docker daemon, so a stray
-  Testcontainers reference fails loudly (validates 1.6).
-- [ ] **2.3 — Branch protection on the pilot repo:** `integration-tests` (and `fast-tests`) required
-  to merge; **require branch up to date with `main`**. Merge queue only if traffic demands.
-- [ ] **2.4 — Self-test the runner path:** dispatch a workflow `echo` → `docker run --rm hello-world`
-  → a real `dotnet test` (the path you already proved).
-- [ ] **Deliverable:** three workflows committed to the pilot repo + branch-protection configured.
+- [ ] **2.2 — Bake the no-Docker constraint into the `fast-tests.yml` template** so the job genuinely
+  has no Docker daemon — a stray Testcontainers reference fails loudly (the self-enforcing half of 1.6).
+- [ ] **2.3 — Author a branch-protection setup script** (`developer-tools/`): a `gh api` script (or
+  documented ruleset) a repo runs once to require the `fast-tests` + `integration-tests` checks and
+  **branch-up-to-date-with-`main`**. Branch protection is GitHub *settings*, not a file — the reusable
+  artifact is the script. (Merge queue noted as optional, only if traffic demands.)
+- [ ] **2.4 — Document the requirement** so conformance/review can check it: the trigger model itself
+  lands in `testing.md` via **1.4**; add the **branch-protection + self-hosted-runner requirement** to
+  `environments.md` (every v5 project *must* have these three workflows + protection + a runner).
+- [ ] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
+  project's `.github/workflows/` on sync (skipping any the project already customized) — same
+  precedence rule as skills. The runner setup guide is **Phase 6.6** (`developer-tools/`).
+- [ ] **Deliverable:** template workflows + branch-protection script + documented requirement +
+  sync wiring — all committed to **this** repo. Nothing repo-specific.
 
 ---
 
@@ -107,6 +119,34 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 - [ ] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
   seeding); **declare critical-path** journeys; **#7** auto-reveal withheld considerations at the end
   (interactive mode only). **#10:** emit producer rows TR-1, TR-6 (tagging declaration).
+  - **The mechanic — restructure the existing Test Coverage table from *tier-first* to
+    *behavior-first*.** Today `refine-story-v4` emits a tier-first table
+    (`refine-story-v4/SKILL.md:283` — rows are `Tier | Scenario | Assertion`), whose shape *invites*
+    the same behavior to recur across tiers (a "happy path" Unit row, then Integration/UI each add
+    their own). v5 flips it: **one row per behavior** (≈ per acceptance criterion), keyed by behavior
+    so a behavior **structurally cannot appear twice**, with a single Tier cell:
+
+    | # | Behavior | Tier | Critical? | Why this tier |
+    |---|---|---|---|---|
+    | 1 | Compute price for a valid cart | Unit | — | pure logic |
+    | 2 | Reject malformed request body (400 shape) | Contract | — | wiring/seam |
+    | 3 | Order persists with FK + unique constraint | Integration | — | needs real SQL |
+    | 4 | User completes checkout end-to-end | UI | ✓ | the money path |
+
+  - **"Single tier" =** for each behavior, refine answers the governing question — *"what's the
+    cheapest tier that can catch **this** behavior's failure mode?"* (tier table / TR-1) — and writes
+    exactly one Tier. Logic → Unit; contract/seam → Contract; real-infra behavior → Integration;
+    critical journey → UI.
+  - **Subtle, state it explicitly in the skill:** the *feature* still spans tiers (a vertical slice
+    naturally has Unit + Contract + maybe one UI behavior) — what's banned is the **same behavior** at
+    two tiers. Decompose the feature into behaviors; each behavior lands once. No coverage is lost.
+  - **Critical-path (TR-6) is just the `Critical?` column** on UI-tier rows — declared here because
+    refine is where journey importance is understood (don't let an agent infer criticality — it
+    drifts). `ui-test-v5` reads this column to apply `[Trait("CriticalPath","true")]`. So "single tier"
+    and "declare critical journeys" are two columns of **one** behavior-first table, not two steps.
+  - **Downstream payoff:** `implement`/`integration-test`/`ui-test` **consume their assigned rows**
+    instead of re-deriving coverage; the reviewer's TR-1 check collapses to "does every behavior have
+    exactly one tier, and is it the cheapest sufficient one?"
 - [ ] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
   Contract); **FIX-mode** carries "fix the code, not the test." **#10:** emit producer rows
   TR-2, TR-7, TR-8, TR-11.
@@ -124,6 +164,11 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   integration → TR-3/7/8; ui → TR-4/5/6/7/8/9; **TR-10 every run**), each cell PASS/FAIL + evidence;
   [CI] cells link the job rather than re-deriving; any [JUDGMENT] FAIL → REQUEST_CHANGES back to the
   owning skill.
+  - **Fix the stale description while in here:** `engineering-review-v4/SKILL.md:3` still says "Two
+    modes" though the body already defines **three** (`implementation`, `integration-tests`,
+    `ui-tests` — `SKILL.md:11–14`). The v5 copy's description must say **three modes**. Tier→mode
+    mapping: Unit + Contract → `implementation` (one pass — `implement-ticket-v5` produces both, so
+    there's no separate "contract" mode); Integration → `integration-tests`; UI → `ui-tests`.
 - [ ] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
 - [ ] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
 - [ ] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
@@ -137,9 +182,43 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 - [ ] **4.1 — `orchestrate-v5` mode switch:** read durable state on launch → **WORKING** (process up
   to **N**, default ~3; checkpoint each ticket; exit) or **CLEANUP** (no Ready tickets → end-of-run
   oversight; exit).
-- [ ] **4.2 — State machine** on the project board + per-run tracking issue: Ready → In-progress →
-  Done; tracking-issue **body = live state**, **comments = event log**; startup **crash recovery**
-  (reset stale In-progress → Ready).
+- [ ] **4.2 — State machine** — two physical homes, both GitHub objects:
+  - **Per-ticket state → the ticket itself (project board), unchanged from v4.** The board **Status
+    field** drives the queue (Ready → In-progress → Done); per-stage progress is **issue comments**
+    (the v4 orchestrator already posts a comment per stage/review as an audit trail); the **#10
+    checklist grid** lives in the issue/PR. The user's assumption is right: per-ticket state is held
+    in the ticket.
+  - **Per-run state → a dedicated per-run *tracking issue* (NEW in v5).** v4 didn't need one — it ran
+    as one long-lived session and kept run state in its own context. v5 **relaunches as fresh
+    processes** (the dumb loop), so run state must be **externalized to a durable GitHub object** to
+    survive process death and crash recovery. That's the whole reason it exists. **Body = live state**,
+    **comments = append-only event log**, on the board.
+  - **Ownership & lifecycle — the orchestrator owns it end to end; the bash loop never touches it**
+    (the loop is dumb; a loop making GitHub calls would violate that). Mechanic is **find-or-create on
+    startup**, because a fresh process can't tell first-launch from relaunch except by looking:
+    - *First launch* — query for an active tracking issue (open issue tagged e.g. `orchestration-run`),
+      find none → **create it**.
+    - *Every relaunch* — query finds the existing open issue → **read it** (this is how run state is
+      recovered across process death) and **update** body/comments.
+    - *At fixpoint* — **mark it complete** (close it / flip the label/field) + emit `RUN_COMPLETE`; the
+      next relaunch's startup query finds no active run, loop breaks.
+    - Keying find-or-create off a **durable label** (not a run ID the loop holds) is what keeps the
+      loop stateless.
+  - **Startup crash recovery:** reset any ticket left `In-progress` by a dead session back to Ready (or
+    resume it). **Edge:** if startup finds **two** open tracking issues (a prior run crashed without
+    being marked complete), treat the **newest as active** and close/flag the stale one — otherwise
+    "find the active run" is ambiguous.
+  - **Gaps to close while building 4.2** (medium is specified, format isn't):
+    1. **Tracking-issue body schema** — what "live state" concretely holds (current ticket, N-chunk
+       progress, pyramid ratio, gate-audit status). Template it; don't leave it freeform.
+    2. **Run-complete representation** — pick one durable form (label vs. custom field vs. issue
+       closed) rather than the spec's "flag/label/field" hedge.
+    3. **Status-name reconciliation** — #6 says "Ready," but `standards/project-tracking.md` board
+       columns are **Up Next / In Progress / Done** (no "Ready"). Either map Ready→Up Next or update
+       the standard. Pick one.
+  - **Standard touch:** `standards/project-tracking.md` needs a **v5 addition** — it currently knows
+    nothing about a per-run tracking issue. Document the concept (find-or-create, label, body/comments,
+    complete-marker) there so it's not orchestrator-only tribal knowledge.
 - [ ] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
   ticket** (#5a) → **gate audit** (incl. **#10:** confirm each ticket's review posted a filled-in
   reviewer checklist grid — concrete artifact, not vibes) → inject fix tickets. Reaches **fixpoint** =
@@ -153,6 +232,12 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 
 ## Phase 5 — Pilot & validate
 
+- [ ] **5.0 — Per-repo actuation of the Phase 2 substrate** (the half that can't live in the standards
+  repo): on the pilot repo, **instantiate** the template workflows into `.github/workflows/` (fill in
+  project name + test-project paths), **run the branch-protection script** (2.3), **install the
+  self-hosted runner** (2.5/6.6 guide — as a service, WSL2), and **self-test the runner path**:
+  dispatch a workflow `echo` → `docker run --rm hello-world` → a real `dotnet test` (the path already
+  proven 2026-06-18).
 - [ ] **5.1 —** Run v5 end-to-end on the pilot repo with a small batch (3–5 tickets).
 - [ ] **5.2 — Verify:** fast/PR + integration/pre-merge gates fire; tier boundaries enforced; UI runs
   on the runner (scoped per-story + full at boundary); loop chunks at N and relaunches; CLEANUP fires
