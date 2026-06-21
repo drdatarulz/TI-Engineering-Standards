@@ -36,7 +36,18 @@ When starting a session on **any project**, follow this protocol:
    done
    ```
    After the first copy, replace `{ProjectName}` / `{PROJECT}` / ports per `templates/workflows/README.md`, then run `developer-tools/setup-branch-protection.sh` once to make `fast-tests` + `integration-tests` required checks.
-7. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
+7. **Vendor the orchestration entrypoint** (v5): Copy the thin `scripts/orchestrate.sh` wrapper into the project (skip-if-exists — it's stable and self-updates the canonical driver each run). Same precedence rule as skills/workflows:
+   ```bash
+   mkdir -p scripts
+   for s in ../TI-Engineering-Standards/templates/scripts/*.sh; do
+     s_name=$(basename "$s")
+     if [ ! -f "scripts/$s_name" ]; then
+       cp "$s" "scripts/$s_name" && chmod +x "scripts/$s_name"
+     fi
+   done
+   ```
+   This is the entrypoint for long-haul autonomous runs (`./scripts/orchestrate.sh --tickets "#7,#8"`). A single interactive ticket does **not** need it — that's `orchestrate-v5 supervised #<issue>` invoked directly.
+8. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
    ```bash
    if [ -d ".githooks" ]; then
      current=$(git config core.hooksPath 2>/dev/null)
