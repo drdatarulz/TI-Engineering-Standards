@@ -59,6 +59,10 @@ still says UI/integration "gate every PR").
   at review.
 - [ ] **1.6 — Add the "no-Docker fast tier" line** (#5c): fast-tier projects must not reference
   Testcontainers/Docker; the per-PR fast job runs with no Docker daemon.
+- [ ] **1.6a — Add the "Test Rules" (TR-*) checklist** (#10): one numbered, ID'd block under the tier
+  table (TR-1…TR-11), each tagged **[CI]** or **[JUDGMENT]**, with the owner-producer(s) and which
+  rows are **reviewer-only** (TR-10, TR-6 ceiling). This is the single source both producer and
+  reviewer skills cite by ID — it must land before Phase 3.
 - [ ] **1.7 — Sweep sibling standards** for contradictions with the new trigger/tier model
   (`api-integration.md`, `architecture.md`, `environments.md`); fix references.
 - [ ] **Deliverable:** updated `standards/testing.md` (+ any sibling tweaks); commit. **Review gate:**
@@ -88,23 +92,29 @@ still says UI/integration "gate every PR").
 ## Phase 3 — v5 skills  *(define → seed → enforce; depends on Phase 1, G1)*
 
 Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re-stating rules.
+**Checklist (#10) threads through every skill below:** each producer **emits its owned TR rows**
+(PASS/FAIL + evidence) before declaring done; the reviewer emits the **full mode-scoped grid**.
 
 - [ ] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
   seeding); **declare critical-path** journeys; **#7** auto-reveal withheld considerations at the end
-  (interactive mode only).
+  (interactive mode only). **#10:** emit producer rows TR-1, TR-6 (tagging declaration).
 - [ ] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
-  Contract); **FIX-mode** carries "fix the code, not the test."
+  Contract); **FIX-mode** carries "fix the code, not the test." **#10:** emit producer rows
+  TR-2, TR-7, TR-8, TR-11.
 - [ ] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
-  FIX-mode fix-code-not-test rule.
+  FIX-mode fix-code-not-test rule. **#10:** emit producer rows TR-3, TR-7, TR-8.
 - [ ] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
   declared out-of-scope, per-surface); per-story run = **scoped `workflow_dispatch`** to the runner
   (#8); tag critical-path tests; obey the #9 anti-patterns (POM, condition-waits, no silent fails,
-  no skips).
+  no skips). **#10:** emit producer rows TR-4, TR-5, TR-6 (tag), TR-7, TR-8, TR-9.
 - [ ] **3.5 — `engineering-review-v5`:** **two-way** (flags *missing* AND *redundant* coverage, #2);
   **tier-boundary** checks (business logic out of Contract, contract out of Integration);
   **critical-path count** (ceiling ≤10 hard, floor ≥3 advisory); **fix-code-not-test** gate (reject a
   test edited to mask a bug); **anti-pattern** flags. Runs in all three modes (implementation,
-  integration-tests, ui-tests).
+  integration-tests, ui-tests). **#10:** emit the **full mode-scoped reviewer grid** (impl → TR-2/7/8/11;
+  integration → TR-3/7/8; ui → TR-4/5/6/7/8/9; **TR-10 every run**), each cell PASS/FAIL + evidence;
+  [CI] cells link the job rather than re-deriving; any [JUDGMENT] FAIL → REQUEST_CHANGES back to the
+  owning skill.
 - [ ] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
 - [ ] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
 - [ ] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
@@ -122,8 +132,9 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   Done; tracking-issue **body = live state**, **comments = event log**; startup **crash recovery**
   (reset stale In-progress → Ready).
 - [ ] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
-  ticket** (#5a) → **gate audit** → inject fix tickets. Reaches **fixpoint** = no Ready tickets AND
-  CLEANUP injected nothing → mark run complete + emit `RUN_COMPLETE`.
+  ticket** (#5a) → **gate audit** (incl. **#10:** confirm each ticket's review posted a filled-in
+  reviewer checklist grid — concrete artifact, not vibes) → inject fix tickets. Reaches **fixpoint** =
+  no Ready tickets AND CLEANUP injected nothing → mark run complete + emit `RUN_COMPLETE`.
 - [ ] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
   guards = `timeout` per session, relaunch-on-exit, **max-iterations cap** + circuit-breaker.
   Limiter/loop **optional** (small runs go top-to-bottom, no bash).
@@ -139,6 +150,38 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   ratio/drift/gate-audit; crash recovery works.
 - [ ] **5.3 — Tune N** to the observed reliability threshold.
 - [ ] **5.4 —** Capture lessons; only then consider rolling v5 to other repos.
+
+---
+
+## Phase 6 — Process documentation, diagrams & templates  *(after pilot; docs describe what shipped)*
+
+**Goal:** bring the *process-documentation layer* in line with v5. This layer is heavily v4-coded and
+will **directly contradict** the new model until updated (e.g. the master doc still says "Playwright
+runs in CI on every PR"). Sequenced **after Phase 5** so docs describe what actually shipped, not what
+was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
+
+- [ ] **6.1 — `workflow/agentic-development-workflow.md`** (master process doc): rewrite to the v5
+  model — four-tier testing (Unit/Contract/Integration/UI), the **trigger model** (fast/PR,
+  integration/required-pre-merge, UI at orchestration boundary via `workflow_dispatch`),
+  **self-hosted runner** execution (#8), the **mode-switching orchestrator + dumb loop** (#6, replaces
+  the v4 supervisor/worker description), and the **TR checklist** dual sign-off (#10). Remove
+  "Playwright gates every PR" and Docker-required-locally framing.
+- [ ] **6.2 — `workflow/workflow-diagram.html`**: regenerate for the v5 pipeline (currently labeled
+  "v4 pipeline"). **Note:** hand-built HTML — regeneration is real work, not a tweak. G1 call:
+  new `workflow-diagram-v5.html` vs. edit in place.
+- [ ] **6.3 — `workflow/README.md`**: update the stage list, drop the "v4 pipeline" labels, point at
+  the v5 diagram, refresh `-v4`→`-v5` skill names.
+- [ ] **6.4 — `workflow/screen-inventory-template.md`**: add the **per-surface UI-scope decision**
+  (#3 / TR-5) — record per surface whether it's in/out of UI-tier scope.
+- [ ] **6.5 — `templates/CLAUDE-project.md`**: update test-run patterns to the four tiers + trigger
+  model; add the Contract tier; reference the TR checklist; refresh skill names per G1.
+- [ ] **6.6 — `developer-tools/`**: document the **self-hosted runner** setup (#8 — install-as-service,
+  WSL2/Linux, Docker access, persistent-runner hygiene) — likely a new doc alongside the existing
+  hooks/VM-scripts.
+- [ ] **6.7 — Index `workflow/` in `CLAUDE.md`** — the folder is currently **not referenced** in the
+  standards index, which is exactly why it's easy to forget. Add it (and `templates/`,
+  `developer-tools/` if not present).
+- [ ] **Deliverable:** v5 process docs + diagram + templates; `CLAUDE.md` indexes the workflow layer.
 
 ---
 
@@ -158,10 +201,11 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 Phase 0 (decisions)
         │
         ▼
-Phase 1 (standards) ──► Phase 3 (skills) ──► Phase 4 (orchestration) ──► Phase 5 (pilot)
+Phase 1 (standards) ──► Phase 3 (skills) ──► Phase 4 (orchestration) ──► Phase 5 (pilot) ──► Phase 6 (docs)
         │                    ▲
         ▼                    │
 Phase 2 (CI substrate) ──────┘   (skills trigger the workflows)
 ```
 
-Phases 1 and 2 can run in parallel; both must land before Phase 3.
+Phases 1 and 2 can run in parallel; both must land before Phase 3. Phase 6 (process docs, diagram,
+templates) comes **last** so it documents what actually shipped, not what was planned.

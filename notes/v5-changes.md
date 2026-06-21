@@ -25,6 +25,7 @@
 | #7 | `refine-story` auto-reveals withheld considerations | Resolved |
 | #8 | execution model — self-hosted runner | Resolved |
 | #9 | UI anti-patterns into `testing.md` | **Done** (committed `de70473`) |
+| #10 | checklist enforcement — TR rules, dual producer/reviewer sign-off | Resolved |
 | — | concurrent overseer | Shelved (upgrade) |
 | — | batch blame / nightly | Not concerns |
 
@@ -306,6 +307,85 @@ over-*production*.
   - **Still owed (separate, broader work):** `testing.md` still describes the *old* trigger model
     (UI/integration "gate every PR"), which **contradicts** the v5 trigger decisions above — it needs
     a broader v5 rewrite. The anti-patterns were **purely additive** and landed independently.
+
+---
+
+## Checklist enforcement (#10)
+
+- **#10 — Checklist enforcement: TR rules + dual producer/reviewer sign-off. RESOLVED.** The v5 rules
+  above are scattered in prose across six skills, which makes "enforce" (the third leg of
+  *define → seed → enforce*) a vibe rather than a mechanic. #10 gives it a concrete form:
+  consolidate the rules into one **numbered, ID'd checklist** that producers self-check and the
+  reviewer independently re-checks. Observed motivation: sub-agents follow rules markedly better when
+  handed an explicit checklist to *use* — not just told the rules in prose.
+
+  **The canonical list — "Test Rules" (TR-*) in `standards/testing.md`.** One numbered block (under
+  the tier table — the same single source both skills already cite). Stable IDs are the anti-drift
+  glue: skills never restate a rule, they cite `TR-3`. Each rule is tagged **[CI]** (a job/branch
+  protection catches it mechanically — the checklist just points at the job, doesn't re-derive) or
+  **[JUDGMENT]** (needs reasoning — this is where the checklist carries the weight).
+
+  | ID | Rule | Owner-producer(s) | Tag |
+  |---|---|---|---|
+  | TR-1 | Each behavior assigned exactly one tier (no multi-tier seeding) | refine | JUDGMENT |
+  | TR-2 | No business logic in Contract tier | implement | JUDGMENT |
+  | TR-3 | No contract re-assertion in Integration | integration-test | JUDGMENT |
+  | TR-4 | UI journey-scoped, not a per-screen happy/edge/error matrix | ui-test | JUDGMENT |
+  | TR-5 | UI conditional — skip when no surface or surface declared out-of-scope (per surface) | ui-test | JUDGMENT |
+  | TR-6 | Critical-path tagged; floor 3 (advisory) / ceiling 10 (hard) | refine (declare) + ui (tag); **≤10 repo-wide count = reviewer-only** | CI (count) + JUDGMENT |
+  | TR-7 | Fix the code, not the test | implement, integration, ui (+ ci-fix) | JUDGMENT |
+  | TR-8 | No silent failures / no asserting buggy behavior / no `Skip` | implement, integration, ui | CI (`Skip`/waits) + JUDGMENT |
+  | TR-9 | POM + condition-based waits (no hardcoded waits, no inline locators) | ui-test | CI (grep) + JUDGMENT |
+  | TR-10 | Redundancy / lowest sufficient tier (cut the more expensive duplicate, downward-only) | **reviewer-only** | JUDGMENT |
+  | TR-11 | No Testcontainers/Docker in fast tier | implement | CI (no-daemon job) |
+
+  **Two independent sign-offs per applicable row — a grid on the ticket.** The deliverable is a small
+  table: TR rows down the side, an **implementer/producer column** and a **reviewer column**, each
+  cell a PASS/FAIL **with evidence** (a line reference or pasted command output), never a bare check —
+  the evidence requirement is the teeth that stops rubber-stamping.
+
+  - **Decision: who gets the checklist → both, differentiated** (not identical). Producers self-check
+    *constructively* before declaring done ("I assigned each behavior one tier; here's the table");
+    the reviewer re-checks *adversarially* ("find a behavior tested at two tiers and cut the
+    expensive one"). Identical lists were rejected — the reviewer would just re-tick the producer's
+    boxes and the second pass would be worthless.
+  - **Decision: enforcement form → emit a filled-in checklist with evidence** (not reference-only). A
+    referenced checklist gets skimmed; requiring it as an output artifact forces per-item engagement
+    and produces a durable record.
+
+  **Not every row has both boxes.**
+  - A producer only ticks rows it **owns** (the implementer never sees TR-3 or TR-10). The producer
+    columns are sparse.
+  - The **reviewer column is the one constant** — present on every applicable row.
+  - Some rules are **reviewer-only** because no single producer has the vantage to judge them at the
+    moment it works: **TR-10** (redundancy) needs a *cross-tier* view — each producer runs from fresh
+    context seeing only its own tier, so it structurally can't tell its test duplicates a cheaper one;
+    the reviewer can, because by the time it runs the cheaper tiers have already merged to `main`
+    (the downward-only property). **TR-6's ≤10** needs a *repo-wide* count spanning all UI tests, not
+    just this ticket's — also reviewer-only. (TR-6 is a hybrid: the producer ticks "I tagged this
+    story's critical journeys"; the ceiling cell is the reviewer's.)
+  - **General principle:** a rule is producer-checkable only when the producer has the context to
+    judge it at the moment it works; rules needing a vantage no single producer has (cross-tier,
+    repo-wide) fall to the reviewer alone.
+
+  **[CI] vs [JUDGMENT] split.** Anything greppable/countable is more reliably caught by CI than by an
+  agent self-attesting, so the checklist *defers* to CI on those — the cell links the job rather than
+  re-deriving. The checklist's real job is the [JUDGMENT] calls (TR-2, TR-3, TR-4, TR-10). A reviewer
+  FAIL on any [JUDGMENT] item → REQUEST_CHANGES, bounced back to whichever skill owns that row.
+
+  **Reviewer runs are mode-scoped.** `engineering-review-v5` emits only the rows relevant to the stage
+  it's reviewing (implementation run → TR-2/7/8/11; integration run → TR-3/7/8; ui run →
+  TR-4/5/6/7/8/9), with **TR-10 on every run** (redundancy can appear at any tier).
+
+  **Bonus — feeds the CLEANUP gate-audit (#6).** Because producer checklists land in the issue
+  comment / PR body and the reviewer checklist is the review comment, both are durable artifacts. The
+  orchestrator's CLEANUP-mode gate-audit can then verify "did every ticket's review actually post a
+  filled-in checklist," giving the audit something concrete to confirm instead of vibes.
+
+  **Open call (not yet decided):** whether the grid is **one block per ticket** (refine/implement/
+  integration/ui append to the same table as the ticket moves through stages) or **one grid per
+  stage's PR**. Since v5 splits work across three PRs, current lean is **per-stage grids** the
+  reviewer fills at each stage — flagged here, not locked.
 
 ---
 
