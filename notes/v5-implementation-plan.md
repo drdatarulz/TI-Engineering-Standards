@@ -55,12 +55,22 @@ so each per-skill edit diffs cleanly against its v4 origin. Done so far:
 
 **Phase 3 — COMPLETE.** All six `-v5` skills built + CLAUDE.md cut over, on `v5-build`, NOT merged.
 
-**Next action: Phase 4 — orchestration architecture** (`orchestrate-v5` mode switch + the dumb driver
-is already built in 2.6). Resolve the embedded Phase-4 "pick one" decisions when reached: **run-complete
-representation** (label vs custom field vs issue-closed), **Ready-vs-Up-Next status naming** (#6 says
-"Ready", `project-tracking.md` board says "Up Next" — map or update the standard), and the
-tracking-issue **body schema**. See Phase 4 (4.1–4.4) below; also add the per-run tracking-issue
-concept to `standards/project-tracking.md`.
+**Phase 4 — COMPLETE** (commit `a06e660` on `v5-build`). `orchestrate-v5` (copy of v4, restructured):
+self-selects WORKING/CLEANUP from durable state; 4.1 Mode Selection (Up Next>0 → WORKING up to N from
+`ORCHESTRATE_N`, checkpoint, exit; ==0 → CLEANUP); 4.2 per-run **tracking issue** (find-or-create off
+label `orchestration-run`, body=live state/comments=event log, **run-complete = issue CLOSED**,
+crash-recovery resets In Progress→Up Next, two-open-issues edge, templated body schema); 4.3 CLEANUP
+(full UI dispatch → pyramid ratio + drift ticket → gate audit of TR grids → inject fixes → fixpoint
+close+`RUN_COMPLETE` or exit-and-reverify); UI stage conditional + runner-dispatched; checkpoints.
+4.4 driver already shipped in 2.6. **Decisions locked:** Ready→Up Next (no standard change),
+close-issue for run-complete. `project-tracking.md` got the Orchestration Run Tracking section;
+`CLAUDE.md` orchestrate row → v5 (seven pipeline skills now v5).
+
+**Next action: Phase 5 — pilot & validate** (per-repo actuation + end-to-end run on the pilot). NOTE
+per [[feedback_v5_build_approach]]: Phase 5 is **partly manual / user-owned** (pilot repo, runner
+install, branch protection, real run) — it is not pure standards-repo doc work. Confirm with the user
+how much of Phase 5 to drive here vs. in the pilot instance before diving in. Then Phase 6 (process
+docs/diagram/templates) is the final standards-repo phase.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -231,10 +241,10 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 
 **Goal:** one mode-switching orchestrator + a dumb relaunch loop; no second process, no scheduler.
 
-- [ ] **4.1 — `orchestrate-v5` mode switch:** read durable state on launch → **WORKING** (process up
+- [x] **4.1 — `orchestrate-v5` mode switch:** read durable state on launch → **WORKING** (process up
   to **N**, default ~3; checkpoint each ticket; exit) or **CLEANUP** (no Ready tickets → end-of-run
   oversight; exit).
-- [ ] **4.2 — State machine** — two physical homes, both GitHub objects:
+- [x] **4.2 — State machine** — two physical homes, both GitHub objects:
   - **Per-ticket state → the ticket itself (project board), unchanged from v4.** The board **Status
     field** drives the queue (Ready → In-progress → Done); per-stage progress is **issue comments**
     (the v4 orchestrator already posts a comment per stage/review as an audit trail); the **#10
@@ -271,11 +281,11 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Standard touch:** `standards/project-tracking.md` needs a **v5 addition** — it currently knows
     nothing about a per-run tracking issue. Document the concept (find-or-create, label, body/comments,
     complete-marker) there so it's not orchestrator-only tribal knowledge.
-- [ ] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
+- [x] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
   ticket** (#5a) → **gate audit** (incl. **#10:** confirm each ticket's review posted a filled-in
   reviewer checklist grid — concrete artifact, not vibes) → inject fix tickets. Reaches **fixpoint** =
   no Ready tickets AND CLEANUP injected nothing → mark run complete + emit `RUN_COMPLETE`.
-- [ ] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
+- [x] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
   guards = `timeout` per session, relaunch-on-exit, **max-iterations cap** + circuit-breaker.
   Limiter/loop **optional** (small runs go top-to-bottom, no bash).
   - **Physical home — two-part layout** (the driver is the *outermost* layer: it launches `claude -p`,
@@ -293,7 +303,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Operator flow on a Docker box:** `git clone <project>` → `git pull` → `./scripts/orchestrate.sh`.
   - **Inner invocation:** the driver launches `claude -p` with `--dangerously-skip-permissions` (the
     existing `claude-yolo` mode, `developer-tools/claude-vm-scripts.md`) for headless autonomy.
-- [ ] **Deliverable:** `orchestrate-v5` skill + driver script.
+- [x] **Deliverable:** `orchestrate-v5` skill + driver script.
 
 ---
 
