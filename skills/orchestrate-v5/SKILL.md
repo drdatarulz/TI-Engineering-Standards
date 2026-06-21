@@ -49,7 +49,7 @@ This is the per-ticket pipeline WORKING mode runs for each of the up-to-N ticket
 Parse `$ARGUMENTS` as follows:
 
 1. **Supervision**: If the first word is `supervised` or `autonomous`, use it and consume it. Default `supervised` for interactive use; the dumb loop launches `autonomous`.
-2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`). In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets. With no list, WORKING mode pulls the highest-priority Up Next tickets.
+2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v5 supervised #7,#8,#9,#10,#11`. In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets (do *these*, even if more sit in Up Next). On first launch the scope is **persisted to the tracking issue** (Step 0.5) so it survives relaunch; this is the only time launch args are read for scope. With no list, the scope is `full board` (= all Up Next, evaluated live).
 3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop).
 
 **Mode is NOT a launch argument — it is selected from durable state after Step 0** (see Mode Selection). `supervised`/`autonomous` only controls whether you stop between tickets.
@@ -151,8 +151,8 @@ ACTIVE=$(gh issue list --repo {REPO_OWNER}/{REPO_NAME} --label orchestration-run
 COUNT=$(echo "$ACTIVE" | jq 'length')
 ```
 
-- **COUNT == 0 — first launch:** create the tracking issue (open, labeled `orchestration-run`) using the body schema below. This is run start.
-- **COUNT == 1 — relaunch:** read it — this recovers run state across process death. Update its body as live state; append an event-log comment for what this session does.
+- **COUNT == 0 — first launch:** create the tracking issue (open, labeled `orchestration-run`) using the body schema below. **Record the run scope in the body's `Scope:` field** — the ticket list passed at launch (e.g. `#7,#8,#9,#10,#11`), or `full board` if none was passed. This is run start, and the **only** time launch args are consulted for scope.
+- **COUNT == 1 — relaunch:** read it — this recovers run state across process death, **including the `Scope:` field** (the relaunched process has no memory of the original launch args, so scope comes from here). Update the body as live state; append an event-log comment for what this session does.
 - **COUNT >= 2 — a prior run crashed without being closed:** "active run" is ambiguous. Treat the **newest** (latest `createdAt`) as active; **close** the stale older one(s) with a comment `superseded — stale active run`.
 
 ```bash
@@ -173,24 +173,29 @@ A fresh process can't tell which tickets a dead session left mid-flight, so reco
 
 ## Mode Selection
 
-After Step 0 (context + board IDs), 0.5 (tracking issue), and 0.6 (crash recovery), **select the mode from durable state** — mode is computed, never passed in:
+After Step 0 (context + board IDs), 0.5 (tracking issue + **run scope**), and 0.6 (crash recovery), **select the mode from durable state** — mode is computed, never passed in.
+
+**Ready tickets = tickets that are in this run's SCOPE *and* currently Status "Up Next".** Read the scope from the tracking-issue body (Step 0.5), not from launch args — a relaunched process has no memory of the original arguments, so the scope must come from durable state.
 
 ```bash
-# Count Ready tickets = board items with Status "Up Next" (use the project + field IDs from 0c)
-gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format json \
-  --jq '[.items[] | select(.status == "Up Next")] | length'
+# All Up Next board items (use the project + field IDs from 0c)
+UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format json \
+  --jq '[.items[] | select(.status == "Up Next") | .content.number]')
+# READY = UPNEXT ∩ scope.  If scope is "full board", READY = UPNEXT.
 ```
 
-- **Ready count > 0 → WORKING mode** (process up to N, below).
-- **Ready count == 0 → CLEANUP mode** (end-of-run oversight, below).
+- **Ready count > 0 → WORKING mode** (process up to N of the *scoped* Up Next tickets).
+- **Ready count == 0 → CLEANUP mode** (end-of-run oversight).
 
-That is the entire control flow: each launch picks **one** mode, does its chunk, and **exits**. The loop relaunches until CLEANUP reaches a fixpoint and emits `RUN_COMPLETE`. (If a ticket scope list was passed, intersect it with Up Next; an empty intersection still routes to CLEANUP.)
+That is the entire control flow: each launch picks **one** mode, does its chunk, and **exits**. The loop relaunches until CLEANUP reaches a fixpoint and emits `RUN_COMPLETE`.
+
+**Scoping is durable, not per-process.** "Do these five even though ten are in Up Next" works *because* the five are written to the tracking issue at run start (Step 0.5) and every relaunch reads them back. The other five Up Next tickets are never touched by this run, and the run reaches its fixpoint when the **scoped** five are done — it does **not** wait for Up Next to empty.
 
 ---
 
 ## WORKING Mode — Per-Ticket Pipeline
 
-WORKING mode processes **up to N** Ready tickets (Status = Up Next), highest-priority first. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
+WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — highest-priority first. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
 
 At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's "current ticket". For EACH ticket, execute these stages:
 
@@ -814,18 +819,18 @@ For every ticket completed in this run (from the tracking-issue body), confirm e
 
 ### C4. Inject fix tickets
 
-Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all fields set (Status, Type, Priority, Component, Story ID) — a ticket not on the board doesn't exist. Record each in the tracking-issue body's "Injected this run".
+Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all fields set (Status, Type, Priority, Component, Story ID) — a ticket not on the board doesn't exist. Record each in the tracking-issue body's "Injected this run", **and append its number to the `Scope:` field** so the next WORKING chunk actually picks it up (otherwise a scoped run would inject a fix and never work it). For a `full board` run this is automatic — it's already Up Next.
 
 ### C5. Fixpoint check
 
-- **CLEANUP injected nothing** (no drift ticket, no fix tickets) AND Ready == 0 → **fixpoint reached.** Close the tracking issue and emit the sentinel:
+- **CLEANUP injected nothing** (no drift ticket, no fix tickets) AND **no scoped Ready tickets remain** (scope ∩ Up Next == 0) → **fixpoint reached.** Close the tracking issue and emit the sentinel:
   ```bash
   gh issue close {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} \
-    --comment "⬛ Run complete — fixpoint reached (no Ready tickets, CLEANUP injected nothing)."
+    --comment "⬛ Run complete — fixpoint reached (no scoped Ready tickets, CLEANUP injected nothing)."
   echo "RUN_COMPLETE"
   ```
-  The next relaunch's startup query finds no open `orchestration-run` issue → the loop breaks. **Done.**
-- **CLEANUP injected something** → exit **without** closing/`RUN_COMPLETE`. The next relaunch finds Ready > 0 → WORKING → re-verifies the injected work. This is correct and non-infinite: injected tickets are real work that, once clean, leave CLEANUP with nothing to inject.
+  The next relaunch's startup query finds no open `orchestration-run` issue → the loop breaks. **Done.** (Up Next may still hold *out-of-scope* tickets — that's fine; this run only ever owned its scope.)
+- **CLEANUP injected something** → exit **without** closing/`RUN_COMPLETE`. Because the injected tickets were appended to scope (C4), the next relaunch finds scoped Ready > 0 → WORKING → re-verifies the injected work. This is correct and non-infinite: injected tickets are real work that, once clean, leave CLEANUP with nothing to inject.
 
 ---
 
