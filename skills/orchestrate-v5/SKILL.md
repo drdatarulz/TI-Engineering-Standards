@@ -774,20 +774,23 @@ Note: Acceptance criteria are primarily checked off in Stage 5b before merging, 
 
 ---
 
-## WORKING Mode — chunk completion & exit
+## WORKING Mode — chunk completion
 
-After processing N tickets (or when the Ready queue empties mid-chunk):
+After processing N tickets (or when the scoped Ready queue empties mid-chunk):
 
 - Ensure every completed ticket is checkpointed (Stage 8) and the tracking-issue body reflects current state.
-- Append `⟳ chunk done — exiting for relaunch` to the tracking-issue event log.
-- **Exit the session.** Do NOT roll into CLEANUP in the same process — exiting and letting the dumb loop relaunch is what gives the next chunk fresh context (the whole point of #6). The relaunch re-runs Mode Selection: more Ready → another WORKING chunk; none → CLEANUP.
-- In **supervised** mode (interactive, no loop), honor the Supervised Mode Gate below instead of hard-exiting.
+
+**What happens next depends on whether a relaunch loop is driving you — detected by whether `ORCHESTRATE_N` is set (the dumb loop exports it; a direct session does not):**
+
+- **Looped run (`ORCHESTRATE_N` is set):** append `⟳ chunk done — exiting for relaunch` to the event log and **exit the session.** Do NOT roll into CLEANUP in this process — exiting and letting the loop relaunch is what gives the next chunk fresh context (#6). The relaunch re-runs Mode Selection: more scoped Ready → another WORKING chunk; none → CLEANUP.
+- **Single-session run (`ORCHESTRATE_N` unset — you were launched directly, not by the loop):** there is **no relaunch** to run the wrap-up, so **continue in this same session.** When the scoped Ready queue is empty, fall through to **CLEANUP** (below); let it reach the fixpoint and **close the tracking issue**. This is what makes a direct run self-complete and leave no dangling open `orchestration-run` issue. (You may still emit `RUN_COMPLETE` — harmless with no loop listening.)
+- In **supervised** mode, honor the Supervised Mode Gate (stop between tickets) regardless of the above. After the *last* scoped ticket and a final "proceed", a single-session run still falls through to CLEANUP and closes out; a looped run exits and the loop's next relaunch handles CLEANUP.
 
 ---
 
 ## CLEANUP Mode (end-of-run oversight)
 
-Mode Selection routes here when **no Ready tickets remain** (Status Up Next == 0). CLEANUP is the run's periodic detector — run-completion-triggered, not clock-triggered. Execute in order:
+CLEANUP runs when **no scoped Ready tickets remain** (scope ∩ Up Next == 0) — reached either by a **relaunch** picking this mode in Mode Selection (looped run), or by a **single-session** run falling through here after WORKING (direct run, `ORCHESTRATE_N` unset). It is the run's periodic detector — run-completion-triggered, not clock-triggered. Execute in order:
 
 ### C1. Full UI regression suite (unfiltered runner dispatch)
 
