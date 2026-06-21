@@ -66,11 +66,14 @@ close+`RUN_COMPLETE` or exit-and-reverify); UI stage conditional + runner-dispat
 close-issue for run-complete. `project-tracking.md` got the Orchestration Run Tracking section;
 `CLAUDE.md` orchestrate row → v5 (seven pipeline skills now v5).
 
-**Next action: Phase 5 — pilot & validate** (per-repo actuation + end-to-end run on the pilot). NOTE
-per [[feedback_v5_build_approach]]: Phase 5 is **partly manual / user-owned** (pilot repo, runner
-install, branch protection, real run) — it is not pure standards-repo doc work. Confirm with the user
-how much of Phase 5 to drive here vs. in the pilot instance before diving in. Then Phase 6 (process
-docs/diagram/templates) is the final standards-repo phase.
+**v5 MERGED TO `main` 2026-06-21** (merge commit `763514c`, pushed). Phases 0–4 are live; v5 is the
+standard. v4 skills retained (pin per project via `-v4`/`-v5` skill name). `v5-build` kept as history.
+
+**Next action: Phase 5 — pilot on HeyCAPTO** (user-owned, separate instance; runner already set up).
+Single-ticket smoke first, then a 3–5 ticket run. v5 is on `main`, so HeyCAPTO's auto-sync picks it up
+normally. User actuates there (fill workflow templates, confirm CLAUDE.md names the four test projects,
+one ticket in Up Next, `orchestrate-v5 supervised #<issue>`); reports mismatches back to tune before the
+3–5 run. Then Phase 6 (process docs/diagram/templates) is the final standards-repo phase.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
