@@ -42,12 +42,13 @@ so each per-skill edit diffs cleanly against its v4 origin. Done so far:
   rewritten to scoped `workflow_dispatch` on the self-hosted runner (#8, replacing "block the PR");
   fix-code-not-test (TR-7); producer grid (TR-4/5/6/7/8/9) in PR body.
 
-**Next action: continue Phase 3** with the remaining three sub-tasks, in order:
-- **3.5 engineering-review-v5** — the enforcement keystone: two-way (missing AND redundant, #2),
-  tier-boundary checks, critical-path count (≤10 hard / ≥3 advisory), fix-code-not-test gate,
-  anti-pattern flags; three modes; **full mode-scoped reviewer grid** (impl→TR-2/7/8/11;
-  integration→TR-3/7/8; ui→TR-4/5/6/7/8/9; **TR-10 every run**); fix the stale "Two modes"
-  description → three modes.
+- **3.5 engineering-review-v5** (`9b94ad6`) — three modes (fixed stale "Two modes"); v5 Test
+  Enforcement section (tier-boundary TR-2/TR-3, two-way redundancy TR-10 #2, fix-code-not-test TR-7,
+  anti-patterns TR-8/9, critical-path count TR-6 ≤10/≥3, no-Docker TR-11); rewrote Integration+UI
+  mode checklists off the v4 additive matrix; Step 2.5 mode-scoped reviewer grid embedded in review
+  body on both approve and request-changes; report adds TR_GRID/REDUNDANT_CUT/CRITICAL_PATH_COUNT.
+
+**Next action: continue Phase 3** with the remaining two sub-tasks, in order:
 - **3.6 ci-fix-v5** — carry fix-code-not-test (TR-7).
 - **3.7** — update `CLAUDE.md` standards index + skills table to v5 (keep v4 listed/running until
   Phase 5 proves v5 — do NOT move v4 to archive yet, per G1 rationale "v4 keeps running while v5 is
@@ -201,7 +202,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   declared out-of-scope, per-surface); per-story run = **scoped `workflow_dispatch`** to the runner
   (#8); tag critical-path tests; obey the #9 anti-patterns (POM, condition-waits, no silent fails,
   no skips). **#10:** emit producer rows TR-4, TR-5, TR-6 (tag), TR-7, TR-8, TR-9.
-- [ ] **3.5 — `engineering-review-v5`:** **two-way** (flags *missing* AND *redundant* coverage, #2);
+- [x] **3.5 — `engineering-review-v5`:** **two-way** (flags *missing* AND *redundant* coverage, #2);
   **tier-boundary** checks (business logic out of Contract, contract out of Integration);
   **critical-path count** (ceiling ≤10 hard, floor ≥3 advisory); **fix-code-not-test** gate (reject a
   test edited to mask a bug); **anti-pattern** flags. Runs in all three modes (implementation,
