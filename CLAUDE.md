@@ -112,3 +112,4 @@ These rules apply to **every project**, no exceptions:
 - Do NOT use `!` in passwords or secrets — bash interprets `!` as history expansion, making them unusable in shell commands
 - Do NOT put cloud SDK references in Domain or any service project except Infrastructure
 - Do NOT add `Co-Authored-By` trailers to git commit messages
+- Do NOT exercise business logic through the Contract tier (host + fakes) — it asserts the HTTP contract only; logic scenarios go in Unit tests (see [standards/testing.md](standards/testing.md) → Test Tiers)
