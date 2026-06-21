@@ -1,0 +1,60 @@
+# UI tier (Playwright) — NOT a per-PR gate. Runs at the orchestration boundary and on
+# demand via workflow_dispatch on the self-hosted runner. See standards/testing.md.
+#
+# Fired two ways:
+#   * scoped     — pass `filter` (e.g. a story's tests, or "CriticalPath=true") for the
+#                  per-story authoring run and critical-path smoke set.
+#   * unfiltered — leave `filter` empty for the end-of-batch full regression sweep.
+#
+# FILL IN (see templates/workflows/README.md):
+#   {ProjectName} → solution/project name
+#   {PROJECT}     → uppercase env-var prefix (e.g. FORMIT)
+#   ports / health paths below → match your docker-compose client + API ports.
+name: ui-tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or SHA to test
+        required: false
+        default: main
+      filter:
+        description: 'xUnit --filter expression (empty = full suite)'
+        required: false
+        default: ''
+
+jobs:
+  ui-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Start Playwright stack
+        run: docker compose -f docker-compose.yml -f docker-compose.playwright.yml up -d --build
+
+      - name: Wait for readiness
+        run: |
+          until curl -sf http://localhost:5001/health/ready; do sleep 2; done
+          until curl -sf http://localhost:5002; do sleep 2; done
+
+      - name: Run UI tests
+        env:
+          # YAML key is quoted because the {PROJECT} token starts with a brace.
+          "{PROJECT}_BASE_URL": http://localhost:5002
+        run: |
+          if [ -n "${{ inputs.filter }}" ]; then
+            dotnet test tests/{ProjectName}.Playwright.Tests/ --filter "${{ inputs.filter }}"
+          else
+            dotnet test tests/{ProjectName}.Playwright.Tests/
+          fi
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.playwright.yml down

@@ -1,0 +1,38 @@
+# Integration tier — REQUIRED pre-merge check. Real infrastructure via Testcontainers.
+# See standards/testing.md → CI/CD Testing Tiers.
+#
+# This and fast-tests are both required status checks; branch protection additionally
+# requires the branch to be up to date with main before merge (strict) so integration
+# re-runs against the latest main. Configure with developer-tools/setup-branch-protection.sh.
+#
+# FILL IN: {ProjectName} → your solution/project name (see templates/workflows/README.md).
+name: integration-tests
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: integration-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-tests:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore {ProjectName}.sln
+
+      - name: Build
+        run: dotnet build {ProjectName}.sln --no-restore --configuration Release
+
+      # Testcontainers starts SQL Server (and any other real infra) as sibling containers
+      # on the runner's host Docker — no Docker-in-Docker. The runner user must reach Docker.
+      - name: Run integration tests
+        run: dotnet test tests/{ProjectName}.Integration.Tests/ --no-build --configuration Release

@@ -36,12 +36,14 @@ src/
   ... additional service projects as needed ...
 
 tests/
-  {Project}.Domain.Tests/
-  {Project}.Api.Tests/
-  {Project}.Integration.Tests/
-  {Project}.Playwright.Tests/
-  {Project}.Fakes/            # Shared hand-rolled fakes for all test projects.
+  {Project}.Domain.Tests/        # Unit tier — business logic over fakes, no host.
+  {Project}.Api.Tests/           # Contract tier — host + fakes, no Docker. Wiring/seam only.
+  {Project}.Integration.Tests/   # Integration tier — host + real infra (Testcontainers).
+  {Project}.Playwright.Tests/    # UI tier — critical user journeys.
+  {Project}.Fakes/               # Shared hand-rolled fakes for all test projects.
 ```
+
+The four test projects map one-to-one to the four test tiers in `standards/testing.md` (Unit / Contract / Integration / UI). The Contract tier is `Api.Tests` — endpoint wiring exercised through `WebApplicationFactory` over fakes, with **no Docker** (the no-infra sibling of Integration).
 
 ### Migrator — Self-Contained
 

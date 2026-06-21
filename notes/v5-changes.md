@@ -382,10 +382,12 @@ over-*production*.
   orchestrator's CLEANUP-mode gate-audit can then verify "did every ticket's review actually post a
   filled-in checklist," giving the audit something concrete to confirm instead of vibes.
 
-  **Open call (not yet decided):** whether the grid is **one block per ticket** (refine/implement/
-  integration/ui append to the same table as the ticket moves through stages) or **one grid per
-  stage's PR**. Since v5 splits work across three PRs, current lean is **per-stage grids** the
-  reviewer fills at each stage — flagged here, not locked.
+  **Grid granularity — DECIDED (2026-06-21): per-stage grids.** Each PR carries its own producer +
+  reviewer grid scoped to that stage's TR rows (refine declares TR-1/TR-6 on the issue; PR#1
+  implementation → TR-2/7/8/11 +TR-10; PR#2 integration → TR-3/7/8 +TR-10; PR#3 ui →
+  TR-4/5/6/7/8/9 +TR-10). Matches the mode-scoped reviewer model; each grid is self-contained in
+  the PR it gates; the CLEANUP gate-audit (#6/4.3) checks "did each PR post a filled grid." Chosen
+  over one-block-per-ticket (which spans three PRs, so no single PR's review is self-contained).
 
 ---
 

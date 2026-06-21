@@ -14,7 +14,7 @@
 
 | Environment | Purpose | Deploy Trigger | Infrastructure |
 |-------------|---------|---------------|----------------|
-| Local | Developer workstation — unit + integration tests, manual exploration | Manual — developer runs locally | Docker (Testcontainers), optional Azure services (e.g. authentication) |
+| Local | Developer workstation — unit, contract + integration tests, manual exploration | Manual — developer runs locally | Docker (Testcontainers), optional Azure services (e.g. authentication) |
 | Dev | Integration target, automated test validation | Auto — every merge to `main` | Azure resource group: `{project}-dev` |
 | Staging | Pre-production validation, manual QA | Manual promotion from Dev | Azure resource group: `{project}-staging` |
 | Production | Live system | Manual promotion with approval gate | Azure resource group: `{project}-prod` |
@@ -214,17 +214,39 @@ When you approve a run for Staging or Production, **cancel any older runs** that
 
 ## CI/CD Pipeline Structure
 
+### v5 CI requirements (self-hosted runner + branch protection)
+
+Every v5 project **must** have all three of the following. They are provisioned from the
+standards repo (`templates/workflows/` + `developer-tools/setup-branch-protection.sh`), not
+hand-written per project:
+
+1. **The three test workflows** in `.github/workflows/` — `fast-tests.yml`,
+   `integration-tests.yml`, `ui-tests.yml` — all `runs-on: self-hosted`. The auto-sync
+   protocol copies these in (skipping any the project already customized).
+2. **Branch protection on `main`** requiring the `fast-tests` and `integration-tests`
+   status checks with **strict** (branch-up-to-date) enforcement. Branch protection is
+   GitHub *settings*, not a file — run `developer-tools/setup-branch-protection.sh` once
+   per repo. `ui-tests` is intentionally **not** a required check.
+3. **A self-hosted GitHub Actions runner** on the user's box (WSL2/Linux, with Docker
+   access), installed **as a service** so it auto-starts on boot and restarts on crash.
+   The runner brings the compute (no GitHub minutes billed) and runs Testcontainers /
+   Playwright as sibling containers on the host Docker. Runner setup is documented in
+   `developer-tools/` (see the runner setup guide).
+
+Conformance/review checks these via the **Pipeline** section of the Conformance Checklist
+below. The trigger model itself lives in `standards/testing.md` → CI/CD Testing Tiers.
+
 ### On PR to main (CI)
 
-Two parallel jobs:
+CI runs on a **self-hosted runner**. Two tiers gate the merge; the UI tier does not:
 
 ```
-Job 1: Restore → Build → Unit tests → Integration tests
-Job 2: Docker Compose up → Health wait → Playwright UI tests → Docker Compose down
-→ Both pass → ✅ Merge allowed
+fast-tests.yml         (every PR): Restore → Build → Unit + Contract tests (fakes, no Docker)
+integration-tests.yml  (required pre-merge check): Integration tests (Testcontainers, real SQL)
+→ Both pass AND branch up to date with main → ✅ Merge allowed
 ```
 
-Unit, integration, and Playwright tests must all pass. Playwright runs against a Docker Compose stack (API + Client + SQL Server + seed data) with auth bypass enabled. See `standards/testing.md` for test tier details.
+The fast tier (Unit + Contract) and integration are **both blocking merge gates**; if either fails, do not merge. The branch must be up to date with `main` before merging so integration re-runs against latest `main`. Playwright is **not** a per-PR gate — it runs at the orchestration boundary via `workflow_dispatch` on the self-hosted runner. See `standards/testing.md` → CI/CD Testing Tiers for the full trigger model.
 
 ### On merge to main (CD → Dev)
 
@@ -286,17 +308,15 @@ Smoke tests run immediately after every deploy to Dev and Staging. They are ligh
     echo "Smoke test failed" && exit 1
 ```
 
-### Playwright Tests (CI Gate)
+### Playwright Tests (orchestration boundary, not a PR gate)
 
-Playwright tests run in CI on every PR, not post-deploy. They run against a Docker Compose stack that includes the API, Client, SQL Server, database migrations, and seed data — all with auth bypass enabled.
+Playwright tests run on the **self-hosted runner** via `ui-tests.yml` (`workflow_dispatch`) — fired *scoped* (branch ref + filter) for per-story authoring runs and *unfiltered* for the end-of-batch regression sweep. They run against a Docker Compose stack (API, Client, SQL Server, migrations, seed data) with auth bypass enabled. They are **not** a per-PR gate and do **not** block the merge — UI verification happens at the orchestration boundary. See `standards/testing.md` → CI/CD Testing Tiers.
 
-**Required environment variables for the CI step:**
+**Required environment variables for the UI run:**
 
 | Variable | Value |
 |----------|-------|
-| `FORMIT_BASE_URL` | `http://localhost:{client-port}` (Docker Compose client port) |
-
-**If Playwright fails:** The PR is blocked from merging. Playwright failures are a blocking CI gate.
+| `{PROJECT}_BASE_URL` | `http://localhost:{client-port}` (Docker Compose client port) |
 
 No Playwright tests run post-deploy or against Production. Post-deploy validation is limited to smoke tests (health checks).
 
@@ -327,8 +347,12 @@ Use this checklist when applying this standard to an existing project or auditin
 - [ ] Deploy workflow jobs target the correct GitHub Environment (`environment: dev/staging/production`)
 
 ### Pipeline
-- [ ] `ci.yml` runs unit + integration tests on every PR (no Category!=Integration filter)
-- [ ] `ci.yml` runs Playwright UI tests on every PR via Docker Compose (blocking gate)
+- [ ] `fast-tests.yml` runs Unit + Contract tests on every PR (fakes, no Docker daemon)
+- [ ] `integration-tests.yml` is a required pre-merge check (Testcontainers); branch must be up to date with `main`
+- [ ] `ui-tests.yml` runs Playwright on the self-hosted runner via `workflow_dispatch` (not a per-PR gate)
+- [ ] All test workflows are `runs-on: self-hosted`
+- [ ] Branch protection on `main` requires `fast-tests` + `integration-tests` with strict (up-to-date) enforcement — run `developer-tools/setup-branch-protection.sh`
+- [ ] A self-hosted runner is installed **as a service** (auto-start on boot) with Docker access
 - [ ] `deploy.yml` deploys to Dev on merge to main
 - [ ] Post-deploy smoke step exists for Dev
 - [ ] Staging promotion is manual and includes smoke gate

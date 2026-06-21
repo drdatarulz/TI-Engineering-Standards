@@ -25,7 +25,18 @@ When starting a session on **any project**, follow this protocol:
    done
    ```
    Local skills in `.claude/skills/` take precedence — if a project has a customized version, it won't be overwritten.
-6. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
+6. **Sync CI workflows** (v5): Copy the template workflows into the project's `.github/workflows/` (skipping any the project already has), then fill in the placeholder tokens once and commit. Same precedence rule as skills — a customized local copy is never overwritten:
+   ```bash
+   mkdir -p .github/workflows
+   for wf in ../TI-Engineering-Standards/templates/workflows/*.yml; do
+     wf_name=$(basename "$wf")
+     if [ ! -f ".github/workflows/$wf_name" ]; then
+       cp "$wf" ".github/workflows/$wf_name"
+     fi
+   done
+   ```
+   After the first copy, replace `{ProjectName}` / `{PROJECT}` / ports per `templates/workflows/README.md`, then run `developer-tools/setup-branch-protection.sh` once to make `fast-tests` + `integration-tests` required checks.
+7. **Verify git hooks path**: If the project has a `.githooks/` directory, ensure git is configured to use it:
    ```bash
    if [ -d ".githooks" ]; then
      current=$(git config core.hooksPath 2>/dev/null)
@@ -71,23 +82,27 @@ Read each of these files — they contain the engineering rules and conventions 
 
 Shared skills live in `skills/` and are auto-copied to each project's `.claude/skills/` during sync. Projects can override any skill by placing a customized version in their own `.claude/skills/` directory.
 
+The seven **pipeline** skills are now **v5** (four-tier model + TR enforcement — see [standards/testing.md](standards/testing.md)) — the six test-pipeline skills plus the mode-switching `orchestrate-v5`. The other skills are unchanged at v4.
+
 | Skill | Purpose |
 |-------|---------|
 | [skills/prd-to-backlog-v4/SKILL.md](skills/prd-to-backlog-v4/SKILL.md) | Decompose a PRD into a milestoned backlog of vertical-slice stories |
 | [skills/add-story-v4/SKILL.md](skills/add-story-v4/SKILL.md) | Conversationally create incremental stories for an existing project |
-| [skills/refine-story-v4](skills/refine-story-v4/SKILL.md) | Refine a GitHub issue into an implementation-ready spec |
-| [skills/implement-ticket-v4](skills/implement-ticket-v4/SKILL.md) | Implement a single ticket — pushes branch, creates PR, posts issue comment. Supports FIX mode |
-| [skills/engineering-review-v4](skills/engineering-review-v4/SKILL.md) | Review a PR against standards. Implementation and integration-tests modes |
+| [skills/refine-story-v5](skills/refine-story-v5/SKILL.md) | Refine a GitHub issue into an implementation-ready spec with a behavior-first test plan (one tier per behavior, critical journeys declared) |
+| [skills/implement-ticket-v5](skills/implement-ticket-v5/SKILL.md) | Implement a single ticket — writes Unit + Contract tests per the tier table (no logic in Contract). Pushes branch, creates PR. Supports FIX mode |
+| [skills/engineering-review-v5](skills/engineering-review-v5/SKILL.md) | Review a PR against standards. Three modes; enforces tiers two-way (missing + redundant), counts critical-path, emits the TR checklist grid |
 | [skills/security-review-v4](skills/security-review-v4/SKILL.md) | OWASP Top 10 + infrastructure security review for PRs |
-| [skills/integration-test-v4](skills/integration-test-v4/SKILL.md) | Write integration tests for a merged implementation. Creates PR. Supports FIX mode |
-| [skills/ui-test-v4](skills/ui-test-v4/SKILL.md) | Write Playwright UI tests for every PR (runs in CI via Docker Compose). Creates PR. Supports FIX mode |
-| [skills/orchestrate-v4](skills/orchestrate-v4/SKILL.md) | PR-based pipeline orchestrator with milestone support and observability |
-| [skills/ci-fix-v4](skills/ci-fix-v4/SKILL.md) | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel for orchestrator; standalone for ad-hoc repair |
+| [skills/integration-test-v5](skills/integration-test-v5/SKILL.md) | Write integration tests for a merged implementation — real-infra behavior only (no contract re-assertion). Creates PR. Supports FIX mode |
+| [skills/ui-test-v5](skills/ui-test-v5/SKILL.md) | Write Playwright UI tests — journey-scoped, conditional, critical-path tagged. Runs via scoped `workflow_dispatch` on the self-hosted runner. Creates PR. Supports FIX mode |
+| [skills/orchestrate-v5/SKILL.md](skills/orchestrate-v5/SKILL.md) | Mode-switching pipeline orchestrator (WORKING/CLEANUP) built for relaunch by the dumb loop; per-run tracking issue, board-driven queue, TR gate-audit, observability |
+| [skills/ci-fix-v5](skills/ci-fix-v5/SKILL.md) | Monitor GitHub Actions and auto-fix CI/CD failures — fix the code, not the test. Background side-channel for orchestrator; standalone for ad-hoc repair |
 | [skills/reconcile-backlog-v4](skills/reconcile-backlog-v4/SKILL.md) | Reconcile PRD version changes against an existing backlog and codebase. Diffs, classifies, and executes creates/updates |
 | [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
 | [skills/conformance-v4](skills/conformance-v4/SKILL.md) | Audit a project against TI Engineering Standards — informational only, produces a gap report |
 
 > **Note:** v1, v2, and v3 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
+>
+> **v4 → v5 transition:** the v4 copies of the seven rebuilt skills (`refine-story-v4`, `implement-ticket-v4`, `integration-test-v4`, `ui-test-v4`, `engineering-review-v4`, `ci-fix-v4`, `orchestrate-v4`) **remain in `skills/`** and are still synced — v4 keeps running until v5 is proven on the pilot (Phase 5). Only then do the v4 copies move to `skills/archive/`.
 
 ---
 
@@ -112,3 +127,4 @@ These rules apply to **every project**, no exceptions:
 - Do NOT use `!` in passwords or secrets — bash interprets `!` as history expansion, making them unusable in shell commands
 - Do NOT put cloud SDK references in Domain or any service project except Infrastructure
 - Do NOT add `Co-Authored-By` trailers to git commit messages
+- Do NOT exercise business logic through the Contract tier (host + fakes) — it asserts the HTTP contract only; logic scenarios go in Unit tests (see [standards/testing.md](standards/testing.md) → Test Tiers)

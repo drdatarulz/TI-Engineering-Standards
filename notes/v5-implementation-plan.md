@@ -11,17 +11,66 @@
 
 ## Start here when you're back
 
-**State as of 2026-06-21 (all committed/pushed to `main`):**
+**State as of 2026-06-21 (Phase 1 committed on branch `v5-build`, awaiting review):**
 - **Phase 0 — COMPLETE.** All four gates locked: G1 copy-to-`-v5`; G2 pilot selected (user-owned);
   G3 tier names confirmed (Unit/Contract/Integration/UI, "Contract" locked); G4
   `[Trait("CriticalPath","true")]`.
-- **Plan fully elaborated** this session — #10 checklist enforcement (in `v5-changes.md`), Phase 2
-  split (standards-repo substrate vs. per-repo actuation), 3.1 behavior-first refine table, 3.5 review
-  modes (three, not two), 4.2 state homes + tracking-issue lifecycle, 4.4 dumb-driver physical home,
-  Phase 6 process docs. Nothing is *built* yet beyond #9.
+- **Phase 1 — COMPLETE** (commit `885efa6` on `v5-build`). `standards/testing.md` rewritten to the
+  four-tier + trigger model: Test Tiers table + governing rule, Contract-as-no-infra-sibling (G3),
+  Contract prohibition, TR-1..TR-11 checklist (#10), rewritten "When to Write Tests" and "CI/CD
+  Testing Tiers", critical-path UI rule, Contract Test Conventions. Siblings swept:
+  `environments.md` (PR/CI + Playwright sections + conformance checklist), `architecture.md`
+  (test-project tier mapping), `CLAUDE.md` (Contract pointer).
+- **Phase 2 — COMPLETE** (commit `550b4ea` on `v5-build`). CI/execution substrate:
+  `templates/workflows/{fast,integration,ui}-tests.yml` (+ README), all `runs-on: self-hosted`,
+  no-Docker fast tier via unreachable `DOCKER_HOST` (TR-11); `developer-tools/setup-branch-protection.sh`
+  (gh-api, strict required checks); `developer-tools/orchestrate-loop.sh` (canonical dumb driver,
+  three guards, greps `RUN_COMPLETE`); `CLAUDE.md` auto-sync step 6 (workflows → `.github/workflows`);
+  `environments.md` v5-CI-requirements subsection. **On `v5-build`, NOT merged to `main`.**
 
-**Next action: execute Phase 1** — the `standards/testing.md` v5 rewrite (the keystone, now unblocked
-since tier names are locked). Then proceed down the phases in order. Phases 1 and 2 can run in parallel.
+**Phase 3 — IN PROGRESS** (on `v5-build`). Grid-granularity decision **LOCKED: per-stage grids**
+(recorded in `v5-changes.md` #10). All six v5 skills scaffolded as verbatim v4 copies (`7868bff`),
+so each per-skill edit diffs cleanly against its v4 origin. Done so far:
+- **3.1 refine-story-v5** (`abad79c`) — behavior-first tier table (TR-1), Critical? column (TR-6),
+  #7 auto-reveal (interactive only), refine producer grid (TR-1/6) in the issue comment.
+- **3.2 implement-ticket-v5** (`7ca10a5`) — owns Unit+Contract; no logic in Contract (TR-2); no
+  Docker in fast tier (TR-11); fix-code-not-test (TR-7); producer grid (TR-2/7/8/11) in PR body.
+- **3.3 integration-test-v5** (`495ba14`) — real-infra only, no contract re-assertion (TR-3);
+  fix-code-not-test (TR-7); producer grid (TR-3/7/8) in PR body.
+- **3.4 ui-test-v5** (`047a146`) — UI scope gate / conditional skip (TR-5); journey-scoped, not a
+  per-screen matrix (TR-4); critical-path tagging (TR-6); #9 anti-patterns (TR-8/TR-9); execution
+  rewritten to scoped `workflow_dispatch` on the self-hosted runner (#8, replacing "block the PR");
+  fix-code-not-test (TR-7); producer grid (TR-4/5/6/7/8/9) in PR body.
+
+- **3.5 engineering-review-v5** (`9b94ad6`) — three modes (fixed stale "Two modes"); v5 Test
+  Enforcement section (tier-boundary TR-2/TR-3, two-way redundancy TR-10 #2, fix-code-not-test TR-7,
+  anti-patterns TR-8/9, critical-path count TR-6 ≤10/≥3, no-Docker TR-11); rewrote Integration+UI
+  mode checklists off the v4 additive matrix; Step 2.5 mode-scoped reviewer grid embedded in review
+  body on both approve and request-changes; report adds TR_GRID/REDUNDANT_CUT/CRITICAL_PATH_COUNT.
+
+- **3.6 ci-fix-v5** (`bfe252e`) — lead with fix-code-not-test (TR-7); corrected the v4 F4 bullet that
+  defaulted to updating the test expectation (now: only when new behavior is verified-correct, else Blocked).
+- **3.7 CLAUDE.md** (`45974f1`) — skills table points the six rebuilt skills at `-v5`; v4 copies kept
+  in `skills/` and synced until Phase 5 proves v5 (NOT archived yet); orchestrate stays v4.
+
+**Phase 3 — COMPLETE.** All six `-v5` skills built + CLAUDE.md cut over, on `v5-build`, NOT merged.
+
+**Phase 4 — COMPLETE** (commit `a06e660` on `v5-build`). `orchestrate-v5` (copy of v4, restructured):
+self-selects WORKING/CLEANUP from durable state; 4.1 Mode Selection (Up Next>0 → WORKING up to N from
+`ORCHESTRATE_N`, checkpoint, exit; ==0 → CLEANUP); 4.2 per-run **tracking issue** (find-or-create off
+label `orchestration-run`, body=live state/comments=event log, **run-complete = issue CLOSED**,
+crash-recovery resets In Progress→Up Next, two-open-issues edge, templated body schema); 4.3 CLEANUP
+(full UI dispatch → pyramid ratio + drift ticket → gate audit of TR grids → inject fixes → fixpoint
+close+`RUN_COMPLETE` or exit-and-reverify); UI stage conditional + runner-dispatched; checkpoints.
+4.4 driver already shipped in 2.6. **Decisions locked:** Ready→Up Next (no standard change),
+close-issue for run-complete. `project-tracking.md` got the Orchestration Run Tracking section;
+`CLAUDE.md` orchestrate row → v5 (seven pipeline skills now v5).
+
+**Next action: Phase 5 — pilot & validate** (per-repo actuation + end-to-end run on the pilot). NOTE
+per [[feedback_v5_build_approach]]: Phase 5 is **partly manual / user-owned** (pilot repo, runner
+install, branch protection, real run) — it is not pure standards-repo doc work. Confirm with the user
+how much of Phase 5 to drive here vs. in the pilot instance before diving in. Then Phase 6 (process
+docs/diagram/templates) is the final standards-repo phase.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -58,30 +107,30 @@ These are quick calls that shape later phases. Recommendation given for each.
 **Goal:** `standards/testing.md` becomes the v5 source of truth; kill the live contradiction (it
 still says UI/integration "gate every PR").
 
-- [ ] **1.1 — Add a "Test Tiers" section** (thread A): the tier table (Unit / Contract / Integration /
+- [x] **1.1 — Add a "Test Tiers" section** (thread A): the tier table (Unit / Contract / Integration /
   UI — *owns* / *never put here*), with the governing rule above it: *"test each behavior once, at the
   cheapest tier that can catch its failure mode."*
-- [ ] **1.2 — Add the precise prohibition:** *"do not exercise business logic through the HTTP/fakes
+- [x] **1.2 — Add the precise prohibition:** *"do not exercise business logic through the HTTP/fakes
   host — the Contract tier asserts the contract only."* (Plus optional one-line pointer from
   `CLAUDE.md` "Things NOT To Do.")
-- [ ] **1.3 — Rewrite "When to Write Tests"** so endpoints don't mandate **both** unit *and*
+- [x] **1.3 — Rewrite "When to Write Tests"** so endpoints don't mandate **both** unit *and*
   integration. Logic → unit; contract/seam → Contract tier; real-infra behavior → integration.
-- [ ] **1.4 — Rewrite "CI/CD Testing Tiers"** to the v5 trigger model: fast tier → every PR;
+- [x] **1.4 — Rewrite "CI/CD Testing Tiers"** to the v5 trigger model: fast tier → every PR;
   integration → **required pre-merge check** (branch up to date); UI → **orchestration boundary via
   `workflow_dispatch`**, *not* a per-PR gate; all on the **self-hosted runner**. Remove "Playwright
   gates every PR."
-- [ ] **1.5 — Add the critical-path UI rule** to Playwright Conventions: floor 3 / ceiling 10,
+- [x] **1.5 — Add the critical-path UI rule** to Playwright Conventions: floor 3 / ceiling 10,
   `[Trait("CriticalPath","true")]`, ceiling = hard cap, floor = advisory; declared at refine, counted
   at review.
-- [ ] **1.6 — Add the "no-Docker fast tier" line** (#5c): fast-tier projects must not reference
+- [x] **1.6 — Add the "no-Docker fast tier" line** (#5c): fast-tier projects must not reference
   Testcontainers/Docker; the per-PR fast job runs with no Docker daemon.
-- [ ] **1.6a — Add the "Test Rules" (TR-*) checklist** (#10): one numbered, ID'd block under the tier
+- [x] **1.6a — Add the "Test Rules" (TR-*) checklist** (#10): one numbered, ID'd block under the tier
   table (TR-1…TR-11), each tagged **[CI]** or **[JUDGMENT]**, with the owner-producer(s) and which
   rows are **reviewer-only** (TR-10, TR-6 ceiling). This is the single source both producer and
   reviewer skills cite by ID — it must land before Phase 3.
-- [ ] **1.7 — Sweep sibling standards** for contradictions with the new trigger/tier model
+- [x] **1.7 — Sweep sibling standards** for contradictions with the new trigger/tier model
   (`api-integration.md`, `architecture.md`, `environments.md`); fix references.
-- [ ] **Deliverable:** updated `standards/testing.md` (+ any sibling tweaks); commit. **Review gate:**
+- [x] **Deliverable:** updated `standards/testing.md` (+ any sibling tweaks); commit. **Review gate:**
   read the diff end-to-end before moving on.
 
 ---
@@ -94,31 +143,31 @@ The **per-repo actuation** (instantiate, set branch protection, install runner, 
 standards-repo work; it moves to Phase 5 (rollout, pilot first). Mirrors the existing skills-sync
 pattern: this repo ships the shareable thing, each project instantiates it once.
 
-- [ ] **2.1 — Author parameterized template workflows** (new home, e.g. `templates/workflows/`; all
+- [x] **2.1 — Author parameterized template workflows** (new home, e.g. `templates/workflows/`; all
   `runs-on: self-hosted`; project name + test-project paths as fill-ins):
   - `fast-tests.yml` → on `pull_request` (Domain + Contract/fakes projects; **no Docker**).
   - `integration-tests.yml` → required pre-merge check (Testcontainers, real SQL).
   - `ui-tests.yml` → on `workflow_dispatch`, accepting **inputs**: `ref` (branch) + `filter`
     (scoped per-story run) — also runnable unfiltered (full boundary run).
-- [ ] **2.2 — Bake the no-Docker constraint into the `fast-tests.yml` template** so the job genuinely
+- [x] **2.2 — Bake the no-Docker constraint into the `fast-tests.yml` template** so the job genuinely
   has no Docker daemon — a stray Testcontainers reference fails loudly (the self-enforcing half of 1.6).
-- [ ] **2.3 — Author a branch-protection setup script** (`developer-tools/`): a `gh api` script (or
+- [x] **2.3 — Author a branch-protection setup script** (`developer-tools/`): a `gh api` script (or
   documented ruleset) a repo runs once to require the `fast-tests` + `integration-tests` checks and
   **branch-up-to-date-with-`main`**. Branch protection is GitHub *settings*, not a file — the reusable
   artifact is the script. (Merge queue noted as optional, only if traffic demands.)
-- [ ] **2.4 — Document the requirement** so conformance/review can check it: the trigger model itself
+- [x] **2.4 — Document the requirement** so conformance/review can check it: the trigger model itself
   lands in `testing.md` via **1.4**; add the **branch-protection + self-hosted-runner requirement** to
   `environments.md` (every v5 project *must* have these three workflows + protection + a runner).
-- [ ] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
+- [x] **2.5 — Extend the `CLAUDE.md` auto-sync protocol** to copy `templates/workflows/` into a
   project's `.github/workflows/` on sync (skipping any the project already customized) — same
   precedence rule as skills. The runner setup guide is **Phase 6.6** (`developer-tools/`).
-- [ ] **2.6 — Author the canonical dumb driver** `developer-tools/orchestrate-loop.sh` (the relaunch
+- [x] **2.6 — Author the canonical dumb driver** `developer-tools/orchestrate-loop.sh` (the relaunch
   loop for #6 / 4.4): generic/project-agnostic, parameterized (`--project-dir`, `--n`, `--timeout`,
   `--max-iter`), relaunches `claude -p --dangerously-skip-permissions` until `RUN_COMPLETE`, with the
   three guards (timeout, relaunch-on-exit, max-iterations + circuit-breaker). **Not** synced via the
   skills path (chicken-and-egg — it launches Claude); it lives in the standards clone (the mandatory
   sibling) and is invoked through the project's thin `scripts/orchestrate.sh` wrapper (template, 6.5).
-- [ ] **Deliverable:** template workflows + branch-protection script + canonical driver +
+- [x] **Deliverable:** template workflows + branch-protection script + canonical driver +
   documented requirement + sync wiring — all committed to **this** repo. Nothing repo-specific.
 
 ---
@@ -129,7 +178,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 **Checklist (#10) threads through every skill below:** each producer **emits its owned TR rows**
 (PASS/FAIL + evidence) before declaring done; the reviewer emits the **full mode-scoped grid**.
 
-- [ ] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
+- [x] **3.1 — `refine-story-v5`:** assign each behavior a **single tier** up front (no multi-tier
   seeding); **declare critical-path** journeys; **#7** auto-reveal withheld considerations at the end
   (interactive mode only). **#10:** emit producer rows TR-1, TR-6 (tagging declaration).
   - **The mechanic — restructure the existing Test Coverage table from *tier-first* to
@@ -160,16 +209,16 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Downstream payoff:** `implement`/`integration-test`/`ui-test` **consume their assigned rows**
     instead of re-deriving coverage; the reviewer's TR-1 check collapses to "does every behavior have
     exactly one tier, and is it the cheapest sufficient one?"
-- [ ] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
+- [x] **3.2 — `implement-ticket-v5`:** unit + Contract tests per the tier table (no business logic in
   Contract); **FIX-mode** carries "fix the code, not the test." **#10:** emit producer rows
   TR-2, TR-7, TR-8, TR-11.
-- [ ] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
+- [x] **3.3 — `integration-test-v5`:** real-infra behavior **only** (no contract re-assertion);
   FIX-mode fix-code-not-test rule. **#10:** emit producer rows TR-3, TR-7, TR-8.
-- [ ] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
+- [x] **3.4 — `ui-test-v5`:** **journey-scoped**; **conditional** (skip when no UI surface or surface
   declared out-of-scope, per-surface); per-story run = **scoped `workflow_dispatch`** to the runner
   (#8); tag critical-path tests; obey the #9 anti-patterns (POM, condition-waits, no silent fails,
   no skips). **#10:** emit producer rows TR-4, TR-5, TR-6 (tag), TR-7, TR-8, TR-9.
-- [ ] **3.5 — `engineering-review-v5`:** **two-way** (flags *missing* AND *redundant* coverage, #2);
+- [x] **3.5 — `engineering-review-v5`:** **two-way** (flags *missing* AND *redundant* coverage, #2);
   **tier-boundary** checks (business logic out of Contract, contract out of Integration);
   **critical-path count** (ceiling ≤10 hard, floor ≥3 advisory); **fix-code-not-test** gate (reject a
   test edited to mask a bug); **anti-pattern** flags. Runs in all three modes (implementation,
@@ -182,9 +231,9 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
     `ui-tests` — `SKILL.md:11–14`). The v5 copy's description must say **three modes**. Tier→mode
     mapping: Unit + Contract → `implementation` (one pass — `implement-ticket-v5` produces both, so
     there's no separate "contract" mode); Integration → `integration-tests`; UI → `ui-tests`.
-- [ ] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
-- [ ] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
-- [ ] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
+- [x] **3.6 — `ci-fix-v5`:** carry the fix-code-not-test rule (most tempted to "make it green").
+- [x] **3.7 — Update `CLAUDE.md`** standards index + skills table to v5; archive v4 per G1.
+- [x] **Deliverable:** `-v5` skills + updated `CLAUDE.md`.
 
 ---
 
@@ -192,10 +241,10 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 
 **Goal:** one mode-switching orchestrator + a dumb relaunch loop; no second process, no scheduler.
 
-- [ ] **4.1 — `orchestrate-v5` mode switch:** read durable state on launch → **WORKING** (process up
+- [x] **4.1 — `orchestrate-v5` mode switch:** read durable state on launch → **WORKING** (process up
   to **N**, default ~3; checkpoint each ticket; exit) or **CLEANUP** (no Ready tickets → end-of-run
   oversight; exit).
-- [ ] **4.2 — State machine** — two physical homes, both GitHub objects:
+- [x] **4.2 — State machine** — two physical homes, both GitHub objects:
   - **Per-ticket state → the ticket itself (project board), unchanged from v4.** The board **Status
     field** drives the queue (Ready → In-progress → Done); per-stage progress is **issue comments**
     (the v4 orchestrator already posts a comment per stage/review as an audit trail); the **#10
@@ -232,11 +281,11 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Standard touch:** `standards/project-tracking.md` needs a **v5 addition** — it currently knows
     nothing about a per-run tracking issue. Document the concept (find-or-create, label, body/comments,
     complete-marker) there so it's not orchestrator-only tribal knowledge.
-- [ ] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
+- [x] **4.3 — CLEANUP mode:** full UI suite (unfiltered runner dispatch) → **pyramid ratio + drift
   ticket** (#5a) → **gate audit** (incl. **#10:** confirm each ticket's review posted a filled-in
   reviewer checklist grid — concrete artifact, not vibes) → inject fix tickets. Reaches **fixpoint** =
   no Ready tickets AND CLEANUP injected nothing → mark run complete + emit `RUN_COMPLETE`.
-- [ ] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
+- [x] **4.4 — The dumb bash driver loop:** relaunch until `RUN_COMPLETE` (or tracking-issue flag);
   guards = `timeout` per session, relaunch-on-exit, **max-iterations cap** + circuit-breaker.
   Limiter/loop **optional** (small runs go top-to-bottom, no bash).
   - **Physical home — two-part layout** (the driver is the *outermost* layer: it launches `claude -p`,
@@ -254,7 +303,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   - **Operator flow on a Docker box:** `git clone <project>` → `git pull` → `./scripts/orchestrate.sh`.
   - **Inner invocation:** the driver launches `claude -p` with `--dangerously-skip-permissions` (the
     existing `claude-yolo` mode, `developer-tools/claude-vm-scripts.md`) for headless autonomy.
-- [ ] **Deliverable:** `orchestrate-v5` skill + driver script.
+- [x] **Deliverable:** `orchestrate-v5` skill + driver script.
 
 ---
 

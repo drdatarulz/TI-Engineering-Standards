@@ -1,0 +1,50 @@
+# Fast tier (Unit + Contract) — gates EVERY PR. See standards/testing.md → CI/CD Testing Tiers.
+#
+# FILL IN before use (see templates/workflows/README.md for the full token list):
+#   {ProjectName} → your solution/project name, e.g. FormIt
+#   Fast tier = {ProjectName}.Domain.Tests (Unit) + {ProjectName}.Api.Tests (Contract),
+#   both fakes-based. Multi-service projects: add any other fakes-based test projects
+#   (e.g. {ProjectName}.McpServer.Tests) to the "Run fast tests" step.
+#
+# NO DOCKER (TR-11): this job points DOCKER_HOST at an unreachable address, so a stray
+# Testcontainers/Docker reference in a fast-tier project fails loudly instead of silently
+# slowing the per-PR gate. The fast tier must never need a Docker daemon.
+name: fast-tests
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: fast-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-tests:
+    runs-on: self-hosted
+    env:
+      # Intentionally unreachable — the fast tier must not need Docker (TR-11).
+      DOCKER_HOST: tcp://127.0.0.1:1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore {ProjectName}.sln
+
+      - name: Build
+        run: dotnet build {ProjectName}.sln --no-restore --configuration Release
+
+      # If the project has an npm-based frontend, add its build here — the frontend build
+      # is a required gate (standards/testing.md → Frontend Build Verification). A Blazor
+      # WASM frontend is already covered by the dotnet build above.
+      # - name: Build frontend
+      #   run: npm --prefix src/{ProjectName}.Client ci && npm --prefix src/{ProjectName}.Client run build
+
+      - name: Run fast tests (Unit + Contract)
+        run: |
+          dotnet test tests/{ProjectName}.Domain.Tests/ --no-build --configuration Release
+          dotnet test tests/{ProjectName}.Api.Tests/ --no-build --configuration Release
