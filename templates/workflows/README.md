@@ -43,6 +43,31 @@ These three workflows are PR/`workflow_dispatch` **test** workflows — none run
 build, and deploy; adopting v5 means moving the *tests* out of it into these tiers, not
 deleting it (a `cd.yml` that watches `ci.yml` via `workflow_run` would lose its trigger).
 
+The orchestrator gate stops *automated* red merges; a human keeps the manual override
+(**force-merge**) by design — on the Free plan there's no hard block to fight when you judge a
+merge is right.
+
+## Adopting v5 in a repo that already has a monolithic CI workflow
+
+If a project runs one `ci.yml` that builds + tests + (via `workflow_run`) triggers deploy, split
+it like this — don't rip it out:
+
+1. **Sync the templates** (auto-sync copies the three tier workflows in). Fill `{ProjectName}` /
+   `{PROJECT}` / ports.
+2. **Move the tests out** of `ci.yml` into the tiers, by failure mode:
+   - `Domain.Tests` (Unit) + `Api.Tests` (Contract) + any other fakes-based projects → `fast-tests.yml`
+   - `Integration.Tests` → `integration-tests.yml`
+   - `Playwright.Tests` → `ui-tests.yml` (already `workflow_dispatch`)
+
+   Delete the old unfiltered `dotnet test` step.
+3. **Slim `ci.yml` to main-push only:** drop its `pull_request` trigger; keep build, version-stamp,
+   frontend (npm) builds, and the deploy / `workflow_run` signal. **Keep the file** — `cd.yml` needs it.
+4. **Frontend builds:** add the npm build to `fast-tests.yml` so a broken frontend blocks a PR, and
+   keep it in `ci.yml` for the main-push/deploy path.
+5. **Gate:** nothing to configure — `orchestrate-v5` won't merge a red PR.
+
+Net: tests are fully tiered, nothing runs twice, and CD keeps working off the slimmed `ci.yml`.
+
 ## Self-enforcing no-Docker fast tier (TR-11)
 
 `fast-tests.yml` sets `DOCKER_HOST` to an unreachable address, so any Testcontainers/Docker
