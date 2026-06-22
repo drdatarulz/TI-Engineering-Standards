@@ -60,6 +60,8 @@ gh pr checks {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} \
 
 Applies to PR #1 (implementation) and PR #2 (integration). PR #3 (UI) has no required PR check — the UI tier was already validated by `ui-test-v5`'s scoped runner dispatch.
 
+**Audit every merge and every fix iteration on the work ticket — including operator-directed ones.** After a successful `gh pr merge`, post a `✅ Merged PR #N to main ({sha})` comment on the work ticket. If you run an *extra* fix iteration because of a supervised-gate decision (e.g. the operator chose "fix X first, then merge"), post that iteration's review-result comment on the work ticket too — an operator-directed fix must not skip the per-stage audit trail. (Pilot gap: a user-directed 409 fix + the merge were logged to the run-level tracking issue but left no comment on the work ticket.)
+
 ## Parse Arguments
 
 Parse `$ARGUMENTS` as follows:

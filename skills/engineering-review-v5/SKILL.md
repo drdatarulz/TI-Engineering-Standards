@@ -116,7 +116,7 @@ Run through every rule in the 12 standards files you loaded in Step 0. For each 
 - **API Design** — `standards/api-design.md`
 - **Data Access** — `standards/database.md`, `standards/dotnet.md`
 - **Testing** — `standards/testing.md`
-- **Error Handling** — `standards/error-handling.md`
+- **Error Handling** — `standards/error-handling.md`. In particular, flag any **foreseeable condition that surfaces as an uncaught 500** instead of a mapped 4xx: a unique-constraint violation on a duplicate, a not-found, a known business conflict must return the right status (e.g. **409** via `Results.Problem(..., StatusCodes.Status409Conflict)`), not bubble up as a generic 500. Per `error-handling.md`, 500 is for *unhandled/truly-exceptional* failures only — a predictable edge case returning 500 is a **blocking violation**.
 - **Logging** — `standards/logging.md`
 - **Configuration** — `standards/configuration.md`
 - **Security** — `standards/security.md`
@@ -320,12 +320,12 @@ Regardless of what the diff review found, always verify the build. Use the build
 
 ### 4a. If No Blocking Issues Found
 
-Approve the PR, embedding the filled grid:
+Post the passing review as a **`COMMENT`** (not `APPROVE`). Under a single GitHub credential the reviewer *is* the PR author, and **GitHub rejects approving your own PR** — `event=APPROVE` silently degrades to a comment (or 422s on stricter setups). The verdict that actually gates the merge is the `STATUS: Approved` line in your report (Step 5), which the orchestrator reads; this GitHub review is the durable record + the TR grid.
 
 ```bash
 gh api repos/{REPO_OWNER}/{REPO_NAME}/pulls/{PR_NUMBER}/reviews \
   --method POST \
-  --field event=APPROVE \
+  --field event=COMMENT \
   --field body="$(cat <<'EOF'
 Engineering review passed. All standards checks clear, build succeeds, tests pass.
 
@@ -340,7 +340,7 @@ EOF
 
 ### 4b. If Blocking Issues Found
 
-Create a review with line-level comments requesting changes.
+Post the review with line-level comments as a **`COMMENT`** (not `REQUEST_CHANGES` — GitHub blocks that on your own PR too, same single-credential reason as 4a). The blocking verdict is the `STATUS: ChangesRequested` line in your report, which the orchestrator reads and acts on (it bounces the PR to the owning skill's FIX mode).
 
 First, get the latest commit SHA:
 ```bash
@@ -352,7 +352,7 @@ Then create the review with inline comments:
 gh api repos/{REPO_OWNER}/{REPO_NAME}/pulls/{PR_NUMBER}/reviews \
   --method POST \
   --field commit_id="{COMMIT_SHA}" \
-  --field event=REQUEST_CHANGES \
+  --field event=COMMENT \
   --field body="Engineering review found issues that must be addressed. See inline comments.
 
 ### TR checklist — {MODE} (reviewer)
