@@ -401,4 +401,14 @@ over-*production*.
   self-hosted runner); no longer a blocker.
 - **Batch blame / attribution** — explicitly not a concern (oversight runs at the end; the fix is
   what matters).
+- **Deploy-at-run-end (orchestrator-triggered CD)** — *considered during the HC-14 pilot, deferred
+  2026-06-22; keeping auto-deploy-on-merge (with the test-only-skip, `environments.md`) for now.* The
+  idea: flip `cd.yml` from auto-on-merge → `workflow_dispatch` and have the orchestrator fire the dev
+  deploy as its **final CLEANUP action** (after the full UI suite + ratio + gate audit pass, at
+  fixpoint, right before `RUN_COMPLETE`). Rationale worth preserving: v5 **merges the implementation
+  before its integration/UI tests even exist** (they're written as later PRs), so an auto-deploy on
+  the impl merge ships code whose full-tier coverage isn't in yet; a run-end deploy ships fully
+  validated work, and matches v5's "boundary actions are orchestrator-triggered" philosophy. Trade:
+  dev updates once per run (coherent batch) instead of continuously. If adopted, it **supersedes** the
+  test-only-skip (no per-merge deploy to skip — revert that guard).
 - **Nightly "heartbeat"** — dropped; not a concern.
