@@ -37,12 +37,30 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Start Playwright stack
-        run: docker compose -f docker-compose.yml -f docker-compose.playwright.yml up -d --build
+        # --wait fails the step if a container exits / never reaches healthy within the timeout
+        # (compose `up -d` alone returns success even when a container immediately crashes).
+        run: docker compose -f docker-compose.yml -f docker-compose.playwright.yml up -d --build --wait --wait-timeout 180
 
       - name: Wait for readiness
+        # BOUNDED — never an open-ended `until curl; do sleep; done`. A stack that comes up but
+        # doesn't serve health must FAIL FAST with diagnostics, not hang until the job's 6h limit.
         run: |
-          until curl -sf http://localhost:5001/health/ready; do sleep 2; done
-          until curl -sf http://localhost:5002; do sleep 2; done
+          compose() { docker compose -f docker-compose.yml -f docker-compose.playwright.yml "$@"; }
+          wait_for() {  # url  name  [timeout_seconds]
+            local url="$1" name="$2" timeout="${3:-120}" start=$SECONDS
+            until curl -sf "$url" >/dev/null 2>&1; do
+              if [ $((SECONDS - start)) -ge "$timeout" ]; then
+                echo "::error::$name not ready at $url after ${timeout}s — dumping stack state:"
+                compose ps || true
+                compose logs --tail=200 || true
+                exit 1
+              fi
+              sleep 3
+            done
+            echo "$name ready ($url)"
+          }
+          wait_for http://localhost:5001/health/ready "API health" 120
+          wait_for http://localhost:5002 "Client" 120
 
       - name: Run UI tests
         env:
