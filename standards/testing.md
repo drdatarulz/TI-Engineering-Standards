@@ -225,8 +225,12 @@ await _screenPage.SubmitAsync();
 Playwright tests run against a full Docker Compose stack with seed data and auth bypass enabled.
 
 ```bash
-# 1. Install Playwright browsers (one-time)
-pwsh tests/{Project}.Playwright.Tests/bin/Debug/net10.0/playwright.ps1 install chromium
+# 1. Build the test project, then install the browser the build needs.
+#    Use the node-based installer, NOT pwsh — PowerShell is not present on Linux CI
+#    runners; `node …/.playwright/package/cli.js` is the portable mechanism the
+#    `playwright.ps1` wrapper just calls. Add `--with-deps` if OS libs are missing.
+dotnet build tests/{Project}.Playwright.Tests/
+node tests/{Project}.Playwright.Tests/bin/Debug/net10.0/.playwright/package/cli.js install chromium
 
 # 2. Start the stack with Playwright overlay
 docker compose -f docker-compose.yml -f docker-compose.playwright.yml up -d --build
@@ -243,5 +247,7 @@ docker compose -f docker-compose.yml -f docker-compose.playwright.yml down
 ```
 
 The `docker-compose.playwright.yml` overlay enables auth bypass (`Authentication__UseDevBypass: true`), auto-login, and runs seed data SQL after migrations complete. Seed data files live in `playwright/seed-data.sql` and grow as test stories are implemented.
+
+**The overlay must give the app enough config to boot.** Any external-service setting the API *requires at startup* (payment keys like Stripe, third-party API credentials, connection strings) must have a **placeholder/dummy value** in the test stack. A missing required secret crashes the app on startup — the container reports "started" but the health endpoint never comes up, and the readiness check fails (or, with an unbounded wait, hangs). Provide dummy values via the overlay's environment so the app boots in the test context; nothing real is called because external providers run under auth bypass / stubs.
 
 In the v5 pipeline these tests run on the **self-hosted runner** via `ui-tests.yml` (`workflow_dispatch`), not as a per-PR gate — see CI/CD Testing Tiers. The same Docker Compose stack runs there; the steps above are for local debugging. Playwright failures do **not** block the PR; they are handled at the orchestration boundary.

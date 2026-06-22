@@ -62,6 +62,15 @@ jobs:
           wait_for http://localhost:5001/health/ready "API health" 120
           wait_for http://localhost:5002 "Client" 120
 
+      - name: Install Playwright browser (node-based, pwsh-free)
+        # The tests run via `dotnet test` on the runner, so the browser must be installed
+        # locally. Use node (not pwsh — not present on Linux runners); it's the mechanism
+        # `playwright.ps1` wraps. Drop `--with-deps` if the runner's OS libs are already set
+        # up (it needs root); keep it on a fresh runner that's missing the system libraries.
+        run: |
+          dotnet build tests/{ProjectName}.Playwright.Tests/
+          node tests/{ProjectName}.Playwright.Tests/bin/Debug/net10.0/.playwright/package/cli.js install chromium --with-deps
+
       - name: Run UI tests
         env:
           # YAML key is quoted because the {PROJECT} token starts with a brace.
