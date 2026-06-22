@@ -265,6 +265,26 @@ Build Docker images (tagged {sha}-dev)
   → ✅ Dev validated — eligible for Staging promotion
 ```
 
+**Skip the deploy on test-only merges (v5).** v5 lands each ticket as **three** PRs
+(implementation, integration-tests, ui-tests), so three merges hit `main` per ticket — but only
+the **implementation** PR changes app code. The integration-tests and ui-tests PRs touch `tests/**`
+only and are **not in the deployed image** (the Dockerfile builds `src/`), so deploying on them is a
+pure no-op redeploy. Gate the CD deploy on `src/**` changes so a test-only merge is skipped:
+
+```bash
+# first step of the deploy job — bail out cleanly when the merge changed only tests/docs
+if git diff --name-only HEAD^ HEAD | grep -qE '^src/'; then
+  echo "app code changed — deploying"
+else
+  echo "test-only merge — skipping deploy"; exit 0
+fi
+```
+
+This keeps the **one meaningful deploy per ticket** and still deploys migrations (they live under
+`src/{Project}.Migrator/`, so they match `^src/`). It is safe because the integration and UI tiers
+run on the **self-hosted runner** (Testcontainers / Compose), never against deployed dev — the test
+merges never needed a deploy.
+
 ### Promote to Staging (manual)
 
 ```
@@ -359,6 +379,7 @@ Use this checklist when applying this standard to an existing project or auditin
 - [ ] Merge gate enforced by `orchestrate-v5` — it won't merge a PR whose `fast-tests` or `integration-tests` checks are red
 - [ ] A self-hosted runner is installed **as a service** (auto-start on boot) with Docker access
 - [ ] `deploy.yml` deploys to Dev on merge to main
+- [ ] Dev deploy **skips test-only merges** (gated on `src/**` changes) — v5 lands 3 PRs/ticket, only the implementation merge should deploy
 - [ ] Post-deploy smoke step exists for Dev
 - [ ] Staging promotion is manual and includes smoke gate
 - [ ] Production promotion requires approval gate
