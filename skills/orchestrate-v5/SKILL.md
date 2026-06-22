@@ -817,6 +817,8 @@ After processing N tickets (or when the scoped Ready queue empties mid-chunk):
 
 CLEANUP runs when **no scoped Ready tickets remain** (scope ∩ Up Next == 0) — reached either by a **relaunch** picking this mode in Mode Selection (looped run), or by a **single-session** run falling through here after WORKING (direct run, `ORCHESTRATE_N` unset). It is the run's periodic detector — run-completion-triggered, not clock-triggered. Execute in order:
 
+> **Closing the run is gated on CLEANUP — never close the tracking issue by hand to "wrap up."** A hand-written "run complete" summary comment is **not** CLEANUP. The pyramid ratio (C2) and the gate audit (C3) are the entire reason this mode exists — they are the only check that catches a PR which merged without a filled TR grid, so the run is **not** complete until they have actually run and C5's fixpoint condition is met. **This holds even when you resumed by hand-driving the stage skills outside the orchestrator** — e.g. because the work ticket was prematurely closed/Done (the `Closes #N`-on-a-stage-PR bug) so `orchestrate-v5` wouldn't auto-pick it. If you ever finish a run that way, you still owe it C1–C3: **re-enter `orchestrate-v5` to run CLEANUP, or run C1–C3 manually, then close via C5** — and keep the body live the whole time (a frozen body that still says "Stage 1 (refine) / Pyramid ratio: not yet run" means CLEANUP never happened). *(Pilot gap, HC-14 #359: the run was hand-driven through Stages 6→8 and the tracking issue closed with a summary comment while its body still read `Pyramid ratio: not yet run` / `Gate audit: not yet run` — CLEANUP was skipped entirely, and the integration-tier flake it would have flagged went un-ticketed.)*
+
 ### C1. Full UI regression suite (unfiltered runner dispatch)
 
 Dispatch `ui-tests.yml` **unfiltered** (full suite) on the self-hosted runner and poll to completion:
@@ -1056,5 +1058,5 @@ _(If no PRD amendments, omit this section)_
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-21 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- pipeline: v5 -->
