@@ -43,3 +43,5 @@
 - Each test creates a fresh `IBrowserContext` for cookie/storage isolation
 - Dev auth bypass — no real Azure AD in tests
 - Route interception to inject test configuration
+
+> **Non-Blazor frontends (React/TS, etc.):** Blazor + MudBlazor is the default stack above. A project that deviates to a TS/JS SPA still uses this same Playwright UI tier for journeys and follows the **client-side-logic placement rule** in [testing.md](testing.md#client-side-logic-in-non-blazor-frontends-reactts-etc) — keep the client thin, push logic with a real failure mode to the backend, and do **not** add a separate JS unit-test tier (Vitest/Jest).

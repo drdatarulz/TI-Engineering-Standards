@@ -121,6 +121,16 @@ Route each behavior to its tier using the governing rule — *the cheapest tier 
 
 An API endpoint does **not** automatically get both a unit *and* an integration test. The logic lands in Unit, the wiring seam in Contract, and Integration appears only if the endpoint genuinely exercises real infrastructure. This is TR-1, seeded by `refine-story` and enforced by `engineering-review`.
 
+### Client-side logic in non-Blazor frontends (React/TS, etc.)
+
+The four-tier model is deliberately .NET-centric and has **no frontend-unit tier**. For the default Blazor frontend this is a non-issue — client logic is C# and lands in the **Unit** tier like any other domain code. The seam appears only in projects that deviate to a TS/JS SPA (React, etc.), where pure client-side logic has no .NET tier to live in. Resolve it by placement, not by adding tooling:
+
+- **Do not introduce a JS unit-test tier.** Vitest/Jest are not a pipeline tier. (Where a project already has them, they are component checks and are explicitly *not* build validators — see Frontend Build Verification.)
+- **Keep the client thin — push logic with a real failure mode to the backend.** Escaping, formatting, calculations, and security-sensitive transforms belong in a .NET service behind a Domain interface, where the **Unit** tier covers their edge cases cheaply and exhaustively. **CSV/export generation in particular is a server endpoint, not client string-building** — assembling delimited output in the browser both strands the escaping logic above the cheapest tier *and* invites CSV formula-injection (`=`/`+`/`-`/`@` prefixes); a tested server-side writer closes both.
+- **Verify only residual, trivial client logic through the UI tier.** A color lookup, a conditional render, a disabled-button state — assert these *within* the existing Playwright journey, not as their own tier. If a client-side behavior has edge cases too fine-grained for a browser journey to cover, that is the signal it should have been server-side.
+
+Revisit this only if a project ever accumulates genuinely client-bound logic that cannot move server-side (complex client state machines, offline calculation) — a "when it hurts" tripwire, not a default.
+
 ## What NOT to Unit Test
 
 - Dapper repository SQL (integration test territory)
