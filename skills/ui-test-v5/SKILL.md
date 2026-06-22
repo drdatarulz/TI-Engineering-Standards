@@ -112,11 +112,29 @@ Follow these patterns exactly:
 
 ```
 tests/{Project}.Playwright.Tests/
+  AssemblyInfo.cs      # Disables xUnit parallelization (required — see below)
   Pages/               # Page Object Model classes
     {Screen}Page.cs    # One page object per screen
   Tests/
     {Feature}Tests.cs  # Test classes grouped by feature
 ```
+
+### Serial execution (REQUIRED) — disable xUnit parallelization
+
+xUnit runs test **collections (classes) in parallel by default**. The UI harness drives **one shared browser** against **shared preview/Compose servers**, so concurrent test classes launch simultaneous Playwright contexts that contend for that one browser — and under contention a navigation event is intermittently dropped, stalling a `WaitForURLAsync`/`Expect` to a 30s timeout. The tell is **non-determinism**: across full-suite runs a *different* test fails each time (or the suite flaps green/red on the runner), yet **every test passes reliably when run alone**. This is not an app defect — chasing it as one cost a full pilot session (HC-14, run 27963083559).
+
+"Fresh `IBrowserContext` per class" (below) gives *isolation* but **not** *serialization* — you need both. Add `AssemblyInfo.cs` to the Playwright test project:
+
+```csharp
+// tests/{Project}.Playwright.Tests/AssemblyInfo.cs
+using Xunit;
+
+// UI tests share one browser + one preview/Compose stack — running test classes in
+// parallel drops navigation events and produces non-deterministic timeout failures.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+```
+
+This is non-negotiable scaffolding for the UI tier — add it when you create the project, before writing the first test.
 
 ### Page Object Model
 
@@ -192,6 +210,7 @@ public class {Feature}Tests : PageTest
 - **Page Object Model:** One class per screen in `Pages/` — never put locators directly in test methods
 - **Semantic selectors:** Prefer `GetByRole`, `GetByLabel`, `GetByText` over CSS selectors or XPath
 - **Fresh context:** Each test class gets a fresh `IBrowserContext` — no shared state between tests
+- **Serial execution (TR-9, anti-flake):** the Playwright project **must** ship `[assembly: CollectionBehavior(DisableTestParallelization = true)]` (see Serial execution above). Parallel classes against the one shared browser/stack cause non-deterministic navigation-timeout failures that masquerade as app bugs — do not "fix" such a flake by weakening the test (that would violate TR-7/TR-8); fix it by serializing.
 - **Test naming:** `Snake_case_describing_user_action_and_expected_result`
 - **Assertions:** Playwright's `Expect()` API — `ToBeVisibleAsync()`, `ToHaveTextAsync()`, `ToBeEnabledAsync()`, etc.
 - **Condition-based waits (TR-9):** never `Task.Delay`, `WaitForTimeoutAsync`, or `Thread.Sleep` to wait for UI state — use `Expect(...)` / `WaitForAsync` which resolve as soon as the condition is met and fail fast. See `standards/testing.md` → No hardcoded waits.
@@ -423,5 +442,5 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-21 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- pipeline: v5 -->
