@@ -213,7 +213,11 @@ That is the entire control flow: each launch picks **one** mode, does its chunk,
 
 WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — highest-priority first. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
 
-At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's "current ticket". For EACH ticket, execute these stages:
+At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's **Current ticket**.
+
+**Keep the tracking issue live — this is the run's dashboard.** Update the body's `Current ticket: {STORY_ID} @ Stage {n} ({name})` field **every time you enter a new stage** below (refine → implement → review → security → integration → review → ui → review → checkpoint) with a `gh issue edit {TRACKING_ISSUE} --body`, so a reader (or a teammate leaving change-notes on the issue) always sees the true current state, not a stale "Stage 1." Also append a short tracking-issue event-log **comment** at the high-level milestones — PR opened, PR merged, review REQUEST_CHANGES, ticket done — so the comment thread is a skimmable timeline. (The *detailed* per-stage audit still lands on the work ticket as before; the tracking issue carries the run-level summary.)
+
+For EACH ticket, execute these stages:
 
 ---
 
