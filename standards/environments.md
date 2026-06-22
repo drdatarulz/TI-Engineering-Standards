@@ -214,24 +214,29 @@ When you approve a run for Staging or Production, **cancel any older runs** that
 
 ## CI/CD Pipeline Structure
 
-### v5 CI requirements (self-hosted runner + branch protection)
+### v5 CI requirements (self-hosted runner + merge gate)
 
 Every v5 project **must** have all three of the following. They are provisioned from the
-standards repo (`templates/workflows/` + `developer-tools/setup-branch-protection.sh`), not
-hand-written per project:
+standards repo (`templates/workflows/`), not hand-written per project:
 
 1. **The three test workflows** in `.github/workflows/` — `fast-tests.yml`,
    `integration-tests.yml`, `ui-tests.yml` — all `runs-on: self-hosted`. The auto-sync
    protocol copies these in (skipping any the project already customized).
-2. **Branch protection on `main`** requiring the `fast-tests` and `integration-tests`
-   status checks with **strict** (branch-up-to-date) enforcement. Branch protection is
-   GitHub *settings*, not a file — run `developer-tools/setup-branch-protection.sh` once
-   per repo. `ui-tests` is intentionally **not** a required check.
+2. **The merge gate** — `orchestrate-v5` will not merge a PR whose `fast-tests` or
+   `integration-tests` checks are red (it polls them before merging). Merges in v5 go through the
+   orchestrator, so that is where the gate lives — no branch-protection setup is assumed.
+   `ui-tests` is intentionally **not** a required check.
 3. **A self-hosted GitHub Actions runner** on the user's box (WSL2/Linux, with Docker
    access), installed **as a service** so it auto-starts on boot and restarts on crash.
    The runner brings the compute (no GitHub minutes billed) and runs Testcontainers /
    Playwright as sibling containers on the host Docker. Runner setup is documented in
    `developer-tools/` (see the runner setup guide).
+
+**These three are test workflows (PR / `workflow_dispatch`), not a build/deploy pipeline** — none
+run on push to `main`. A project keeps its existing main-push workflow for build, version-stamp,
+frontend build, and deploy (and to feed any `workflow_run`-based CD). Adopting v5 means moving the
+*tests* out of that workflow into the three tiers, **not** deleting it: deleting a `ci.yml` that a
+`cd.yml` watches via `workflow_run` would break deployment.
 
 Conformance/review checks these via the **Pipeline** section of the Conformance Checklist
 below. The trigger model itself lives in `standards/testing.md` → CI/CD Testing Tiers.
@@ -351,7 +356,7 @@ Use this checklist when applying this standard to an existing project or auditin
 - [ ] `integration-tests.yml` is a required pre-merge check (Testcontainers); branch must be up to date with `main`
 - [ ] `ui-tests.yml` runs Playwright on the self-hosted runner via `workflow_dispatch` (not a per-PR gate)
 - [ ] All test workflows are `runs-on: self-hosted`
-- [ ] Branch protection on `main` requires `fast-tests` + `integration-tests` with strict (up-to-date) enforcement — run `developer-tools/setup-branch-protection.sh`
+- [ ] Merge gate enforced by `orchestrate-v5` — it won't merge a PR whose `fast-tests` or `integration-tests` checks are red
 - [ ] A self-hosted runner is installed **as a service** (auto-start on boot) with Docker access
 - [ ] `deploy.yml` deploys to Dev on merge to main
 - [ ] Post-deploy smoke step exists for Dev

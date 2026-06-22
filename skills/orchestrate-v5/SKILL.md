@@ -44,6 +44,22 @@ This is the per-ticket pipeline WORKING mode runs for each of the up-to-N ticket
 
 **v5 deltas from v4:** stage 6 UI is **conditional** — if `ui-test-v5` returns `STATUS: Skipped` (no user-facing surface, or surface out-of-scope), skip stages 6–7 and go straight to checkpoint. UI tests run on the **runner via `workflow_dispatch`**, not a per-PR gate. Every review stage emits a **TR reviewer grid** (the gate-audit artifact CLEANUP checks). Each completed ticket is **checkpointed** to the tracking issue so a relaunch can resume.
 
+## Merge gate (honor before every `gh pr merge`)
+
+v5 requires the **fast tier** (Unit + Contract) and **integration tier** to be green before a PR merges, and **you enforce it** — merges go through the orchestrator, so this is the gate. Before any `gh pr merge` in this skill, poll the PR's checks and merge **only** if they pass:
+
+```bash
+gh pr checks {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --watch 2>/dev/null || true
+gh pr checks {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} \
+  --json name,bucket --jq '.[] | select(.name=="fast-tests" or .name=="integration-tests")'
+```
+
+- Both **pass** → proceed with the merge.
+- Either **fails** → do **not** merge; route the PR to fix (implement/integration FIX mode, or ci-fix) exactly like a red review, then re-poll.
+- Still **pending** → wait (a tier finishes on the self-hosted runner in minutes); never merge on pending.
+
+Applies to PR #1 (implementation) and PR #2 (integration). PR #3 (UI) has no required PR check — the UI tier was already validated by `ui-test-v5`'s scoped runner dispatch.
+
 ## Parse Arguments
 
 Parse `$ARGUMENTS` as follows:

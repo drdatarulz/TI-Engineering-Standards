@@ -35,7 +35,7 @@ When starting a session on **any project**, follow this protocol:
      fi
    done
    ```
-   After the first copy, replace `{ProjectName}` / `{PROJECT}` / ports per `templates/workflows/README.md`, then run `developer-tools/setup-branch-protection.sh` once to make `fast-tests` + `integration-tests` required checks.
+   After the first copy, replace `{ProjectName}` / `{PROJECT}` / ports per `templates/workflows/README.md`. The merge gate is enforced by `orchestrate-v5` (it won't merge a PR whose `fast-tests`/`integration-tests` checks are red) — no branch-protection setup needed.
 7. **Vendor the orchestration entrypoint** (v5): Copy the thin `scripts/orchestrate.sh` wrapper into the project (skip-if-exists — it's stable and self-updates the canonical driver each run). Same precedence rule as skills/workflows:
    ```bash
    mkdir -p scripts

@@ -31,12 +31,17 @@ Replace these in each copied workflow before committing:
 Multi-service projects (e.g. an additional `McpServer.Tests` fakes project) add their
 extra fast-tier test projects to the **Run fast tests** step in `fast-tests.yml`.
 
-## Required-check setup
+## Merge gate
 
-`fast-tests` and `integration-tests` only *gate* merges once they are required status
-checks with strict (branch-up-to-date) enforcement. That is GitHub **settings**, not a
-file — run [`developer-tools/setup-branch-protection.sh`](../../developer-tools/setup-branch-protection.sh)
-once per repo. `ui-tests` is intentionally **not** a required check.
+`fast-tests` and `integration-tests` gate the merge, but the enforcement lives in the
+**orchestrator**, not in GitHub settings: `orchestrate-v5` polls each PR's checks and won't
+merge a red PR. No branch-protection setup is assumed (it isn't available on a private repo's
+Free plan anyway). `ui-tests` is intentionally **not** a required check.
+
+These three workflows are PR/`workflow_dispatch` **test** workflows — none run on push to
+`main`. Keep your project's existing main-push workflow for build, version-stamp, frontend
+build, and deploy; adopting v5 means moving the *tests* out of it into these tiers, not
+deleting it (a `cd.yml` that watches `ci.yml` via `workflow_run` would lose its trigger).
 
 ## Self-enforcing no-Docker fast tier (TR-11)
 
