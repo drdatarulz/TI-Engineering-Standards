@@ -16,9 +16,13 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Branch or SHA to test
+        # Defaults to the dispatch ref (github.ref_name) so `gh workflow run --ref <branch>`
+        # checks out that branch with no extra flag. `--ref` sets which YAML runs + the git
+        # context but does NOT populate this input; without this default it would fall back to
+        # a literal and silently check out the wrong branch. See templates/workflows/README.md.
+        description: Branch or SHA to test (defaults to the dispatched ref)
         required: false
-        default: main
+        default: ${{ github.ref_name }}
       filter:
         description: 'xUnit --filter expression (empty = full suite)'
         required: false

@@ -31,6 +31,22 @@ Replace these in each copied workflow before committing:
 Multi-service projects (e.g. an additional `McpServer.Tests` fakes project) add their
 extra fast-tier test projects to the **Run fast tests** step in `fast-tests.yml`.
 
+## Dispatching `ui-tests.yml` against a branch (`--ref` vs `-f ref=`)
+
+`gh workflow run` has a `--ref` flag **and** `ui-tests.yml` defines a `ref` *input* — they are
+not the same thing:
+
+- `--ref <branch>` selects **which version of the YAML runs** and sets the run's git context
+  (`github.ref` / `github.ref_name` / `github.sha`). It does **not** populate the `ref` input.
+- `-f ref=<branch>` sets the `ref` *input*, which is what the **checkout step** actually pulls.
+
+The template's `ref` input now defaults to `${{ github.ref_name }}`, so **`--ref <branch>`
+alone checks out that branch correctly** — no extra flag needed. (Before this default it fell
+back to `main` and silently tested the wrong branch — a feature branch's harness files like
+`docker-compose.ui.yml` aren't on `main`, so the run would fail confusingly or pass against
+stale code.) Passing `-f ref=<branch>` explicitly still works and overrides the default;
+`refine`/`orchestrate` flows pass it for clarity. Pin a raw SHA via `-f ref=<sha>` if needed.
+
 ## Merge gate
 
 `fast-tests` and `integration-tests` gate the merge, but the enforcement lives in the
