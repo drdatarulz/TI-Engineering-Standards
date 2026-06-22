@@ -79,7 +79,7 @@ For each file changed in the PR, read the complete file (not just the diff) to u
 This is the heart of v5 review: keep each behavior at its cheapest sufficient tier and the TR rules honest. Run the rows scoped to `{MODE}` (see the grid in Step 2.5), **plus TR-10 on every mode**. Cite `standards/testing.md` → Test Tiers / Test Rules. Each is **[JUDGMENT]** unless noted [CI].
 
 **Tier-boundary checks — both directions:**
-- **TR-2 (implementation mode):** no **business logic** in the Contract tier (`Api.Tests`). A Contract test that varies business inputs to assert business *outcomes* is mis-tiered — the scenario belongs in Unit (`Domain.Tests`). Flag it; the fix is to push the scenario down, not to keep both.
+- **TR-2 (implementation mode):** no **business logic** in the Contract tier (`Api.Tests`). A Contract test that varies business inputs to assert business *outcomes* is mis-tiered — the scenario belongs in Unit (`Domain.Tests` for Domain logic, `Infrastructure.Tests` for logic that lives in Infrastructure). Flag it; the fix is to push the scenario down, not to keep both. Likewise in **integration-tests mode**, a logic-only Integration test (pure pricing/mapping/validation that needs no real infra) is mis-tiered *upward* — it belongs in `Infrastructure.Tests`, not the Docker-bound tier (TR-10/TR-3).
 - **TR-3 (integration-tests mode):** no **contract re-assertion** in Integration. A test whose only subject is validation-error shape, 404 mapping, model binding, or serialization is a Contract behavior already covered one tier down. Ask *"would this pass against the fakes host?"* — if yes, it's redundant here.
 
 **TR-10 — two-way coverage / lowest sufficient tier (EVERY mode, reviewer-only):** v4 only flagged *missing* coverage; v5 flags **redundant** coverage too (#2). When the same behavior is covered at a more expensive tier than necessary, **cut the more expensive duplicate** (downward-only — by the time this mode runs, the cheaper tiers have already merged to `main`, so the cheaper test exists and you remove the costlier one here). You must name the cheaper test that already covers it. Still also flag genuinely *missing* coverage (a behavior in the issue's table with no test at its assigned tier).
@@ -106,7 +106,7 @@ grep -rl 'Trait("CriticalPath", *"true")' tests/ | xargs grep -c 'CriticalPath' 
 - **Ceiling > 10 → blocking (hard).** REQUEST_CHANGES; demote the least-critical journey(s) until ≤10.
 - **Floor < 3 → advisory.** Flag (a one-page app may legitimately have fewer); do not block.
 
-**TR-11 — no Docker in the fast tier (implementation mode, [CI]):** flag any Testcontainers/Docker reference appearing in a fast-tier project (`Domain.Tests`/`Api.Tests`). The no-daemon `fast-tests.yml` job already fails this loudly — link the job rather than re-deriving.
+**TR-11 — no Docker in the fast tier (implementation mode, [CI]):** flag any Testcontainers/Docker reference appearing in a fast-tier project (`Domain.Tests`/`Infrastructure.Tests`/`Api.Tests`). The no-daemon `fast-tests.yml` job already fails this loudly — link the job rather than re-deriving.
 
 ### Implementation Mode Checklist
 
@@ -310,7 +310,7 @@ Grid format (fill for the current mode):
 
 Regardless of what the diff review found, always verify the build. Use the build and test commands from the project's `CLAUDE.md`.
 
-- **implementation mode** — build the full solution and run the **fast tier** (Unit `Domain.Tests` + Contract `Api.Tests`). No Docker (TR-11).
+- **implementation mode** — build the full solution and run the **fast tier** (Unit `Domain.Tests` + `Infrastructure.Tests` + Contract `Api.Tests`). No Docker (TR-11).
 - **integration-tests mode** — build the full solution, run the integration tests (Testcontainers), and also run the fast tier to confirm no regressions.
 - **ui-tests mode** — do **not** run Playwright locally (the UI tier runs on the self-hosted runner). Instead confirm the scoped `ui-tests.yml` dispatch on the PR branch **passed** — the PR body should link the run; if it's missing or red, that is a blocking finding.
 
@@ -419,5 +419,5 @@ A FAIL on any [JUDGMENT] TR row means STATUS must be `ChangesRequested`, routed 
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-21 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- pipeline: v5 -->

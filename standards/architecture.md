@@ -36,14 +36,15 @@ src/
   ... additional service projects as needed ...
 
 tests/
-  {Project}.Domain.Tests/        # Unit tier — business logic over fakes, no host.
-  {Project}.Api.Tests/           # Contract tier — host + fakes, no Docker. Wiring/seam only.
-  {Project}.Integration.Tests/   # Integration tier — host + real infra (Testcontainers).
-  {Project}.Playwright.Tests/    # UI tier — critical user journeys.
-  {Project}.Fakes/               # Shared hand-rolled fakes for all test projects.
+  {Project}.Domain.Tests/         # Unit tier — logic in Domain, over fakes, no host.
+  {Project}.Infrastructure.Tests/  # Unit tier — logic in Infrastructure, over fakes, no host, NO Docker.
+  {Project}.Api.Tests/            # Contract tier — host + fakes, no Docker. Wiring/seam only.
+  {Project}.Integration.Tests/    # Integration tier — host + real infra (Testcontainers).
+  {Project}.Playwright.Tests/     # UI tier — critical user journeys.
+  {Project}.Fakes/                # Shared hand-rolled fakes for all test projects.
 ```
 
-The four test projects map one-to-one to the four test tiers in `standards/testing.md` (Unit / Contract / Integration / UI). The Contract tier is `Api.Tests` — endpoint wiring exercised through `WebApplicationFactory` over fakes, with **no Docker** (the no-infra sibling of Integration).
+The test projects map to the four test tiers in `standards/testing.md` (Unit / Contract / Integration / UI) — note the **Unit tier spans two projects**: `Domain.Tests` *and* `Infrastructure.Tests`. Because `Domain` is models + interfaces only, most business logic lives in `Infrastructure`; its classes depend solely on Domain interfaces, so they unit-test against fakes in a plain process with **no host and no Docker** — the same fast tier as `Domain.Tests`. Omitting `Infrastructure.Tests` is what funnels logic tests into the slow Integration tier and inverts the pyramid (TR-2 forbids putting them in Contract). The Contract tier is `Api.Tests` — endpoint wiring exercised through `WebApplicationFactory` over fakes, with **no Docker** (the no-infra sibling of Integration).
 
 ### Migrator — Self-Contained
 

@@ -284,7 +284,8 @@ Task<Result> ProcessAsync(Guid documentId, ProcessingOptions options, Cancellati
 |------|--------|
 | `src/ProjectName.Infrastructure/...` | Implement stub |
 | `tests/ProjectName.Fakes/...` | Update fake |
-| `tests/ProjectName.Domain.Tests/...` | Add Unit tests (logic behaviors) |
+| `tests/ProjectName.Domain.Tests/...` | Add Unit tests (logic behaviors that live in Domain) |
+| `tests/ProjectName.Infrastructure.Tests/...` | Add Unit tests (logic behaviors that live in Infrastructure — over fakes, no Docker) |
 | `tests/ProjectName.Api.Tests/...` | Add Contract tests (wiring/seam behaviors) |
 
 ## Branch
@@ -385,5 +386,5 @@ OPEN_QUESTIONS: [None | count]
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-21 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- pipeline: v5 -->

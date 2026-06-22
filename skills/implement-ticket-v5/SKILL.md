@@ -12,7 +12,7 @@ You are implementing a single ticket. Your working directory is the project root
 
 This skill writes the **fast tier** — Unit and Contract tests — and **only** those. Integration tests (`integration-test-v5`) and UI tests (`ui-test-v5`) are separate stages and PRs. **Consume the issue's behavior-first Test Coverage table** (seeded by `refine-story-v5`) rather than re-deriving coverage: write the test for each behavior whose assigned Tier is **Unit** or **Contract**, at that tier, once. Per `standards/testing.md` → Test Tiers and Test Rules:
 
-- **Unit** (`{Project}.Domain.Tests`) — business logic, branches, edge cases, validation rules, over fakes, no host.
+- **Unit** — business logic, branches, edge cases, validation rules, over fakes, no host, no Docker. The Unit tier spans **two projects, by where the logic lives**: `{Project}.Domain.Tests` for logic in Domain, and `{Project}.Infrastructure.Tests` for logic in Infrastructure (orchestrators, pricing/billing math, mapping, provider adapters — which test against the Domain-interface fakes, NOT real infra). Putting Infrastructure logic in Integration instead inverts the pyramid; that's where to write it fast.
 - **Contract** (`{Project}.Api.Tests`) — endpoint wiring through `WebApplicationFactory` over fakes: routing, model binding, validation shape, status/error mapping, serialization, auth. **No business logic here (TR-2)** — a happy/edge/error walk of a domain rule belongs in Unit.
 - **No Testcontainers/Docker in either fast-tier project (TR-11)** — they must run with no Docker daemon.
 - These are the producer rows you sign off at the end: **TR-2, TR-7, TR-8, TR-11**. Cite the rules by ID; don't restate them.
@@ -136,7 +136,7 @@ All rules from the 12 standards files apply — you loaded them in the Context L
 
 Use the build and test commands from the project's `CLAUDE.md`:
 - Build the full solution
-- Run the **fast tier** — the Unit (`Domain.Tests`) and Contract (`Api.Tests`) projects. These run with **no Docker daemon** (TR-11); if a test needs Testcontainers it is mis-tiered — move that behavior to the Integration stage, don't add Docker to the fast tier.
+- Run the **fast tier** — the Unit (`Domain.Tests` + `Infrastructure.Tests`) and Contract (`Api.Tests`) projects. These run with **no Docker daemon** (TR-11); if a test needs Testcontainers it is mis-tiered — move that behavior to the Integration stage, don't add Docker to the fast tier.
 - All tests must pass — both new and existing
 - If a test fails, **fix the code, not the test (TR-7).** A failing test is a signal the code is wrong; the default response is a code change. Only edit a test if it was genuinely written wrong (e.g. asserts the bug instead of the correct behavior) — never weaken or delete a test to make it pass. You have 3 attempts to fix failing tests before reporting as partial.
 - Every test must reach a real assertion — no silent passes, no `Skip`, no asserting buggy behavior (TR-8).
@@ -180,10 +180,10 @@ Fill PASS/FAIL **with evidence** (line reference or pasted command output — ne
 
 | TR | Rule | Producer | Evidence |
 |----|------|----------|----------|
-| TR-2 | No business logic in the Contract tier | PASS/FAIL | [Contract tests assert wiring/status/shape only; logic scenarios live in Domain.Tests at lines …] |
+| TR-2 | No business logic in the Contract tier | PASS/FAIL | [Contract tests assert wiring/status/shape only; logic scenarios live in Domain.Tests/Infrastructure.Tests at lines …] |
 | TR-7 | Fix the code, not the test | PASS/FAIL | [no test weakened/deleted to pass; failures fixed in src at …] |
 | TR-8 | No silent failures / no asserting buggy behavior / no `Skip` | PASS/FAIL | [every new test reaches an assertion; grep shows no `Skip`] |
-| TR-11 | No Testcontainers/Docker in the fast tier | PASS/FAIL | [no Testcontainers reference in Domain.Tests/Api.Tests; fast job ran with no daemon] |
+| TR-11 | No Testcontainers/Docker in the fast tier | PASS/FAIL | [no Testcontainers reference in Domain.Tests/Infrastructure.Tests/Api.Tests; fast job ran with no daemon] |
 
 Relates to #{ISSUE_NUMBER}
 
@@ -341,5 +341,5 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-21 -->
+<!-- last-updated: 2026-06-22 -->
 <!-- pipeline: v5 -->

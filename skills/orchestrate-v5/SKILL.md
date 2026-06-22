@@ -837,7 +837,8 @@ Count tests per tier (repo-wide) and compare to a healthy shape (most Unit, then
 
 ```bash
 # Example counts — adapt to project test-project names
-unit=$(grep -rlE '\[Fact|\[Theory' tests/*Domain.Tests/ 2>/dev/null | xargs grep -cE '\[Fact|\[Theory' | awk -F: '{s+=$2} END{print s+0}')
+# Unit tier spans BOTH Domain.Tests and Infrastructure.Tests (logic that lives in Infrastructure) — count both.
+unit=$(grep -rlE '\[Fact|\[Theory' tests/*Domain.Tests/ tests/*Infrastructure.Tests/ 2>/dev/null | xargs grep -cE '\[Fact|\[Theory' | awk -F: '{s+=$2} END{print s+0}')
 contract=$(... tests/*Api.Tests/ ...); integ=$(... tests/*Integration.Tests/ ...); ui=$(... tests/*Playwright.Tests/ ...)
 ```
 

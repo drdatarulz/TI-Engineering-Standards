@@ -71,7 +71,7 @@ it like this — don't rip it out:
 1. **Sync the templates** (auto-sync copies the three tier workflows in). Fill `{ProjectName}` /
    `{PROJECT}` / ports.
 2. **Move the tests out** of `ci.yml` into the tiers, by failure mode:
-   - `Domain.Tests` (Unit) + `Api.Tests` (Contract) + any other fakes-based projects → `fast-tests.yml`
+   - `Domain.Tests` (Unit) + `Infrastructure.Tests` (Unit — logic in Infrastructure) + `Api.Tests` (Contract) + any other fakes-based projects → `fast-tests.yml`
    - `Integration.Tests` → `integration-tests.yml`
    - `Playwright.Tests` → `ui-tests.yml` (already `workflow_dispatch`)
 

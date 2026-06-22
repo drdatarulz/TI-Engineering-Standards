@@ -80,13 +80,15 @@ tests/
 # Build everything
 dotnet build {ProjectName}.sln
 
-# Run unit tests
+# Run the fast tier (gates every PR) — Unit (Domain + Infrastructure logic) + Contract, no Docker
+dotnet test tests/{ProjectName}.Domain.Tests/
+dotnet test tests/{ProjectName}.Infrastructure.Tests/
 dotnet test tests/{ProjectName}.Api.Tests/
 
-# Run integration tests
+# Run integration tests (real infra via Testcontainers — needs Docker)
 dotnet test tests/{ProjectName}.Integration.Tests/
 
-# Run Playwright tests
+# Run Playwright tests (UI tier — runs on the self-hosted runner)
 dotnet test tests/{ProjectName}.Playwright.Tests/
 
 # Run DbUp migrations
