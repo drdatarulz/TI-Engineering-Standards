@@ -182,6 +182,14 @@ Tests execute in CI on a **self-hosted GitHub Actions runner** — the runner br
 - Smoke tests gate deployments — must pass after deploying to dev and staging.
 - No Playwright, integration, or smoke tests run against production.
 
+## Test-Pyramid Baseline (v5 adoption)
+
+A repo adopting v5 usually carries a pre-v5 suite written before the four-tier model and `Infrastructure.Tests` existed — so its logic tests are stranded at the slow Integration tier (an inverted pyramid). That accumulated shape is **accepted debt: it is never measured against the team, and there is no project to "go back and rebalance" it.** Chasing it with a drift ticket that says "too many here" is a nag with no actuator — it doesn't happen. Instead, v5 freezes the past and governs the future:
+
+- **Freeze a baseline, once.** On its first run in a repo, `orchestrate-v5` writes `docs/test-pyramid-baseline.md` — a **frozen** snapshot of per-tier counts at the v5-adoption commit (date + SHA). It is write-once and never edited; absence of the file is what marks "first adoption."
+- **Measure the delta, not the total.** Pyramid health is judged on tests added **since** the baseline — the only set the team controlled and the only set that *can* be a clean pyramid. The CLEANUP report shows `total / baseline / since-v5` per tier; the since-v5 column is the scoreboard. A frozen baseline means any genuine re-tiering of an old test just shows up as a *negative* since-v5 delta (progress) — nothing to ratchet.
+- **Enforce at two points, both of which actually run.** (1) **Faucet-stop — per PR:** `engineering-review-v5` blocks a new logic-only test added at the Integration tier (the diff is where "does this need real infra?" is visible) and routes it to `Infrastructure.Tests`. (2) **Backstop — per run:** `orchestrate-v5` CLEANUP re-audits the Integration tests *that run* added, injects a re-tier fix for any logic-only ones, and **will not close the run until the drift is fixed — the orchestrator directs the fix**. Both target only mis-tiered *new* tests; genuinely infra-needing tests are never flagged, so there is no deadlock and no count threshold to tune.
+
 ## Playwright Conventions
 
 - Each test creates a fresh `IBrowserContext` for cookie/storage isolation

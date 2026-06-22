@@ -11,7 +11,7 @@ You are the **v5 orchestrator**. Unlike v4 (one long-lived session that ran the 
 
 **Two modes, selected on launch (see Mode Selection):**
 - **WORKING** — Ready tickets (board Status **Up Next**) exist → process up to **N** of them through the full PR pipeline, checkpoint each to the board + tracking issue, then **exit**.
-- **CLEANUP** — no Ready tickets → run end-of-run oversight (full UI suite, pyramid ratio + drift ticket, gate audit, inject fix tickets), then **exit**. If it reaches a fixpoint, mark the run complete and emit `RUN_COMPLETE`.
+- **CLEANUP** — no Ready tickets → run end-of-run oversight (full UI suite, since-v5 pyramid delta + re-tier audit, gate audit, inject fix tickets), then **exit**. If it reaches a fixpoint, mark the run complete and emit `RUN_COMPLETE`.
 
 **The limiter and loop are optional.** With N unset, one session runs top-to-bottom (small runs, no bash). With N + the loop, it chunks across relaunches. Same single skill both ways.
 
@@ -191,6 +191,39 @@ A fresh process can't tell which tickets a dead session left mid-flight, so reco
 - **A scoped ticket the tracking issue has NOT recorded under "Completed this run" is UNFINISHED — even if the board shows it Done.** The tracking issue's completion record is the source of truth for "done", not board status (a ticket can be closed/moved-to-Done out from under the run — see below). On resume, for each scoped ticket not yet recorded complete: **reopen and re-stage it** (back to In Progress) and resume from the stage it left off; do **not** treat board-Done as run-complete.
 
 > **Ticket lifecycle rule — the ticket closes ONLY at Stage 8.** v5 splits a ticket across **three PRs** (implementation, integration, ui). **No PR in Stages 2/4/6 may use a closing keyword** (`Closes`/`Fixes`/`Resolves #N`) in its body *or commit messages* — they use `Relates to #N`. An auto-close on the *implementation* merge (Stage 3.5) marks the ticket Done with Stages 6–8 still pending, and a relaunch then can't find it (Mode Selection reads Up Next). The orchestrator closes the ticket itself in Stage 8, after every tier has merged.
+
+## Step 0.7: Test-pyramid baseline — capture once, on first v5 adoption
+
+The pre-v5 suite was written before the four-tier model and `Infrastructure.Tests` existed, so its shape (often an inverted pyramid — logic stuck at the Integration tier) is **accepted debt that is NOT measured against the run.** What *is* measured is everything added **since** v5 adoption. To separate the two, capture an immutable snapshot the first time the orchestrator ever runs in a repo — **detected by the file being absent.** If `docs/test-pyramid-baseline.md` already exists, this step is a no-op (never re-capture, never edit).
+
+```bash
+BASELINE=docs/test-pyramid-baseline.md
+if [ ! -f "$BASELINE" ]; then
+  SHA=$(git rev-parse HEAD)
+  count() { grep -rlE '\[Fact|\[Theory' "$@" 2>/dev/null | xargs grep -cE '\[Fact|\[Theory' | awk -F: '{s+=$2} END{print s+0}'; }
+  # Unit tier = Domain.Tests + Infrastructure.Tests (logic, wherever it lives)
+  unit=$(count tests/*Domain.Tests/ tests/*Infrastructure.Tests/)
+  contract=$(count tests/*Api.Tests/); integ=$(count tests/*Integration.Tests/); ui=$(count tests/*Playwright.Tests/)
+  mkdir -p docs
+  cat > "$BASELINE" <<EOF
+# Test Pyramid Baseline — v5 adoption snapshot (FROZEN — do not edit)
+
+Captured $(date -u +%Y-%m-%dT%H:%MZ) @ \`$SHA\`.
+Pre-v5 tests are **accepted debt**. Pyramid health is judged on tests added **since** this
+point, not the total — see standards/testing.md → Test-Pyramid Baseline.
+
+| Tier | Count at v5 adoption |
+|------|----------------------|
+| Unit (Domain + Infrastructure) | $unit |
+| Contract (Api.Tests) | $contract |
+| Integration | $integ |
+| UI | $ui |
+EOF
+  git add "$BASELINE" && git commit -m "chore: capture v5 test-pyramid baseline" && git push
+fi
+```
+
+Write-once is the whole point: a **frozen** baseline means any later genuine re-tiering of an old test simply shows up as a *negative* since-v5 delta (progress) — there is nothing to ratchet and nothing to maintain. (The numbers are stamped at capture; a manual first-time run by an operator is fine — the file-absent guard makes it idempotent either way.)
 
 ## Mode Selection
 
@@ -817,7 +850,7 @@ After processing N tickets (or when the scoped Ready queue empties mid-chunk):
 
 CLEANUP runs when **no scoped Ready tickets remain** (scope ∩ Up Next == 0) — reached either by a **relaunch** picking this mode in Mode Selection (looped run), or by a **single-session** run falling through here after WORKING (direct run, `ORCHESTRATE_N` unset). It is the run's periodic detector — run-completion-triggered, not clock-triggered. Execute in order:
 
-> **Closing the run is gated on CLEANUP — never close the tracking issue by hand to "wrap up."** A hand-written "run complete" summary comment is **not** CLEANUP. The pyramid ratio (C2) and the gate audit (C3) are the entire reason this mode exists — they are the only check that catches a PR which merged without a filled TR grid, so the run is **not** complete until they have actually run and C5's fixpoint condition is met. **This holds even when you resumed by hand-driving the stage skills outside the orchestrator** — e.g. because the work ticket was prematurely closed/Done (the `Closes #N`-on-a-stage-PR bug) so `orchestrate-v5` wouldn't auto-pick it. If you ever finish a run that way, you still owe it C1–C3: **re-enter `orchestrate-v5` to run CLEANUP, or run C1–C3 manually, then close via C5** — and keep the body live the whole time (a frozen body that still says "Stage 1 (refine) / Pyramid ratio: not yet run" means CLEANUP never happened). *(Pilot gap, HC-14 #359: the run was hand-driven through Stages 6→8 and the tracking issue closed with a summary comment while its body still read `Pyramid ratio: not yet run` / `Gate audit: not yet run` — CLEANUP was skipped entirely, and the integration-tier flake it would have flagged went un-ticketed.)*
+> **Closing the run is gated on CLEANUP — never close the tracking issue by hand to "wrap up."** A hand-written "run complete" summary comment is **not** CLEANUP. The since-v5 re-tier audit (C2) and the gate audit (C3) are the entire reason this mode exists — the gate audit is the only check that catches a PR which merged without a filled TR grid, and the re-tier audit is the only check that catches new logic-only tests that slipped into the Integration tier; so the run is **not** complete until they have actually run and C5's fixpoint condition is met. **This holds even when you resumed by hand-driving the stage skills outside the orchestrator** — e.g. because the work ticket was prematurely closed/Done (the `Closes #N`-on-a-stage-PR bug) so `orchestrate-v5` wouldn't auto-pick it. If you ever finish a run that way, you still owe it C1–C3: **re-enter `orchestrate-v5` to run CLEANUP, or run C1–C3 manually, then close via C5** — and keep the body live the whole time (a frozen body that still says "Stage 1 (refine) / Pyramid ratio: not yet run" means CLEANUP never happened). *(Pilot gap, HC-14 #359: the run was hand-driven through Stages 6→8 and the tracking issue closed with a summary comment while its body still read `Pyramid ratio: not yet run` / `Gate audit: not yet run` — CLEANUP was skipped entirely, and the integration-tier flake it would have flagged went un-ticketed.)*
 
 ### C1. Full UI regression suite (unfiltered runner dispatch)
 
@@ -831,18 +864,13 @@ gh run watch "$run_id" --exit-status || true
 
 This catches regressions a *later* story introduced into an *earlier* story's UI (the job blame isn't the point — the fix is). For each genuine failure, **inject a fix ticket** (below).
 
-### C2. Pyramid ratio + drift ticket (#5a)
+### C2. Test-pyramid: since-v5 delta (report) + re-tier audit (the gate) (#5a)
 
-Count tests per tier (repo-wide) and compare to a healthy shape (most Unit, then Contract/Integration, fewest UI):
+The pre-v5 suite is frozen as accepted debt in `docs/test-pyramid-baseline.md` (Step 0.7). CLEANUP does **two** things here — one informational, one enforcing. Do **not** revert to the old "is the absolute ratio bad?" check: it measures the polluted total (the frozen debt talking), nags every run with no actuator, *misses* drift that hides under the aggregate, and would deadlock a legitimately infra-heavy run.
 
-```bash
-# Example counts — adapt to project test-project names
-# Unit tier spans BOTH Domain.Tests and Infrastructure.Tests (logic that lives in Infrastructure) — count both.
-unit=$(grep -rlE '\[Fact|\[Theory' tests/*Domain.Tests/ tests/*Infrastructure.Tests/ 2>/dev/null | xargs grep -cE '\[Fact|\[Theory' | awk -F: '{s+=$2} END{print s+0}')
-contract=$(... tests/*Api.Tests/ ...); integ=$(... tests/*Integration.Tests/ ...); ui=$(... tests/*Playwright.Tests/ ...)
-```
+**(a) Report the since-v5 delta — visibility, never a blocker.** Recompute current per-tier counts (same `count()` as Step 0.7), read the frozen baseline, and write `total now / baseline / since-v5` per tier into the run summary and the tracking-issue body. This is the honest scoreboard — the part the team actually controls. No ticket comes off these numbers.
 
-If the ratio crosses an **unfavorable threshold** (e.g. Integration+UI outweighing the fast tier — the inverted-pyramid signal), **create a tracked drift ticket** on the board (Status Up Next, Type task) describing the imbalance and the hot spots — so the drift is *in someone's face*, not buried. Record it as an injection.
+**(b) Audit THIS run's new Integration tests — the gate, per-test not per-count.** Scope: the Integration tests **this run added or changed** — from the completed tickets in the tracking-issue body → the `*Integration.Tests/` files in their diffs (bounded to one run's work; no SHA bookkeeping, no re-auditing the frozen debt). For each, ask the single TR-3 question: *would this pass against the fakes host, with no real infrastructure?* If **yes**, it is **mis-tiered** — its subject is logic that belongs in `Infrastructure.Tests`, not the Docker-bound tier. For each such test, **inject a re-tier fix ticket** (C4): move the scenario to `Infrastructure.Tests`, delete the slow copy (TR-10). Tests that genuinely need infra (SQL, constraints, transactions) are never flagged, so a real infra-heavy run audits clean and closes — **no deadlock, no threshold to tune.** Layer 1 (the `engineering-review-v5` faucet-stop at the PR diff) should make this backstop usually find nothing; it exists for what review missed. A run that completed zero tickets has nothing to audit.
 
 ### C3. Gate audit (#10 — concrete artifact, not vibes)
 
@@ -854,14 +882,14 @@ Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all 
 
 ### C5. Fixpoint check
 
-- **CLEANUP injected nothing** (no drift ticket, no fix tickets) AND **no scoped Ready tickets remain** (scope ∩ Up Next == 0) → **fixpoint reached.** Close the tracking issue and emit the sentinel:
+- **CLEANUP injected nothing** (no re-tier ticket from the C2 audit, no C1/C3 fix tickets) AND **no scoped Ready tickets remain** (scope ∩ Up Next == 0) → **fixpoint reached.** Close the tracking issue and emit the sentinel:
   ```bash
   gh issue close {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} \
     --comment "⬛ Run complete — fixpoint reached (no scoped Ready tickets, CLEANUP injected nothing)."
   echo "RUN_COMPLETE"
   ```
   The next relaunch's startup query finds no open `orchestration-run` issue → the loop breaks. **Done.** (Up Next may still hold *out-of-scope* tickets — that's fine; this run only ever owned its scope.)
-- **CLEANUP injected something** → exit **without** closing/`RUN_COMPLETE`. Because the injected tickets were appended to scope (C4), the next relaunch finds scoped Ready > 0 → WORKING → re-verifies the injected work. This is correct and non-infinite: injected tickets are real work that, once clean, leave CLEANUP with nothing to inject.
+- **CLEANUP injected something** → exit **without** closing/`RUN_COMPLETE`. Because the injected tickets were appended to scope (C4), the next relaunch finds scoped Ready > 0 → WORKING → works then re-verifies the injected work. This is **"fix the drift before the run closes" — and the orchestrator directs it**: a re-tier ticket from the C2 audit is processed like any other ticket (it moves the logic-only tests to `Infrastructure.Tests` and deletes the slow copies), and the *next* CLEANUP re-audits — those tests are now gone from Integration, so it finds nothing and closes. This is correct and non-infinite: injected tickets are real, bounded work that, once clean, leave CLEANUP with nothing to inject. (A genuinely infra-heavy run never injects in the first place — the audit flags no test — so it closes on the first pass.)
 
 ---
 
@@ -881,8 +909,9 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 - **Completed this run:** {STORY_ID} (impl #/integ #/ui #|skipped), …
 - **Injected this run:** {fix/drift ticket #s} | none
 
-### Pyramid ratio (last CLEANUP)
-- Unit / Contract / Integration / UI = W / X / Y / Z → {ok | DRIFT → ticket #}
+### Test pyramid (last CLEANUP) — total / baseline / since-v5
+- Unit Tu/Tb/+Td · Contract Cu/Cb/+Cd · Integration Iu/Ib/+Id · UI Uu/Ub/+Ud
+- Since-v5 audit: {clean | re-tier ticket #s for N mis-tiered Integration tests}
 
 ### Gate audit (last CLEANUP)
 - Tickets verified: N | missing TR grid / failed gate: {none | #s}

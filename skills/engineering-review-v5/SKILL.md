@@ -262,6 +262,7 @@ Run through `standards/testing.md` with focus on the **Integration tier**. Apply
 - **Testcontainers patterns** — collection fixtures, connection factories, data isolation
 - **Test naming** — `Snake_case_describing_behavior` on `{ClassUnderTest}Tests`
 - **Scope (TR-3) — real infrastructure ONLY.** Every test must exercise something only real infra can catch: SQL, constraints, migrations, transactions, queue/blob. **Reject contract re-assertion** — validation-error shape, 404 mapping, model binding, serialization are Contract-tier behaviors (faked) and must not be re-walked here.
+- **Faucet-stop (TR-3/TR-10) — BLOCKING: no logic-only test at the Integration tier.** Ask each test *"would this pass against the fakes host, with no real infrastructure?"* If yes, its subject is **business logic** (pricing/billing math, mapping, validation, branching) that belongs in `Infrastructure.Tests` (a fast Unit-tier project), not the Docker-bound tier. REQUEST_CHANGES and route it down — this is the per-PR shut-off that keeps the pyramid from re-inverting (the orchestrator's CLEANUP re-audits this same question as a backstop). Tests that genuinely need infra are fine; this targets only the ones that don't.
 - **No redundant coverage (TR-10)** — flag any test already covered at Unit or Contract; cut the more expensive duplicate, naming the cheaper test.
 - **Build** — Full solution builds, all integration + fast-tier tests pass
 
