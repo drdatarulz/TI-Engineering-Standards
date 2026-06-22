@@ -307,16 +307,16 @@ EOF
 )"
 ```
 
-## Step 8: Cleanup — Return to main and remove branch
+## Step 8: Cleanup — Return to main (do NOT delete the PR branch)
 
-After the PR is created and pushed, return to `main` so the machine is clean for the next task:
+After the PR is created and pushed, return to `main` so the next task starts clean:
 
 ```bash
 git checkout main
 git pull --ff-only
-git branch -d {BRANCH_NAME}
-git push origin --delete {BRANCH_NAME}
 ```
+
+**Do NOT delete the branch — local or remote.** It is the open PR's head; `git push origin --delete` would **close the PR**, and a headless/autonomous run has no human to recover it. The orchestrator removes the branch when it merges the PR (`gh pr merge --delete-branch`); a lingering local branch is harmless since the next stage checks out `main` anyway.
 
 ## Step 9: Report
 
@@ -391,12 +391,10 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    git push origin {BRANCH_NAME}
    ```
 
-8. **Cleanup: Return to main and remove branch:**
+8. **Cleanup: Return to main (leave the PR branch):** Switch back to `main`; do **NOT** delete the branch — it is the open PR's head; deleting the remote branch closes the PR. The orchestrator removes it on merge:
    ```bash
    git checkout main
    git pull --ff-only
-   git branch -d {BRANCH_NAME}
-   git push origin --delete {BRANCH_NAME}
    ```
 
 9. **Report:**
