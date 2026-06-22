@@ -283,6 +283,9 @@ Fill PASS/FAIL **with evidence** (never a bare check). `engineering-review-v5` r
 - Scoped `ui-tests.yml` dispatch on `{BRANCH_NAME}`: [run link] — pass/fail
 
 Relates to #{ISSUE_NUMBER}
+
+<!-- Use "Relates to", NEVER "Closes/Fixes/Resolves #N" (here OR in commit messages). The
+     orchestrator closes the ticket at Stage 8 after checkpoint, not on this merge. -->
 EOF
 )"
 ```

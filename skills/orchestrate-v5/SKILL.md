@@ -188,6 +188,9 @@ A fresh process can't tell which tickets a dead session left mid-flight, so reco
 
 - Find tickets left at Status **In Progress**. For each, check whether its PRs exist and are mid-review-loop: if so, **resume** it; if it's orphaned (no usable PR state), move it back to **Up Next** so WORKING mode re-runs it cleanly.
 - Reconcile the tracking-issue body's "current ticket" field against the board, and log any reset as an event-log comment.
+- **A scoped ticket the tracking issue has NOT recorded under "Completed this run" is UNFINISHED — even if the board shows it Done.** The tracking issue's completion record is the source of truth for "done", not board status (a ticket can be closed/moved-to-Done out from under the run — see below). On resume, for each scoped ticket not yet recorded complete: **reopen and re-stage it** (back to In Progress) and resume from the stage it left off; do **not** treat board-Done as run-complete.
+
+> **Ticket lifecycle rule — the ticket closes ONLY at Stage 8.** v5 splits a ticket across **three PRs** (implementation, integration, ui). **No PR in Stages 2/4/6 may use a closing keyword** (`Closes`/`Fixes`/`Resolves #N`) in its body *or commit messages* — they use `Relates to #N`. An auto-close on the *implementation* merge (Stage 3.5) marks the ticket Done with Stages 6–8 still pending, and a relaunch then can't find it (Mode Selection reads Up Next). The orchestrator closes the ticket itself in Stage 8, after every tier has merged.
 
 ## Mode Selection
 

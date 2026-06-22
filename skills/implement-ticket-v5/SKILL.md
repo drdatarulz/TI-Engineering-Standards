@@ -186,6 +186,10 @@ Fill PASS/FAIL **with evidence** (line reference or pasted command output — ne
 | TR-11 | No Testcontainers/Docker in the fast tier | PASS/FAIL | [no Testcontainers reference in Domain.Tests/Api.Tests; fast job ran with no daemon] |
 
 Relates to #{ISSUE_NUMBER}
+
+<!-- Use "Relates to", NEVER "Closes/Fixes/Resolves #N" (here OR in commit messages). v5 lands
+     the ticket across 3 PRs; auto-closing it on this implementation merge strands the integration
+     and UI stages and breaks resume. The orchestrator closes the ticket at Stage 8. -->
 EOF
 )"
 ```

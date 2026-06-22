@@ -180,6 +180,9 @@ Fill PASS/FAIL **with evidence** (never a bare check). `engineering-review-v5` r
 | TR-8 | No silent failures / no asserting buggy behavior / no `Skip` | PASS/FAIL | [every test reaches an assertion; grep shows no `Skip`] |
 
 Relates to #{ISSUE_NUMBER}
+
+<!-- Use "Relates to", NEVER "Closes/Fixes/Resolves #N" (here OR in commit messages). The ticket
+     still has the UI stage + checkpoint to go; the orchestrator closes it at Stage 8. -->
 EOF
 )"
 ```
