@@ -34,14 +34,14 @@ if start_s=$(date -u -d "$created" +%s 2>/dev/null); then
   elapsed="  (elapsed ${mins}m)"
 fi
 # staleness since last update — a long gap may mean a stuck session (or a relaunch pause).
-# Default threshold 20m: a single long stage (implement/integration) legitimately runs
-# ~15-20m with no tracking-issue update, but the per-session timeout is 30m, so 20m flags
-# a likely hang before the loop kills it. Override with STALE_MINS.
+# Default threshold 45m: a single long stage (a big story's implement) legitimately runs
+# ~30m with no tracking-issue update, but the per-session timeout is 60m, so 45m flags a
+# likely hang with headroom before the loop kills it. Override with STALE_MINS.
 stale=""
 if upd_s=$(date -u -d "$updated" +%s 2>/dev/null); then
   ago=$(( ( $(date -u +%s) - upd_s ) / 60 ))
   stale="last update ${ago}m ago"
-  (( ago >= ${STALE_MINS:-20} )) && stale="⚠ $stale (possibly stalled)"
+  (( ago >= ${STALE_MINS:-45} )) && stale="⚠ $stale (possibly stalled)"
 fi
 
 # pull a single-line field's value: strip up to and including the (last) matched label,

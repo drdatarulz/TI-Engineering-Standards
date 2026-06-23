@@ -30,7 +30,7 @@
 #   ./orchestrate-loop.sh [--project-dir DIR] [--n N] [--tickets "#7,#8,..."]
 #                         [--timeout SECONDS] [--max-iter COUNT] [--prompt TEXT]
 #   ./orchestrate-loop.sh --status [--project-dir DIR]   # one-glance run status, then exit
-# Defaults: --project-dir "$(pwd)"  --n 3  --timeout 1800  --max-iter 50
+# Defaults: --project-dir "$(pwd)"  --n 3  --timeout 3600  --max-iter 50
 #
 # OBSERVABILITY: `claude -p` is silent until a session ends, so the loop prints a periodic
 # HEARTBEAT line (current ticket @ stage, polled from the tracking issue) every
@@ -50,7 +50,8 @@ set -uo pipefail
 
 PROJECT_DIR="$(pwd)"
 N=3                 # tickets per WORKING chunk (measured reliability threshold ~3)
-TIMEOUT=1800        # per-session timeout, seconds
+TIMEOUT=3600        # per-session timeout, seconds (60m — a big story's implement stage
+                    # can run ~30m; 60m leaves headroom before a hung-session kill)
 MAX_ITER=50         # circuit breaker: hard cap on relaunches
 TICKETS=""          # optional scope, e.g. "#7,#8,#9"; empty = full board
 PROMPT=""           # empty = auto-build an autonomous-mode prompt (below)

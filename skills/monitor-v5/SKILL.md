@@ -71,7 +71,7 @@ done
 > ```
 > Map the `Current ticket` story-id to its issue number via the `Scope:` field (which lists `#21,#23`) or `gh issue list --search`. This is often where the *interesting* detail lives.
 
-If the loop completed all 10 iterations with **no change**, that is ~2 min of silence. Note elapsed silence; once it crosses **~20 min** (under the driver's 30-min session timeout), narrate a **⚠ possible stall** — the session may be hung or in a long `implement`/`integration` stage. Don't cry wolf earlier than that; long single stages are normal.
+If the loop completed all 10 iterations with **no change**, that is ~2 min of silence. Note elapsed silence; once it crosses **~45 min** (under the driver's 60-min session timeout), narrate a **⚠ possible stall** — the session may be hung or in a long `implement`/`integration` stage. Don't cry wolf earlier than that; a big story's implement legitimately runs ~30 min with no issue update.
 
 **b. Fetch what changed:**
 
