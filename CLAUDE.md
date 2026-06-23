@@ -107,6 +107,7 @@ The seven **pipeline** skills are now **v5** (four-tier model + TR enforcement �
 | [skills/ui-test-v5](skills/ui-test-v5/SKILL.md) | Write Playwright UI tests — journey-scoped, conditional, critical-path tagged. Runs via scoped `workflow_dispatch` on the self-hosted runner. Creates PR. Supports FIX mode |
 | [skills/orchestrate-v5/SKILL.md](skills/orchestrate-v5/SKILL.md) | Mode-switching pipeline orchestrator (WORKING/CLEANUP) built for relaunch by the dumb loop; per-run tracking issue, board-driven queue, TR gate-audit, observability |
 | [skills/ci-fix-v5](skills/ci-fix-v5/SKILL.md) | Monitor GitHub Actions and auto-fix CI/CD failures — fix the code, not the test. Background side-channel for orchestrator; standalone for ad-hoc repair |
+| [skills/monitor-v5](skills/monitor-v5/SKILL.md) | Read-only live narrator for an orchestration run — interpretive play-by-play off the tracking issue + work tickets + CI (stage/PR/CLEANUP events, stall flags). Observe-only companion to the dumb-driver heartbeat; never writes |
 | [skills/reconcile-backlog-v4](skills/reconcile-backlog-v4/SKILL.md) | Reconcile PRD version changes against an existing backlog and codebase. Diffs, classifies, and executes creates/updates |
 | [skills/triage-v4](skills/triage-v4/SKILL.md) | Interactive investigation and bug triage — never writes code, output is always a ticket |
 | [skills/conformance-v4](skills/conformance-v4/SKILL.md) | Audit a project against TI Engineering Standards — informational only, produces a gap report |
