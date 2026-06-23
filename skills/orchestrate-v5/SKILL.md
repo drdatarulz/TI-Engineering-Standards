@@ -68,9 +68,12 @@ Parse `$ARGUMENTS` as follows:
 
 1. **Supervision**: If the first word is `supervised` or `autonomous`, use it and consume it. Default `supervised` for interactive use; the dumb loop launches `autonomous`.
 2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v5 supervised #7,#8,#9,#10,#11`. In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets (do *these*, even if more sit in Up Next). On first launch the scope is **persisted to the tracking issue** (Step 0.5) so it survives relaunch; this is the only time launch args are read for scope. With no list, the scope is `full board` (= all Up Next, evaluated live).
-3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop).
+   - **A bare integer is a ticket number** (`18` ≡ `#18` ≡ `HC-18`). The `#` and the `HC-`/`SF-` prefix are optional; a trailing number is **always** an issue to scope to. `autonomous 18` means "run issue #18" — it does **not** and **cannot** mean "run 18 tickets."
+3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2).
 
 **Mode is NOT a launch argument — it is selected from durable state after Step 0** (see Mode Selection). `supervised`/`autonomous` only controls whether you stop between tickets.
+
+**Argument parsing is deterministic — never stop to ask.** The grammar above resolves every launch string to exactly one (supervision, scope) pair; there is nothing for a human to disambiguate. Do **not** present a menu or gate the run on how to read the args — least of all in `autonomous` mode, whose whole point is to proceed without check-ins. Empty args → `supervised` + `full board`; a number → scope that ticket; then proceed. The only legitimate autonomous halts are the milestone gate (Stage 1a.1) and a genuine per-ticket blocker the skill already defines — never the launch line itself.
 
 ## Step 0: Load Context (Once Per Session)
 
