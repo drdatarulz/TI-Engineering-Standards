@@ -30,7 +30,7 @@
 #   ./orchestrate-loop.sh [--project-dir DIR] [--n N] [--tickets "#7,#8,..."]
 #                         [--timeout SECONDS] [--max-iter COUNT] [--prompt TEXT]
 #   ./orchestrate-loop.sh --status [--project-dir DIR]   # one-glance run status, then exit
-# Defaults: --project-dir "$(pwd)"  --n 3  --timeout 3600  --max-iter 50
+# Defaults: --project-dir "$(pwd)"  --n 3  --timeout 5400  --max-iter 50
 #
 # OBSERVABILITY: `claude -p` is silent until a session ends, so the loop prints a periodic
 # HEARTBEAT line (current ticket @ stage, polled from the tracking issue) every
@@ -50,8 +50,15 @@ set -uo pipefail
 
 PROJECT_DIR="$(pwd)"
 N=3                 # tickets per WORKING chunk (measured reliability threshold ~3)
-TIMEOUT=3600        # per-session timeout, seconds (60m — a big story's implement stage
-                    # can run ~30m; 60m leaves headroom before a hung-session kill)
+TIMEOUT=5400        # per-session timeout, seconds (90m). This is a HANG guard, not a work
+                    # budget — it should only ever fire on a wedged session, never mid-stage.
+                    # A big story's implement ran ~30-45m on the pilot and kept tripping the
+                    # old 30/60m caps, forcing fragile mid-stage orphan-recovery; 90m clears
+                    # any single stage with headroom. Bump higher (e.g. 7200=2h) for very large
+                    # stories. Per-STAGE timeouts are deliberately not a thing here: the loop
+                    # wraps the whole session and can't see stage boundaries — the checkpoint
+                    # system already gives clean per-ticket resume; we just keep the hang guard
+                    # well above the longest legitimate stage.
 MAX_ITER=50         # circuit breaker: hard cap on relaunches
 TICKETS=""          # optional scope, e.g. "#7,#8,#9"; empty = full board
 PROMPT=""           # empty = auto-build an autonomous-mode prompt (below)
@@ -133,6 +140,7 @@ echo "orchestrate-loop: prompt=\"$PROMPT\""
 echo "orchestrate-loop: live progress -> tail -f $RUNLOG   |   snapshot -> $SCRIPT_DIR/orchestrate-status.sh $PROJECT_DIR"
 
 iter=0
+saw_issue=0   # set once we've observed an open tracking issue, so "none open" means CLOSED-by-fixpoint, not "not yet created"
 while (( iter < MAX_ITER )); do
   iter=$(( iter + 1 ))
   echo "──── orchestrate-loop: iteration ${iter}/${MAX_ITER} ────"
@@ -148,24 +156,43 @@ while (( iter < MAX_ITER )); do
   rc=${PIPESTATUS[0]}
   stop_heartbeat
 
-  if grep -q "$SENTINEL" "$logfile"; then
-    echo "──── orchestrate-loop: $SENTINEL detected — run reached fixpoint. Stopping. ────"
-    rm -f "$logfile"
-    exit 0
-  fi
+  # Stop ONLY when the orchestrator has CLOSED its tracking issue — that is the durable
+  # fixpoint signal (CLEANUP C5 closes the issue as its final act, gated on a green
+  # regression suite). Do NOT stop on a substring match of $SENTINEL in agent output:
+  # narration/summaries say "RUN_COMPLETE" without it being the real emit, and a stray match
+  # would halt around a still-open run — e.g. CLEANUP left the issue OPEN because a regression
+  # is still red (#377 / HC-14c: the loop saw RUN_COMPLETE in output and stopped on a known-red test).
+  sentinel_seen=0; grep -q "$SENTINEL" "$logfile" 2>/dev/null && sentinel_seen=1
   rm -f "$logfile"
 
-  # Guards 2: relaunch on any exit (clean, crash, or timeout) until the sentinel appears.
+  open_runs=$(gh issue list --label orchestration-run --state open --json number --jq 'length' 2>/dev/null || echo "?")
+  case "$open_runs" in
+    0)
+      if (( saw_issue )); then
+        echo "──── orchestrate-loop: tracking issue CLOSED — run reached fixpoint. Stopping. ────"
+        exit 0
+      fi
+      echo "orchestrate-loop: no tracking issue yet (orchestrator hasn't created it) — relaunching." ;;
+    [1-9]*)
+      saw_issue=1
+      if (( sentinel_seen )); then
+        echo "orchestrate-loop: NOTE — session emitted $SENTINEL but the tracking issue is still OPEN; NOT stopping (a red bar or pending inject keeps the run live)."
+      fi ;;
+    *)
+      echo "orchestrate-loop: WARNING — could not read tracking-issue state (gh error); relaunching cautiously." ;;
+  esac
+
+  # Guards 2: relaunch on any exit (clean, crash, or timeout) until the tracking issue is CLOSED.
   if (( rc == 124 )); then
     echo "orchestrate-loop: session TIMED OUT after ${TIMEOUT}s — relaunching (hang guard)."
   elif (( rc != 0 )); then
     echo "orchestrate-loop: session exited rc=${rc} — relaunching (crash guard)."
   else
-    echo "orchestrate-loop: session exited cleanly without $SENTINEL — work remains, relaunching."
+    echo "orchestrate-loop: session exited cleanly, tracking issue still open — work remains, relaunching."
   fi
 done
 
 # Guard 3: circuit breaker tripped.
-echo "orchestrate-loop: hit MAX_ITER=${MAX_ITER} without ${SENTINEL}." >&2
+echo "orchestrate-loop: hit MAX_ITER=${MAX_ITER} without the tracking issue being closed." >&2
 echo "orchestrate-loop: CIRCUIT BREAKER — halting and flagging a human. Investigate before re-running." >&2
 exit 3
