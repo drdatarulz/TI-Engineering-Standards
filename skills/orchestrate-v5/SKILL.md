@@ -253,7 +253,7 @@ EOF
 fi
 ```
 
-Write-once is the whole point: a **frozen** baseline means any later genuine re-tiering of an old test simply shows up as a *negative* since-v5 delta (progress) — there is nothing to ratchet and nothing to maintain. The file should have **exactly one commit in its history, ever** (the first-adoption capture); CLEANUP audits this (C2) and a second commit is treated as accidental drift to revert.
+Write-once is the whole point: a **frozen** baseline means any later genuine re-tiering of an old test simply shows up as a *negative* since-v5 delta (progress) — there is nothing to ratchet and nothing to maintain. The file's **content must always equal its first-adoption capture**; CLEANUP audits this (C2 a.1) by diffing against the commit that added the file, and any divergence is treated as accidental drift to revert.
 
 ## Mode Selection
 
@@ -902,17 +902,18 @@ The pre-v5 suite is frozen as accepted debt in `docs/test-pyramid-baseline.md` (
 
 **(a) Report the since-v5 delta — visibility, never a blocker.** Recompute current per-tier counts (same `count()` as Step 0.7), read the frozen baseline, and write `total now / baseline / since-v5` per tier into the run summary and the tracking-issue body. This is the honest scoreboard — the part the team actually controls. No ticket comes off these numbers.
 
-**(a.1) Frozen-baseline integrity check — the file must have exactly one commit, ever.** The since-v5 delta is only meaningful if the baseline was never re-stamped (Step 0.7). Audit it:
+**(a.1) Frozen-baseline integrity check — content must equal the first capture.** The since-v5 delta is only meaningful if the frozen numbers were never re-stamped (Step 0.7). Audit by comparing current content to the file's *first* commit — not by counting commits, because a legitimate revert leaves a permanent 3-commit history (capture → bad edit → restore) that a count check would nag on forever:
 
 ```bash
-n=$(git log --oneline -- docs/test-pyramid-baseline.md | wc -l | tr -d ' ')
-if [ "$n" -gt 1 ]; then
-  echo "DRIFT: baseline has $n commits (expected 1) — it was edited after first adoption." >&2
-  git log --oneline -- docs/test-pyramid-baseline.md  # newest = the accidental re-capture
+B=docs/test-pyramid-baseline.md
+first=$(git log --diff-filter=A --format=%H -- "$B" | tail -1)   # commit that ADDED the file
+if [ -n "$first" ] && ! git diff --quiet "$first" -- "$B"; then
+  echo "DRIFT: $B differs from its first capture ($first) — frozen baseline was edited." >&2
+  echo "  Restore: git checkout $first -- $B  (commit as a revert), then flag in run summary." >&2
 fi
 ```
 
-A count > 1 means the frozen file was overwritten despite Step 0.7's guard (an LLM-paraphrase slip is the usual cause). **Restore it from its first commit** (`git checkout <first-sha> -- docs/test-pyramid-baseline.md`, commit as a revert) and flag it in the run summary so the regression is visible. This is the backstop for when the Step 0.7 instruction is not honored literally.
+Content differing from the first capture means the frozen file was overwritten despite Step 0.7's guard (an LLM-paraphrase slip is the usual cause). **Restore it from that first commit and flag it in the run summary** so the regression is visible. This is the backstop for when the Step 0.7 instruction is not honored literally.
 
 **(b) Audit THIS run's new Integration tests — the gate, per-test not per-count.** Scope: the Integration tests **this run added or changed** — from the completed tickets in the tracking-issue body → the `*Integration.Tests/` files in their diffs (bounded to one run's work; no SHA bookkeeping, no re-auditing the frozen debt). For each, ask the single TR-3 question: *would this pass against the fakes host, with no real infrastructure?* If **yes**, it is **mis-tiered** — its subject is logic that belongs in `Infrastructure.Tests`, not the Docker-bound tier. For each such test, **inject a re-tier fix ticket** (C4): move the scenario to `Infrastructure.Tests`, delete the slow copy (TR-10). Tests that genuinely need infra (SQL, constraints, transactions) are never flagged, so a real infra-heavy run audits clean and closes — **no deadlock, no threshold to tune.** Layer 1 (the `engineering-review-v5` faucet-stop at the PR diff) should make this backstop usually find nothing; it exists for what review missed. A run that completed zero tickets has nothing to audit.
 
