@@ -172,7 +172,7 @@ ACTIVE=$(gh issue list --repo {REPO_OWNER}/{REPO_NAME} --label orchestration-run
 COUNT=$(echo "$ACTIVE" | jq 'length')
 ```
 
-- **COUNT == 0 — first launch:** create the tracking issue (open, labeled `orchestration-run`) using the body schema below. **Record the run scope in the body's `Scope:` field** — the ticket list passed at launch (e.g. `#7,#8,#9,#10,#11`), or `full board` if none was passed. This is run start, and the **only** time launch args are consulted for scope.
+- **COUNT == 0 — first launch:** create the tracking issue (open, labeled `orchestration-run`) using the body schema below. **Record the run scope in the body's `Scope:` field — verbatim, in the exact order given at launch** (e.g. `#7,#8,#9,#10,#11`), or `full board` if none was passed. **The order is significant: it is the processing order** (see WORKING Mode) — do not sort, dedupe-reorder, or normalize it. This is run start, and the **only** time launch args are consulted for scope.
 - **COUNT == 1 — relaunch:** read it — this recovers run state across process death, **including the `Scope:` field** (the relaunched process has no memory of the original launch args, so scope comes from here). Update the body as live state; append an event-log comment for what this session does.
 - **COUNT >= 2 — a prior run crashed without being closed:** "active run" is ambiguous. Treat the **newest** (latest `createdAt`) as active; **close** the stale older one(s) with a comment `superseded — stale active run`.
 
@@ -265,10 +265,14 @@ After Step 0 (context + board IDs), 0.5 (tracking issue + **run scope**), and 0.
 # All Up Next board items (use the project + field IDs from 0c)
 UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format json \
   --jq '[.items[] | select(.status == "Up Next") | .content.number]')
-# READY = UPNEXT ∩ scope.  If scope is "full board", READY = UPNEXT.
+# READY = scope filtered to those currently Up Next — IN SCOPE ORDER.
+# Iterate the Scope list left-to-right (the exact order from the launch line) and
+# keep each ticket that is in UPNEXT. Do NOT set-intersect (that loses order) and
+# do NOT re-sort by board priority. If scope is "full board", READY = UPNEXT as-is.
+#   for t in $SCOPE_IN_ORDER; do echo "$UPNEXT" | grep -qx "$t" && READY+=("$t"); done
 ```
 
-- **Ready count > 0 → WORKING mode** (process up to N of the *scoped* Up Next tickets).
+- **Ready count > 0 → WORKING mode** (process up to N of the *scoped* Up Next tickets, **in scope order**).
 - **Ready count == 0 → CLEANUP mode** (end-of-run oversight).
 
 That is the entire control flow: each launch picks **one** mode, does its chunk, and **exits**. The loop relaunches until CLEANUP reaches a fixpoint and emits `RUN_COMPLETE`.
@@ -279,7 +283,7 @@ That is the entire control flow: each launch picks **one** mode, does its chunk,
 
 ## WORKING Mode — Per-Ticket Pipeline
 
-WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — highest-priority first. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
+WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — **strictly in scope order**: the exact left-to-right order the tickets were listed on the launch line (and recorded in the `Scope:` field), never re-sorted by board priority, never shuffled. A scoped run scoped to `#7,#5,#9` works `#7` then `#5` then `#9`. Take the **first N still-Up-Next scoped tickets in that order** for this chunk; the next relaunch resumes at the next one in order. **Only when scope is `full board`** (no list given at launch) is there no caller-specified order — then, and only then, fall back to highest-priority-first. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
 
 At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's **Current ticket**.
 
