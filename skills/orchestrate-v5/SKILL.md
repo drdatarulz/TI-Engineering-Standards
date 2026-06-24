@@ -185,6 +185,21 @@ gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 
 **Run-complete representation (decided): closing the issue.** Active = OPEN + labeled; complete = CLOSED. At the CLEANUP fixpoint you `gh issue close` the tracking issue and emit `RUN_COMPLETE`; the next relaunch's startup query finds no open `orchestration-run` issue and the loop breaks.
 
+## Step 0.55: Operator message — read and act on it FIRST (before mode selection)
+
+The tracking-issue body carries an **operator message slot** at the very top (see Tracking-Issue Body Schema). It is the run's **one inbound human-control channel** — a standing place for the operator to course-correct a headless, autonomous run *between loops*. It exists because of a real gap: a `claude -p` session that has wedged on a wrong default (e.g. halting on a stale "queued" CI run when the job has since gone green, or re-dispatching into an offline runner) has no way to be told "stop doing that, here's what to do" without killing it. The slot is that way.
+
+Why a top-of-body slot is safe here specifically: **each loop is a fresh `claude -p` that fully exits and relaunches**, so there is a quiet window every iteration where no session is writing the body. The operator drops a message into the slot during that gap; you read it first thing on the next session.
+
+On each session, **immediately after Step 0.5 loads the tracking issue — before Step 0.6 crash recovery, before Mode Selection, before any other decision:**
+
+1. **Read the slot.** If empty / `none`, skip to Step 0.6.
+2. **Act on it first — it sets context for this session.** It can tell you to: accept an already-completed green CI/UI run instead of re-dispatching, treat a blocker as resolved, skip/retry a stage, change scope, halt and wait, etc. Treat it as **higher priority than your default control flow** — it exists precisely to override a default that went wrong. Before re-dispatching or re-halting on any external job, this is also where you reconcile: *did the run I was waiting on already finish green?* (The autonomous version of that check belongs in the stage itself; the slot is the human backstop.)
+3. **Consume it — log verbatim + outcome.** Append an event-log comment: `✉ operator message handled: "<message>" → <action taken / result>`. This is both the audit trail and the idempotency mechanism — a handled message lives in the append-only log, never the slot.
+4. **Clear the slot — but only if unchanged.** When you overwrite the body this session, blank the slot back to `none` **only if its content still matches what you read in step 1.** If it changed (the operator dropped a *new* message mid-session), leave the new text for the next loop — never blank a message you did not read. This closes the one write race.
+
+**Guardrail — overrides are explicit, never silent.** If a message directs you past a **hard safety bar** (e.g. "mark done / close despite a red test", overriding *"if you see it, you own it"*), you may comply, but log it as an acknowledged override: `✉ operator OVERRIDE (acknowledged): <what bar, why> per operator message`. The escape hatch stays open; it just never happens invisibly.
+
 ## Step 0.6: Crash recovery
 
 A fresh process can't tell which tickets a dead session left mid-flight, so reconcile on startup:
@@ -907,6 +922,12 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 ```markdown
 ## Orchestration Run
 
+### 📨 Operator message (read FIRST each session — Step 0.55)
+<!-- Operator: drop a course-correction here between loops. The orchestrator reads this
+     before any decision, acts on it, logs the result to a comment, and clears it to `none`.
+     Default value is `none`. -->
+none
+
 **Mode (last session):** WORKING | CLEANUP
 **Started:** <UTC>   **Last session:** <UTC>
 **Chunk size N:** 3   **Scope:** <ticket list | full board>
@@ -927,7 +948,7 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 - Ready (Up Next): N | CLEANUP injected this pass: {yes | no}
 ```
 
-Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`.
+Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `✉ operator message handled`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`.
 
 ---
 
@@ -1095,5 +1116,5 @@ _(If no PRD amendments, omit this section)_
 
 ---
 <!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-22 -->
+<!-- last-updated: 2026-06-24 -->
 <!-- pipeline: v5 -->
