@@ -212,11 +212,23 @@ A fresh process can't tell which tickets a dead session left mid-flight, so reco
 
 ## Step 0.7: Test-pyramid baseline — capture once, on first v5 adoption
 
-The pre-v5 suite was written before the four-tier model and `Infrastructure.Tests` existed, so its shape (often an inverted pyramid — logic stuck at the Integration tier) is **accepted debt that is NOT measured against the run.** What *is* measured is everything added **since** v5 adoption. To separate the two, capture an immutable snapshot the first time the orchestrator ever runs in a repo — **detected by the file being absent.** If `docs/test-pyramid-baseline.md` already exists, this step is a no-op (never re-capture, never edit).
+The pre-v5 suite was written before the four-tier model and `Infrastructure.Tests` existed, so its shape (often an inverted pyramid — logic stuck at the Integration tier) is **accepted debt that is NOT measured against the run.** What *is* measured is everything added **since** v5 adoption. To separate the two, capture an immutable snapshot the first time the orchestrator ever runs in a repo — **detected by the file being absent.**
+
+**This step has exactly two outcomes — there is no path that rewrites an existing baseline:**
+
+- **File present → STOP IMMEDIATELY. Do not run `count()`. Do not regenerate, edit, restamp, or `git add` the file for any reason.** A "refresh" of the frozen baseline is always a bug (it zeroes the since-v5 delta). If you believe the numbers are stale, that feeling is the design working — the *current* counts belong in the CLEANUP since-v5 report, never in this file.
+- **File absent → do NOT silently auto-capture.** Capturing at an arbitrary later commit freezes the *wrong* numbers as the "v5 adoption" point. Treat a missing baseline as an anomaly: **halt and tell the operator**, and only write when they explicitly opt in to a first-time capture (the `BASELINE_FIRST_CAPTURE=1` gate below). A genuine first adoption sets that flag once; a missing file on any later run is a problem to surface, not to paper over.
 
 ```bash
 BASELINE=docs/test-pyramid-baseline.md
-if [ ! -f "$BASELINE" ]; then
+if [ -f "$BASELINE" ]; then
+  echo "Step 0.7: baseline present and FROZEN — no-op (never re-capture, never edit)."
+elif [ "${BASELINE_FIRST_CAPTURE:-}" != "1" ]; then
+  echo "Step 0.7: baseline MISSING at $BASELINE — refusing to auto-capture (would freeze the wrong v5 point)." >&2
+  echo "  If this is a genuine first v5 adoption, re-run this step with BASELINE_FIRST_CAPTURE=1." >&2
+  echo "  Otherwise the file was lost/moved — restore it from git, do not recreate it." >&2
+  # Surface, do not proceed. This is an operator decision, not an auto-fix.
+else
   SHA=$(git rev-parse HEAD)
   count() { grep -rlE '\[Fact|\[Theory' "$@" 2>/dev/null | xargs grep -cE '\[Fact|\[Theory' | awk -F: '{s+=$2} END{print s+0}'; }
   # Unit tier = Domain.Tests + Infrastructure.Tests (logic, wherever it lives)
@@ -241,7 +253,7 @@ EOF
 fi
 ```
 
-Write-once is the whole point: a **frozen** baseline means any later genuine re-tiering of an old test simply shows up as a *negative* since-v5 delta (progress) — there is nothing to ratchet and nothing to maintain. (The numbers are stamped at capture; a manual first-time run by an operator is fine — the file-absent guard makes it idempotent either way.)
+Write-once is the whole point: a **frozen** baseline means any later genuine re-tiering of an old test simply shows up as a *negative* since-v5 delta (progress) — there is nothing to ratchet and nothing to maintain. The file should have **exactly one commit in its history, ever** (the first-adoption capture); CLEANUP audits this (C2) and a second commit is treated as accidental drift to revert.
 
 ## Mode Selection
 
@@ -889,6 +901,18 @@ This catches regressions a *later* story introduced into an *earlier* story's UI
 The pre-v5 suite is frozen as accepted debt in `docs/test-pyramid-baseline.md` (Step 0.7). CLEANUP does **two** things here — one informational, one enforcing. Do **not** revert to the old "is the absolute ratio bad?" check: it measures the polluted total (the frozen debt talking), nags every run with no actuator, *misses* drift that hides under the aggregate, and would deadlock a legitimately infra-heavy run.
 
 **(a) Report the since-v5 delta — visibility, never a blocker.** Recompute current per-tier counts (same `count()` as Step 0.7), read the frozen baseline, and write `total now / baseline / since-v5` per tier into the run summary and the tracking-issue body. This is the honest scoreboard — the part the team actually controls. No ticket comes off these numbers.
+
+**(a.1) Frozen-baseline integrity check — the file must have exactly one commit, ever.** The since-v5 delta is only meaningful if the baseline was never re-stamped (Step 0.7). Audit it:
+
+```bash
+n=$(git log --oneline -- docs/test-pyramid-baseline.md | wc -l | tr -d ' ')
+if [ "$n" -gt 1 ]; then
+  echo "DRIFT: baseline has $n commits (expected 1) — it was edited after first adoption." >&2
+  git log --oneline -- docs/test-pyramid-baseline.md  # newest = the accidental re-capture
+fi
+```
+
+A count > 1 means the frozen file was overwritten despite Step 0.7's guard (an LLM-paraphrase slip is the usual cause). **Restore it from its first commit** (`git checkout <first-sha> -- docs/test-pyramid-baseline.md`, commit as a revert) and flag it in the run summary so the regression is visible. This is the backstop for when the Step 0.7 instruction is not honored literally.
 
 **(b) Audit THIS run's new Integration tests — the gate, per-test not per-count.** Scope: the Integration tests **this run added or changed** — from the completed tickets in the tracking-issue body → the `*Integration.Tests/` files in their diffs (bounded to one run's work; no SHA bookkeeping, no re-auditing the frozen debt). For each, ask the single TR-3 question: *would this pass against the fakes host, with no real infrastructure?* If **yes**, it is **mis-tiered** — its subject is logic that belongs in `Infrastructure.Tests`, not the Docker-bound tier. For each such test, **inject a re-tier fix ticket** (C4): move the scenario to `Infrastructure.Tests`, delete the slow copy (TR-10). Tests that genuinely need infra (SQL, constraints, transactions) are never flagged, so a real infra-heavy run audits clean and closes — **no deadlock, no threshold to tune.** Layer 1 (the `engineering-review-v5` faucet-stop at the PR diff) should make this backstop usually find nothing; it exists for what review missed. A run that completed zero tickets has nothing to audit.
 
