@@ -27,7 +27,7 @@ REPO_NWO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 Find the active run's tracking issue (or use the one passed as an argument):
 
 ```bash
-ISSUE=$(gh issue list --label orchestration-run --state open --json number --jq '.[0].number // empty')
+ISSUE=$(gh issue list --label orchestration-run --state open --limit 100 --json number --jq '.[0].number // empty')
 ```
 
 - **If an argument was given** (issue # or ticket id), resolve it to the tracking issue number directly.

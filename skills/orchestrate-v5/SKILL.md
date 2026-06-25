@@ -168,7 +168,7 @@ gh label create orchestration-run --repo {REPO_OWNER}/{REPO_NAME} --color FBCA04
   --description "Active v5 orchestration run" 2>/dev/null || true
 
 ACTIVE=$(gh issue list --repo {REPO_OWNER}/{REPO_NAME} --label orchestration-run --state open \
-  --json number,createdAt --jq 'sort_by(.createdAt)')
+  --limit 100 --json number,createdAt --jq 'sort_by(.createdAt)')   # --limit: never trust gh's 30 default
 COUNT=$(echo "$ACTIVE" | jq 'length')
 ```
 
@@ -263,7 +263,12 @@ After Step 0 (context + board IDs), 0.5 (tracking issue + **run scope**), and 0.
 
 ```bash
 # All Up Next board items (use the project + field IDs from 0c)
-UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format json \
+# --limit IS MANDATORY: gh defaults to 30 items. A mature board has hundreds, and
+# newly-created items (e.g. a fix ticket CLEANUP just injected) sort LAST — so the
+# 30-item default silently drops exactly the ticket you most need to see, the run
+# computes scoped Ready == 0, wrongly flips to CLEANUP, and can never converge.
+# Set --limit comfortably above the board's item count (raise it as the board grows).
+UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format json --limit 1000 \
   --jq '[.items[] | select(.status == "Up Next") | .content.number]')
 # READY = scope filtered to those currently Up Next — IN SCOPE ORDER.
 # Iterate the Scope list left-to-right (the exact order from the launch line) and
