@@ -139,6 +139,30 @@ the orchestrator may inject follow-ups), support a non-interactive path with bes
 4. **Build order doesn't matter — build all at once.** Each new `-v5` scaffolds as a verbatim copy of
    its v4 origin first (so each per-skill edit diffs cleanly against v4), per the original v5 build
    convention. refine-story-v5 is patched in place against its current state.
+5. **Grounded + adversarial is encoded as a STANDARD, not just skill behavior.** Memory does not
+   propagate (it's local to one repo path / machine / instance); the standards repo + skills do, via
+   auto-sync. So Pattern 0 lives in a source-of-truth standards file and the skills **cite it by ID**
+   — the same `define → seed → enforce` shape as the TR rules. Without this, "every instance gets the
+   habit on v5 upgrade" doesn't actually hold. (Kevin, 2026-06-26.)
+
+## Foundational work item — the propagation backbone (do FIRST)
+Encode Pattern 0 as a standard so it reaches every project/instance from source:
+- **New `standards/engineering-discipline.md`** — universal working discipline, citeable rule IDs
+  mirroring `TR-n`:
+  - **ED-1 — Grounded claims.** Trace any factual claim about code behavior to an observed
+    `file:line` before writing it as fact; unverified = labeled hypothesis.
+  - **ED-2 — Adversarial self-review.** Treat your own just-produced output as a suspect; try to
+    falsify each claim before finalizing.
+  - **ED-3 — Hypothesis vs. conclusion labeling.** A claim without grounding evidence is written as
+    a hypothesis with "evidence needed: …", never as established fact.
+  - **ED-4 — Scope-fork detection.** Check whether the chosen approach silently changes blast radius
+    or which test tiers apply; surface the fork instead of hiding it.
+- **Index it in `CLAUDE.md`** Standards Index table + a short "How To Work (Universal)" block for
+  salience.
+- v5 skills **cite `ED-1`/`ED-2`/etc. by ID** (never restate). The plan's "Patterns G/D" are the
+  skill-side application of `ED-1`/`ED-2`.
+- The local memory entry (`grounded-and-adversarial`) stays as a personal stopgap, but the **standard
+  is the source of truth**.
 
 ## Still to confirm (non-blocking)
 - **Patterns G + D on the *other* existing v5 skills** (`implement-ticket-v5`, `engineering-review-v5`).
@@ -147,9 +171,14 @@ the orchestrator may inject follow-ups), support a non-interactive path with bes
   confirm before touching impl/review so we don't quietly balloon scope.
 
 ## Build footprint (what will change when we execute)
-New skill dirs (scaffold-from-v4 then edit): `add-story-v5`, `prd-to-backlog-v5`, `triage-v5`,
-`reconcile-backlog-v5`, `conformance-v5`, `security-review-v5`. Patched in place: `refine-story-v5`.
-Plus `CLAUDE.md` skills-table re-point once each lands. **This plan doc is the only change so far.**
+- **Foundational (first):** new `standards/engineering-discipline.md` (ED-1..ED-4) + `CLAUDE.md`
+  Standards-Index entry and "How To Work (Universal)" block.
+- New skill dirs (scaffold-from-v4 then edit): `add-story-v5`, `prd-to-backlog-v5`, `triage-v5`,
+  `reconcile-backlog-v5`, `conformance-v5`, `security-review-v5`.
+- Patched in place: `refine-story-v5`.
+- `CLAUDE.md` skills-table re-point once each lands.
+
+**This plan doc is the only change so far.**
 
 ---
 
