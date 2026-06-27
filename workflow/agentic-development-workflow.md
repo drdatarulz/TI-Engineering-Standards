@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a supervisor/worker orchestration pattern with PR-based review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code.
+This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a **mode-switching orchestrator** (`orchestrate-v5`, relaunched by a dumb loop) running a PR-based pipeline with review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code. Every skill works under [engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-4: confirm against source, adversarially self-review).
 
 The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift, and milestone-based review gates to ensure human validation at meaningful intervals.
 
@@ -112,9 +112,9 @@ The project pulls from the shared TI-Engineering-Standards repository. On sessio
 
 This is defined in each project's `CLAUDE.md` using the project template at `templates/CLAUDE-project.md`.
 
-### 3.3 Backlog Generation (prd-to-backlog-v4)
+### 3.3 Backlog Generation (prd-to-backlog-v5)
 
-Use the `prd-to-backlog-v4` skill to decompose the PRD into a milestoned backlog. The skill:
+Use the `prd-to-backlog-v5` skill to decompose the PRD into a milestoned backlog. The skill:
 
 1. Reads the PRD, Screen Inventory, Decisions Log, and ARCHITECTURE.md
 2. Identifies foundation work (kept minimal — only what can't be part of a vertical slice)
@@ -134,9 +134,9 @@ After the skill generates stories, review them:
 - Are there gaps — PRD requirements with no corresponding story?
 - Are milestone groupings sensible?
 
-### 3.5 Incremental Story Additions (add-story-v4)
+### 3.5 Incremental Story Additions (add-story-v5)
 
-When adding stories mid-project (not during initial PRD decomposition), use `add-story-v4`. The skill:
+When adding stories mid-project (not during initial PRD decomposition), use `add-story-v5`. The skill:
 
 1. Reviews the existing backlog and codebase
 2. Works conversationally to understand what you want to add
@@ -144,16 +144,16 @@ When adding stories mid-project (not during initial PRD decomposition), use `add
 4. Determines milestone placement
 5. Creates issues after human approval
 
-### 3.6 PRD Reconciliation (reconcile-backlog-v4)
+### 3.6 PRD Reconciliation (reconcile-backlog-v5)
 
-When a PRD is revised mid-project (scope changes, new decisions, stakeholder feedback), use `reconcile-backlog-v4` to reconcile the changes against the existing backlog and codebase. The skill:
+When a PRD is revised mid-project (scope changes, new decisions, stakeholder feedback), use `reconcile-backlog-v5` to reconcile the changes against the existing backlog and codebase. The skill:
 
 1. Diffs the old and new PRDs section by section, identifying material changes
 2. Fetches the full backlog (open and closed issues) and scans the codebase to understand what's already built
 3. Classifies each change as: **CREATE** (new ticket), **UPDATE** (modify existing open ticket), **FLAG** (closed ticket needs rework — creates a delta ticket), or **SKIP** (cosmetic/doc-only)
 4. Writes a checklist file to `docs/` for state tracking and recovery
 5. Presents the full reconciliation plan for human approval before touching GitHub
-6. Executes approved actions using `add-story-v4` (for new tickets) and `refine-story-v4` (to re-refine updated tickets)
+6. Executes approved actions using `add-story-v5` (for new tickets) and `refine-story-v5` (to re-refine updated tickets)
 
 This keeps the backlog in sync with the PRD as a living document, rather than requiring a full re-decomposition.
 
@@ -181,39 +181,39 @@ If any tests fail on a fresh clone, stop and fix before proceeding. A clean base
 
 ## Phase 4: Orchestrated Development
 
-**Tool:** Claude Code with orchestrate-v4
+**Tool:** Claude Code with orchestrate-v5
 **Input:** Backlog tickets (refined automatically by the orchestrator as Stage 1)
 **Output:** Implemented, reviewed, tested, merged code
 
 ### 4.1 Architecture: PR-Based Pipeline with Review Gates
 
-The v4 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift.
+The v5 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift. It is itself **stateless and relaunched** by a dumb loop: on each launch it self-selects **WORKING** (process up to N ready tickets, then checkpoint and exit) or **CLEANUP** (end-of-run oversight) from durable state on a per-run tracking issue — so a crash mid-run just relaunches and recovers state, and no single session accumulates context rot. The test work follows the four-tier model (Unit + Contract = fast tier, no Docker; Integration = real infra; UI = journey-scoped on the self-hosted runner); see [standards/testing.md](../standards/testing.md).
 
 ```
 Per Ticket:
-1.  REFINE ──────────── refine-story-v4 (enriches issue spec)
-2.  IMPLEMENT ───────── implement-ticket-v4 (creates PR #1)
-3.  ENGINEERING REVIEW ─ engineering-review-v4 (standards check)
+1.  REFINE ──────────── refine-story-v5 (enriches issue spec)
+2.  IMPLEMENT ───────── implement-ticket-v5 (creates PR #1)
+3.  ENGINEERING REVIEW ─ engineering-review-v5 (standards check)
     └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
-4.  SECURITY REVIEW ──── security-review-v4 (OWASP Top 10 + infrastructure)
+4.  SECURITY REVIEW ──── security-review-v5 (OWASP Top 10 + infrastructure)
     └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
     └─ On pass → merge PR #1
-    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
-5.  INTEGRATION TESTS ── integration-test-v4 (creates PR #2)
-6.  ENGINEERING REVIEW ─ engineering-review-v4 (integration test quality)
+    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
+5.  INTEGRATION TESTS ── integration-test-v5 (creates PR #2)
+6.  ENGINEERING REVIEW ─ engineering-review-v5 (integration test quality)
     └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
     └─ On approve → merge PR #2
-    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
-7.  UI TESTS ─── ui-test-v4 (creates PR #3)
-8.  ENGINEERING REVIEW ─ engineering-review-v4 (ui test quality)
+    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
+7.  UI TESTS ─── ui-test-v5 (creates PR #3)
+8.  ENGINEERING REVIEW ─ engineering-review-v5 (ui test quality)
     └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
     └─ On approve → merge PR #3
-    └─ ci-fix-v4 WATCH (background) ─── monitors CI/CD for the merge
+    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
 9.  CLOSE ───────────── drain CI watchers, check acceptance criteria, close issue
 
     Background CI/CD side-channel:
-    ┌─ ci-fix-v4 WATCH reports failure
-    └─ ci-fix-v4 FIX (background) ─── diagnoses logs, creates fix PR, merges
+    ┌─ ci-fix-v5 WATCH reports failure
+    └─ ci-fix-v5 FIX (background) ─── diagnoses logs, creates fix PR, merges
        └─ If FIX blocked → circuit breaker halts orchestrator
 ```
 
@@ -229,8 +229,13 @@ This ensures the developer can launch the application, interact with it, and ver
 
 ### 4.3 Operating Modes
 
-- **Supervised**: hard stop between each ticket. Used when iterating on skills, early in a project, or when close oversight is desired.
-- **Autonomous**: continues between tickets automatically, stopping only at milestones, circuit breakers, or completion.
+The orchestrator self-selects a **run mode** from durable state on each relaunch:
+- **WORKING**: tickets are in "Up Next" — process up to N of them, checkpoint to the tracking issue, and exit (the loop relaunches it).
+- **CLEANUP**: nothing left in "Up Next" — run end-of-batch oversight (full UI dispatch, pyramid-ratio + drift check, TR gate-audit, inject fixes), then close the run.
+
+Orthogonally, a **human-oversight mode** controls cadence:
+- **Supervised**: hard stop between each ticket (`orchestrate-v5 supervised #<issue>`). Used when iterating on skills, early in a project, or when close oversight is desired.
+- **Autonomous**: the dumb loop relaunches the orchestrator continuously, stopping only at milestones, circuit breakers, or completion. An operator can steer a headless run between loops via the operator-message slot on the tracking issue.
 
 ### 4.4 Circuit Breakers
 
@@ -244,15 +249,15 @@ Even in autonomous mode, the orchestrator halts entirely if:
 
 ### 4.5 Background CI/CD Health Watching
 
-After every PR merge, the orchestrator spawns **ci-fix-v4** in WATCH mode as a background agent. This runs in parallel with the next pipeline stage — the orchestrator does not block on it.
+After every PR merge, the orchestrator spawns **ci-fix-v5** in WATCH mode as a background agent. This runs in parallel with the next pipeline stage — the orchestrator does not block on it.
 
 - **If CI/CD passes:** The watcher reports success and the orchestrator logs it. No action needed.
-- **If CI/CD fails:** The watcher reports the failure. The orchestrator spawns **ci-fix-v4** in FIX mode — also in the background. The fix agent downloads failure logs, diagnoses the root cause, creates a fix branch, pushes a repair PR, and merges it. All of this happens on its own branch, parallel to whatever ticket is currently in progress.
+- **If CI/CD fails:** The watcher reports the failure. The orchestrator spawns **ci-fix-v5** in FIX mode — also in the background. The fix agent downloads failure logs, diagnoses the root cause, creates a fix branch, pushes a repair PR, and merges it. All of this happens on its own branch, parallel to whatever ticket is currently in progress.
 - **If the fix cannot be applied:** The fix agent reports Blocked, which triggers a circuit breaker — the orchestrator halts after the current stage completes.
 
 This eliminates the blind spot where CI/CD breaks silently and multiple tickets pile up without deploying. The orchestrator discovers failures within minutes of the merge that caused them, and in most cases fixes them automatically without interrupting the current ticket's pipeline.
 
-The ci-fix-v4 skill can also be invoked standalone (`/ci-fix-v4`) to diagnose and repair CI/CD issues outside of the orchestrator pipeline.
+The ci-fix-v5 skill can also be invoked standalone (`/ci-fix-v5`) to diagnose and repair CI/CD issues outside of the orchestrator pipeline.
 
 ### 4.6 Rollback Safety
 
@@ -301,14 +306,14 @@ The orchestrator produces a comprehensive summary including:
 
 After testing the running application, issues and bugs will surface. **Triage is the formal re-entry point back into Phase 4** — it is not optional and not informal. Every bug or unexpected behavior that warrants a fix goes through triage before any code is written.
 
-Use **triage-v4** to investigate and formally capture findings:
+Use **triage-v5** to investigate and formally capture findings:
 
 - Triage runs in read-only mode — it never writes code
 - It investigates symptoms, traces root causes, and produces a GitHub issue as output
 - The resulting ticket feeds directly back into the Phase 4 orchestrator on the next development cycle
 - Ad-hoc fixes outside of this loop are prohibited — they bypass review gates and break the audit trail
 
-This creates a closed loop: **Phase 5 → triage-v4 → GitHub issue → Phase 4 → merge → Phase 6 → Phase 5**.
+This creates a closed loop: **Phase 5 → triage-v5 → GitHub issue → Phase 4 → merge → Phase 6 → Phase 5**.
 
 For ad-hoc debugging during investigation (not fixing), Claude Code can be used directly to trace behavior, inspect logs, or reproduce issues. The output of that investigation is always a ticket, never a direct code change.
 
@@ -345,7 +350,7 @@ Build Docker image (tagged {sha}-dev)
   → ✅ Eligible for Staging promotion
 ```
 
-Playwright UI tests run in CI on every PR (not post-deploy). Post-deploy validation is limited to smoke tests (health checks). If smoke fails, the deploy is broken. Fix via a new commit — do not attempt to patch around the pipeline.
+Playwright UI tests run on the **self-hosted runner via `workflow_dispatch`** — scoped per story during the pipeline and as a full suite at the end-of-run (CLEANUP) boundary. They are **not** a blocking gate on every PR (that would make every PR pay full browser-stack cost). Post-deploy validation is limited to smoke tests (health checks). If smoke fails, the deploy is broken. Fix via a new commit — do not attempt to patch around the pipeline.
 
 ### 6.2 Promote to Staging (manual)
 
@@ -430,10 +435,10 @@ Periodically review NuGet and npm package versions for security updates. This is
 
 If `main` is ever in a broken state (build fails, tests fail on main):
 
-1. **Try ci-fix-v4 first** — run `/ci-fix-v4` standalone to auto-diagnose and fix. If the orchestrator is running, it will have already attempted this via the background watcher.
-2. If ci-fix-v4 reports Blocked (cannot auto-fix), do not merge anything new until main is green.
+1. **Try ci-fix-v5 first** — run `/ci-fix-v5` standalone to auto-diagnose and fix. If the orchestrator is running, it will have already attempted this via the background watcher.
+2. If ci-fix-v5 reports Blocked (cannot auto-fix), do not merge anything new until main is green.
 3. Check the orchestrator's rollback tag (`pre-{STORY_ID}`) if the break was introduced during a development session.
-4. Create a triage ticket via triage-v4 for the underlying issue.
+4. Create a triage ticket via triage-v5 for the underlying issue.
 5. Fix via a normal branch → PR → review flow, not a direct push to main.
 
 ### 7.5 Returning to a Dormant Project
@@ -451,7 +456,7 @@ When picking up a project after significant time away:
 
 ## Key Principles
 
-**Context drift is the primary adversary.** The supervisor/worker pattern exists specifically to reset context on every sub-agent invocation. Each stage gets a fresh context with full standards loaded.
+**Context drift is the primary adversary.** Fresh sub-agents per stage — plus the orchestrator's own stateless relaunch — exist specifically to reset context on every invocation. Each stage gets a fresh context with full standards loaded.
 
 **Vertical slices over horizontal layers.** Stories deliver user-visible functionality. Foundation work is bounded to the minimum needed to unblock the first milestone. Entity lifecycle operations (create, list, view, delete) travel together.
 
@@ -469,32 +474,35 @@ When picking up a project after significant time away:
 
 ---
 
-## Skills Reference (v4)
+## Skills Reference (v5)
+
+All skills work under `standards/engineering-discipline.md` (ED-1..ED-4); the ticket-producing skills end with a three-part contribution (*what we missed / should consider / I'd add*).
 
 ### Story Creation & Backlog Maintenance
 | Skill | Purpose |
 |-------|---------|
-| prd-to-backlog-v4 | Bulk PRD decomposition into milestoned backlog |
-| add-story-v4 | Incremental story creation for existing projects |
-| reconcile-backlog-v4 | Reconcile PRD version changes against an existing backlog and codebase |
+| prd-to-backlog-v5 | Bulk PRD decomposition into milestoned backlog; nominates the repo-wide critical-path journeys |
+| add-story-v5 | Incremental story creation for existing projects; non-interactive mode for callers |
+| reconcile-backlog-v5 | Reconcile PRD version changes against an existing backlog and codebase (classifications grounded in source) |
 
-### Development Pipeline (per ticket, managed by orchestrate-v4)
+### Development Pipeline (per ticket, managed by orchestrate-v5)
 | Skill | Purpose |
 |-------|---------|
-| refine-story-v4 | Enrich issue with technical detail and acceptance criteria |
-| implement-ticket-v4 | Implement code, create PR. Supports fix mode for review feedback |
-| engineering-review-v4 | Review PR against standards. Implementation, integration-test, and ui-test modes |
-| security-review-v4 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
-| ci-fix-v4 | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel after each merge; standalone for ad-hoc repair |
-| integration-test-v4 | Write integration tests, create PR. Supports fix mode |
-| ui-test-v4 | Write Playwright UI tests, create PR. Supports fix mode |
-| orchestrate-v4 | Pipeline orchestrator with milestones, review loops, and observability |
+| refine-story-v5 | Enrich issue into a behavior-first tier table (one tier per behavior); adversarial self-review in all modes |
+| implement-ticket-v5 | Implement code + Unit/Contract tests, create PR. Supports fix mode for review feedback |
+| engineering-review-v5 | Review PR against standards + TR rules (two-way) and ED (ungrounded-claim check). Implementation, integration-test, and ui-test modes |
+| security-review-v5 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
+| ci-fix-v5 | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel after each merge; standalone for ad-hoc repair |
+| integration-test-v5 | Write integration tests, create PR. Supports fix mode |
+| ui-test-v5 | Write Playwright UI tests, create PR. Supports fix mode |
+| orchestrate-v5 | Mode-switching pipeline orchestrator (WORKING/CLEANUP), relaunched by the dumb loop; per-run tracking issue, TR gate-audit, observability |
+| monitor-v5 | Read-only live narrator for an orchestration run (stage/PR/CLEANUP events, stall flags); never writes |
 
 ### Investigation, Triage & Conformance
 | Skill | Purpose |
 |-------|---------|
-| triage-v4 | Interactive investigation and bug triage — never writes code, output is always a ticket |
-| conformance-v4 | Audit a project against TI Engineering Standards — informational only, produces a gap report |
+| triage-v5 | Interactive investigation and bug triage — evidence-first runtime diagnosis (pull the real exception before theorizing); never writes code, output is always a ticket |
+| conformance-v5 | Audit a project against TI Engineering Standards — informational only, produces a gap report |
 
 ### Standards
 | File | Purpose |
@@ -502,7 +510,8 @@ When picking up a project after significant time away:
 | story-writing-standards.md | Story structure, vertical slices, milestones, sizing, acceptance criteria |
 | project-tracking.md | Board structure, labels, custom fields, issue types |
 | environments.md | Environment definitions, Bicep conventions, pipeline structure, promotion flow, conformance checklist |
-| testing.md | Testing philosophy, frameworks, tiers, CI/CD gates, pre-existing failure rules |
+| testing.md | Four-tier test model (Unit/Contract/Integration/UI), TR-1..TR-11 rules, CI/CD trigger model, critical-path |
+| engineering-discipline.md | How to work: grounded claims + adversarial self-review (ED-1..ED-4) |
 | git-workflow.md | Branching, commits, PR process, deployment strategy |
 | architecture.md | Dependency inversion, interface-first design, project layering |
 | api-design.md | Endpoint return types, DTOs, serialization, naming conventions |

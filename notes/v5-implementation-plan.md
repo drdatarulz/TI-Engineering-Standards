@@ -69,11 +69,21 @@ close-issue for run-complete. `project-tracking.md` got the Orchestration Run Tr
 **v5 MERGED TO `main` 2026-06-21** (merge commit `763514c`, pushed). Phases 0–4 are live; v5 is the
 standard. v4 skills retained (pin per project via `-v4`/`-v5` skill name). `v5-build` kept as history.
 
-**Next action: Phase 5 — pilot on HeyCAPTO** (user-owned, separate instance; runner already set up).
-Single-ticket smoke first, then a 3–5 ticket run. v5 is on `main`, so HeyCAPTO's auto-sync picks it up
-normally. User actuates there (fill workflow templates, confirm CLAUDE.md names the four test projects,
-one ticket in Up Next, `orchestrate-v5 supervised #<issue>`); reports mismatches back to tune before the
-3–5 run. Then Phase 6 (process docs/diagram/templates) is the final standards-repo phase.
+**Phase 5 — COMPLETE (2026-06-27).** Piloted on HeyCAPTO: shipped a substantial amount of software
+through the v5 pipeline, captured lessons, and iterated several times. Two notable iterations folded
+back into the standards repo along the way:
+- **The v5 round-out** (PR #5, merged): `standards/engineering-discipline.md` (ED-1..ED-4 — grounded +
+  adversarial), the six remaining authoring/audit skills brought to v5 (`add-story`, `prd-to-backlog`,
+  `reconcile-backlog`, `triage`, `conformance`, `security-review`), the three-part contribution step,
+  evidence-first runtime diagnosis in triage, and ED patches to refine/implement/engineering-review.
+  Tracked in [v5-round-out-plan.md](v5-round-out-plan.md).
+- **Story ID in the ticket body** (PR #6, merged): the four ticket skills now put `{PREFIX}-{NNN}` in
+  the description with a mechanical post-create backfill (was missing ~75% of the time).
+
+**Next action: Phase 6 — process documentation** (the final standards-repo phase). The workflow/process
+layer is still v4-coded and now actively contradicts what shipped. Phase 6 must also fold in the
+round-out (ED discipline, the six authoring/audit skills, the contribution step) — these post-date this
+plan's original Phase 6 list below.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -310,20 +320,17 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
 
 ---
 
-## Phase 5 — Pilot & validate
+## Phase 5 — Pilot & validate  *(COMPLETE 2026-06-27)*
 
-- [ ] **5.0 — Per-repo actuation of the Phase 2 substrate** (the half that can't live in the standards
-  repo): on the pilot repo, **instantiate** the template workflows into `.github/workflows/` (fill in
-  project name + test-project paths), **run the branch-protection script** (2.3), **install the
-  self-hosted runner** (2.5/6.6 guide — as a service, WSL2), and **self-test the runner path**:
-  dispatch a workflow `echo` → `docker run --rm hello-world` → a real `dotnet test` (the path already
-  proven 2026-06-18).
-- [ ] **5.1 —** Run v5 end-to-end on the pilot repo with a small batch (3–5 tickets).
-- [ ] **5.2 — Verify:** fast/PR + integration/pre-merge gates fire; tier boundaries enforced; UI runs
-  on the runner (scoped per-story + full at boundary); loop chunks at N and relaunches; CLEANUP fires
-  ratio/drift/gate-audit; crash recovery works.
-- [ ] **5.3 — Tune N** to the observed reliability threshold.
-- [ ] **5.4 —** Capture lessons; only then consider rolling v5 to other repos.
+- [x] **5.0 — Per-repo actuation of the Phase 2 substrate** — done on HeyCAPTO (workflows instantiated,
+  branch protection, self-hosted runner installed and self-tested).
+- [x] **5.1 —** Ran v5 end-to-end on HeyCAPTO across a substantial batch of real tickets (well beyond 3–5).
+- [x] **5.2 — Verified** in practice: gates fire, tier boundaries hold, UI runs on the runner, the loop
+  chunks/relaunches, CLEANUP fires, crash recovery works.
+- [x] **5.3 — Tuned N** against observed reliability.
+- [x] **5.4 — Lessons captured and folded back**: the v5 round-out (PR #5) and the Story ID fix (PR #6).
+  v5 is proven; rolling to other repos is unblocked. (v4-skill archival still deferred per earlier call —
+  see Cross-cutting.)
 
 ---
 
@@ -334,7 +341,7 @@ will **directly contradict** the new model until updated (e.g. the master doc st
 runs in CI on every PR"). Sequenced **after Phase 5** so docs describe what actually shipped, not what
 was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
 
-- [ ] **6.1 — `workflow/agentic-development-workflow.md`** (master process doc): rewrite to the v5
+- [x] **6.1 — `workflow/agentic-development-workflow.md`** (master process doc): rewrite to the v5
   model — four-tier testing (Unit/Contract/Integration/UI), the **trigger model** (fast/PR,
   integration/required-pre-merge, UI at orchestration boundary via `workflow_dispatch`),
   **self-hosted runner** execution (#8), the **mode-switching orchestrator + dumb loop** (#6, replaces
@@ -343,11 +350,11 @@ was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
 - [ ] **6.2 — `workflow/workflow-diagram.html`**: regenerate for the v5 pipeline (currently labeled
   "v4 pipeline"). **Note:** hand-built HTML — regeneration is real work, not a tweak. G1 call:
   new `workflow-diagram-v5.html` vs. edit in place.
-- [ ] **6.3 — `workflow/README.md`**: update the stage list, drop the "v4 pipeline" labels, point at
+- [x] **6.3 — `workflow/README.md`**: update the stage list, drop the "v4 pipeline" labels, point at
   the v5 diagram, refresh `-v4`→`-v5` skill names.
-- [ ] **6.4 — `workflow/screen-inventory-template.md`**: add the **per-surface UI-scope decision**
+- [x] **6.4 — `workflow/screen-inventory-template.md`**: add the **per-surface UI-scope decision**
   (#3 / TR-5) — record per surface whether it's in/out of UI-tier scope.
-- [ ] **6.5 — `templates/CLAUDE-project.md` + the project entrypoint wrapper:** update test-run
+- [~] **6.5 — `templates/CLAUDE-project.md` + the project entrypoint wrapper:** update test-run
   patterns to the four tiers + trigger model; add the Contract tier; reference the TR checklist;
   refresh skill names per G1. **Also ship the thin driver wrapper** — a `templates/scripts/orchestrate.sh`
   (~3 lines: `git -C ../TI-Engineering-Standards pull --ff-only` → exec `developer-tools/orchestrate-loop.sh`
@@ -356,7 +363,7 @@ was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
 - [ ] **6.6 — `developer-tools/`**: document the **self-hosted runner** setup (#8 — install-as-service,
   WSL2/Linux, Docker access, persistent-runner hygiene) — likely a new doc alongside the existing
   hooks/VM-scripts.
-- [ ] **6.7 — Index `workflow/` in `CLAUDE.md`** — the folder is currently **not referenced** in the
+- [x] **6.7 — Index `workflow/` in `CLAUDE.md`** — the folder is currently **not referenced** in the
   standards index, which is exactly why it's easy to forget. Add it (and `templates/`,
   `developer-tools/` if not present).
 - [ ] **Deliverable:** v5 process docs + diagram + templates; `CLAUDE.md` indexes the workflow layer.

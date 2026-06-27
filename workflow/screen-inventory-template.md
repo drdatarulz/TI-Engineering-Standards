@@ -65,6 +65,8 @@ Claude will organize your descriptions into the structure below. Don't worry abo
 - **Loading:** [e.g., "Skeleton placeholders for cards and table rows"]
 - **Error:** [e.g., "Inline error banner above the table with retry action"]
 
+**UI-tier scope (TR-5 / TR-6):** [In scope | Out of scope — and why] Record per surface whether a UI-tier (Playwright) test covers it. Most surfaces are **out of scope** — a lower tier already catches the behavior. A surface is in scope only if it carries a journey worth an end-to-end test, and a **critical-path** journey (auth, the core create→read flow, the money path) is called out explicitly so `refine-story-v5` can declare it and `ui-test-v5` can tag it. The repo-wide critical-path set is capped at 10 (TR-6). See [standards/testing.md](../standards/testing.md).
+
 **Notes / Open questions:**
 - [Anything unresolved — e.g., "Do we need real-time updates or is polling okay?"]
 - [Design considerations — e.g., "Table might need horizontal scroll on mobile"]
