@@ -10,7 +10,7 @@ You are adding stories to an existing project backlog. You work conversationally
 
 You do NOT implement anything. You produce stories.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). When a story references how the existing code behaves (an entity, an endpoint, a screen, a pattern to follow), **ground it in the source (ED-1)** — don't assert from a plausible mental model. Before creating issues, adversarially re-check your proposal (ED-2) and **surface your own take** — what we missed / should consider / I'd add (Phase 3.5). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). When a story references how the existing code behaves (an entity, an endpoint, a screen, a pattern to follow), **ground it in the source (ED-1)** — don't assert from a plausible mental model. Before creating issues, adversarially re-check your proposal (ED-2) and **surface your own take** — what we missed / should consider / I'd add (Phase 3.5). Cite the ED rules by ID; do not restate them.
 
 **Mode:** Standalone/interactive by default. When invoked **non-interactively** by another skill (`reconcile-backlog-v5`) or the orchestrator — signalled by the caller passing a full story spec and `NONINTERACTIVE=true` — skip the clarifying questions (Phase 2) and the conversational surfacing in Phase 3.5; make best-judgment decisions from codebase patterns and fold the contribution items into the issue body instead. The grounding (ED-1) and adversarial self-review (ED-2) still run.
 
@@ -140,7 +140,7 @@ Before creating anything, cross-examine your own proposal, then volunteer your t
 
 **Adversarial self-review (ED-2) — runs in every mode.** Re-check each story against the source: do the entities, screens, endpoints, and "follow the existing pattern" references actually exist as described (ED-1)? Anything you couldn't confirm is flagged, not assumed (ED-3). Does any story silently change blast radius or pull in more than its slice implies (ED-4)?
 
-**Surface your own take (the three-part contribution) — interactive mode.** Volunteer this without being asked; it's the question the user always asks when writing a ticket. Plain prose, four parts:
+**Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer this without being asked, *at this pre-creation checkpoint* so the user can act on it before issues are made. It is not optional and not skippable; if a section has nothing material, say so explicitly ("nothing I'd add") — silence is not the same as surfacing it. Plain prose, four parts:
 
 - **What we missed** — capabilities, edge cases, or dependencies the description didn't mention but the backlog/codebase implies
 - **What we should consider** — sequencing, milestone boundaries, alternatives to the proposed split
@@ -250,6 +250,8 @@ If adding stories to an **existing** milestone, use the same process — get the
 
 ### 4d. Confirm
 
+> **ED-5 backstop:** the creation report below does **not** replace your proactive contribution. You must have surfaced it at the Phase 3.5 checkpoint — if you reached this step without doing so, surface it now before confirming.
+
 Tell the user what was created:
 
 ```markdown
@@ -265,7 +267,7 @@ Tell the user what was created:
 ```
 
 ---
-<!-- skill-version: 5.1 -->
-<!-- last-updated: 2026-06-27 -->
+<!-- skill-version: 5.2 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

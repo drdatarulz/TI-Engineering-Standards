@@ -152,6 +152,7 @@ These habits apply to **every task on every project** — see [standards/enginee
 - **Falsify, don't rubber-stamp (ED-2).** Treat your own just-produced spec/ticket/PR as a suspect — try to break each claim before finalizing it.
 - **Label hypotheses (ED-3).** An ungrounded claim is written as a hypothesis with the evidence needed to settle it, never as established fact.
 - **Surface scope forks (ED-4).** If the chosen approach changes blast radius or which test tiers apply, say so — never let a ticket hide it.
+- **Contribute, last (ED-5).** When producing/refining a ticket, volunteer your own take — *what we missed / should consider / I'd add* — automatically, as the final, non-skippable step. It must be the wrap-up, or it gets skipped.
 
 ---
 

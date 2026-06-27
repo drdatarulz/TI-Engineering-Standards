@@ -8,7 +8,7 @@ argument-hint: "[path to PRD] [optional: --screen-inventory path] [optional: --d
 
 You are converting a PRD into a development backlog. You produce well-structured, right-sized stories with milestones following TI story-writing standards. You create GitHub issues and organize them on the project board.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). Ground decomposition claims about existing code in the source (ED-1); adversarially re-check the backlog and **surface your own take** before creating issues (ED-2, Phase 2.5). The backlog is also the natural place to **budget the repo-wide critical-path journeys** (TR-6 ceiling is 10 across the whole repo) — nominate them once here (Phase 1f) so refine/ui-test draw from a budgeted pool instead of each story minting its own. Cite ED/TR rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Ground decomposition claims about existing code in the source (ED-1); adversarially re-check the backlog and **surface your own take** before creating issues (ED-2, Phase 2.5). The backlog is also the natural place to **budget the repo-wide critical-path journeys** (TR-6 ceiling is 10 across the whole repo) — nominate them once here (Phase 1f) so refine/ui-test draw from a budgeted pool instead of each story minting its own. Cite ED/TR rules by ID; do not restate them.
 
 You do NOT implement anything. You produce stories.
 
@@ -170,7 +170,7 @@ Before creating issues, cross-examine the backlog, then volunteer your take.
 
 **Adversarial self-review (ED-2).** Re-check claims about the existing codebase against the source (ED-1) — foundation work that may already exist, entities/screens assumed present. Is the critical-path list within the ≤10 ceiling and genuinely the highest-value flows (ED-4 — an over-budget set is a scope fork)? Anything unconfirmed is flagged, not assumed (ED-3).
 
-**Surface your own take (the three-part contribution).** Volunteer this without being asked:
+**Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer this without being asked, *together with the Phase 2 plan* (re-present if needed) so the user can act on it before any issues are created. Not optional, not skippable; if a section has nothing material, say so explicitly. Four parts:
 
 - **What we missed** — capabilities/screens/flows implied by the PRD but absent from the decomposition; foundation work not called out
 - **What we should consider** — alternative milestone boundaries, story splits/merges, sequencing risks, the critical-path nominations
@@ -321,6 +321,8 @@ For each milestone, for each story in that milestone:
 
 ## Phase 4: Report
 
+> **ED-5 backstop:** this creation report does **not** replace your proactive contribution — that must have been surfaced with the Phase 2.5 plan. Don't let "backlog created" stand in for it.
+
 ```markdown
 ## Backlog Created
 
@@ -342,7 +344,7 @@ For each milestone, for each story in that milestone:
 ```
 
 ---
-<!-- skill-version: 5.1 -->
-<!-- last-updated: 2026-06-27 -->
+<!-- skill-version: 5.2 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

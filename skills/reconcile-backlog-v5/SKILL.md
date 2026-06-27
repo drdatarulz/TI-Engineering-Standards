@@ -10,7 +10,7 @@ You are reconciling changes between two versions of a PRD against an existing pr
 
 You do NOT implement anything. You produce and update stories.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). Your classifications hinge on claims about what's already built — **"already implemented", "needs a code change", "unaffected"** — and those are exactly the claims most likely to be plausible-but-wrong. **Ground every "already built / not built" classification in the source (ED-1)**; never classify from a plausible memory of the codebase. Adversarially re-check the classification set and **surface your own take** before executing (ED-2, Phase 4). Anything you can't confirm is flagged, not assumed (ED-3). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Your classifications hinge on claims about what's already built — **"already implemented", "needs a code change", "unaffected"** — and those are exactly the claims most likely to be plausible-but-wrong. **Ground every "already built / not built" classification in the source (ED-1)**; never classify from a plausible memory of the codebase. Adversarially re-check the classification set and **surface your own take** before executing (ED-2, Phase 4). Anything you can't confirm is flagged, not assumed (ED-3). Cite the ED rules by ID; do not restate them.
 
 ---
 
@@ -293,7 +293,7 @@ Present the full plan to the user in conversation. Structure it as:
 Cross-examine the classification set, then volunteer your take alongside the plan:
 
 - **Adversarial self-review (ED-2).** For every "already built / unaffected / needs a code change" classification, confirm it against the source (ED-1) — open the file, don't classify from memory. A wrong "already built" silently drops needed work; a wrong "needs change" creates phantom tickets. Anything unconfirmed is flagged as a hypothesis (ED-3), not a settled classification.
-- **Surface your own take (the three-part contribution):**
+- **Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer it alongside the plan, every time; not optional, not skippable; if a section has nothing material, say so explicitly:
   - **What we missed** — PRD deltas with no row, or ripple effects of a change beyond the obvious ticket
   - **What we should consider** — classifications you were unsure about, merges/splits, sequencing
   - **What I'd add** — flag tickets or watch-outs the diff implies
@@ -411,6 +411,8 @@ Mark all rows in the reconciliation progress table as `✅ Done`.
 
 ## Phase 6: Report
 
+> **ED-5 backstop:** this report does not replace your proactive contribution — that must have been surfaced with the Phase 4 plan. Don't let "reconciliation complete" stand in for it.
+
 ```markdown
 ## Reconciliation Complete: {Old Version} → {New Version}
 
@@ -458,7 +460,7 @@ If the skill is re-invoked or context is compressed mid-run:
 3. **Resume from the incomplete phase** — do not repeat completed work
 
 ---
-<!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-27 -->
+<!-- skill-version: 5.1 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

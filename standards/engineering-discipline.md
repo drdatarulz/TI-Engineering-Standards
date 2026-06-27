@@ -45,6 +45,11 @@ with the Test Rules in [testing.md](testing.md).
 | ED-2 | **Adversarial self-review.** Before finalizing, treat your *own just-produced* output as a suspect to cross-examine, not a product to defend. Re-trace each asserted data flow / type / contract to source and try to prove it wrong. | Before any spec/ticket/PR is finalized |
 | ED-3 | **Hypothesis vs. conclusion labeling.** A claim that is *not yet* grounded is written as a hypothesis with the evidence needed to settle it ("assumed; evidence needed: pull `X`"), never as established fact. | Whenever a claim can't be grounded *now* |
 | ED-4 | **Scope-fork detection.** Check whether the chosen approach silently changes blast radius or which test tiers apply. Surface the fork explicitly; never let a ticket hide it. | When picking an approach |
+| ED-5 | **Proactive contribution, surfaced last.** Before finalizing a ticket, volunteer your own take to the human — *what we missed / what we should consider / what I'd add* (plus what you considered and set aside) — **automatically, without being asked**. It is a **mandatory terminal deliverable**: surface it as the *last* thing you do, as (or as part of) the final report — never mid-task. A required user-facing step that produces no artifact and isn't the terminal output gets skipped under wrap-up momentum, so it must *be* the wrap-up. Headless/orchestrator mode (no human): fold the same items into the issue/ticket instead. | When producing or refining a ticket / backlog |
+
+## Why ED-5 is structured as a terminal deliverable
+
+The failure ED-5 prevents is subtle: an instance runs the *silent* half of the work (the adversarial self-review, ED-2), updates the issue, and reports "done" — letting the internal review stand in for the user-facing contribution. The contribution is the only output that produces no durable artifact (it's a conversational message, not an issue edit), so under "produce artifacts, report status" momentum it is exactly the step that falls through. The fix is positional, not motivational: make the contribution the terminal output so that *reporting status* cannot happen without it. "Interactive-mode-only" framing or a mid-skill position invites the skip; being the last thing you do prevents it.
 
 ## How the rules combine
 
