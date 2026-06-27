@@ -193,6 +193,10 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --label "foundation" \
   --body "{issue body per story template}")
 ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
+# Backfill the Story ID into the body (number didn't exist at create time; keep {ISSUE_NUM} literal in the body)
+gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
+  | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
+  | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
 gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"
 ```
 
@@ -207,6 +211,8 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
+**Story ID:** {PREFIX}-{ISSUE_NUM}
+
 ## Summary
 
 {Description — framed from user's perspective}
@@ -249,7 +255,13 @@ EOF
 )"
 ```
 
-After creation, extract the issue number from the URL, update the title to `{PREFIX}-{ISSUE_NUM}: {Title}`, and set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`). Move to **Up Next**.
+After creation, extract the issue number from the URL, then **backfill the Story ID into the body** (mechanical, non-optional — keep `{ISSUE_NUM}` literal in the body at creation, this fills it):
+```bash
+gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
+  | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
+  | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
+```
+Update the title to `{PREFIX}-{ISSUE_NUM}: {Title}`, set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`), and move to **Up Next**.
 
 ### 3c. Create Milestone Marker Issues
 
@@ -330,7 +342,7 @@ For each milestone, for each story in that milestone:
 ```
 
 ---
-<!-- skill-version: 5.0 -->
+<!-- skill-version: 5.1 -->
 <!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
