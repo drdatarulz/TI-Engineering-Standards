@@ -162,6 +162,8 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
+**Story ID:** {PREFIX}-{ISSUE_NUM}
+
 ## Summary
 
 {Description}
@@ -206,9 +208,15 @@ EOF
 
 After creation:
 1. Extract the issue number from the URL: `ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')`
-2. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
-3. Set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`)
-4. Move to **Up Next**
+2. **Backfill the Story ID + branch into the body** (the body is written before the number exists — keep `{ISSUE_NUM}` as a literal token in the body at creation; this step fills it). This is a mechanical, non-optional step — it's why the Story ID lands every time, not 1-in-4:
+   ```bash
+   gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
+     | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
+     | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
+   ```
+3. Update the title: `gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"`
+4. Set custom fields (Type=Story, Priority, Story ID=`{PREFIX}-{ISSUE_NUM}`)
+5. Move to **Up Next**
 
 ### 4b. Create Milestone Marker (If Needed)
 
@@ -257,7 +265,7 @@ Tell the user what was created:
 ```
 
 ---
-<!-- skill-version: 5.0 -->
+<!-- skill-version: 5.1 -->
 <!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

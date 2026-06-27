@@ -232,9 +232,11 @@ Plain prose; **no taxonomy buckets** — surface the items directly. The user ca
 
 ### 4a. Compose the Refined Issue Body
 
-Use this template. **Omit sections that don't apply** to the story. Adapt section names to fit the story's domain.
+Use this template. **Omit sections that don't apply** to the story. Adapt section names to fit the story's domain. **Always include the `Story ID` line** — refine has `{STORY_ID}` resolved, so it fills it directly. This is the backstop: even if the creating skill missed it, refine (which runs next) guarantees the Story ID is in the description.
 
 ```markdown
+**Story ID:** {STORY_ID}
+
 ## Summary
 
 [Expanded summary with context pointers]
@@ -411,6 +413,6 @@ OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 5.1 -->
+<!-- skill-version: 5.2 -->
 <!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->

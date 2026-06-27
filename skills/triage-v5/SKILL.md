@@ -186,6 +186,8 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --title "{Title}" \
   --label "story" \
   --body "$(cat <<'EOF'
+**Story ID:** {PREFIX}-{ISSUE_NUM}
+
 ## Summary
 
 {Description}
@@ -245,7 +247,16 @@ EOF
 )"
 ```
 
-After creation, place the issue on the project board and set all custom fields. Read the project ID, field IDs, and option IDs from `CLAUDE.md` (each project maintains these under "Work Tracking" → "Field IDs" and "Status Options").
+After creation, **backfill the Story ID into the body** (the number didn't exist at create time — keep `{ISSUE_NUM}` literal in the body, this fills it). Mechanical and non-optional:
+
+```bash
+ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
+gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
+  | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
+  | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
+```
+
+Then place the issue on the project board and set all custom fields. Read the project ID, field IDs, and option IDs from `CLAUDE.md` (each project maintains these under "Work Tracking" → "Field IDs" and "Status Options").
 
 ```bash
 # 1. Add the issue to the project and capture the project item ID
@@ -336,7 +347,7 @@ If the user describes another issue, loop back to **Phase 1**.
 Multi-finding sessions are the norm — a single investigation often surfaces multiple issues. Each gets its own ticket.
 
 ---
-<!-- skill-version: 5.0 -->
+<!-- skill-version: 5.1 -->
 <!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
