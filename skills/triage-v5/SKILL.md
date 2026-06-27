@@ -1,6 +1,6 @@
 ---
 name: triage-v5
-description: "Interactive investigation and bug triage. Explores codebase, pulls real runtime errors before theorizing, diagnoses issues, and creates/updates GitHub tickets. Never writes code. Evidence-first + grounded/adversarial discipline (ED-1..ED-4)."
+description: "Interactive investigation and bug triage. Explores codebase, pulls real runtime errors before theorizing, diagnoses issues, and creates/updates GitHub tickets. Never writes code. Evidence-first + grounded/adversarial discipline (ED-1..ED-5)."
 argument-hint: "[description of issue to investigate, or leave blank for interactive mode]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[description of issue to investigate, or leave blank for interac
 
 You are in **triage mode**. Your job is to investigate, diagnose, and produce GitHub tickets. You do NOT write code.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), and adversarially re-check your own diagnosis before it becomes a ticket (ED-2). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), and adversarially re-check your own diagnosis before it becomes a ticket (ED-2). Cite the ED rules by ID; do not restate them.
 
 ## Hard Rules
 
@@ -162,9 +162,9 @@ Before you present the draft, cross-examine your own diagnosis — try to prove 
 - **What else could explain the symptom?** Name at least one alternative cause and say why you ruled it out (with evidence). The "obvious" infrastructure explanation is the classic trap.
 - **Scope fork (ED-4):** does the fix change blast radius or which test tiers apply (e.g. a "config" bug that's actually a code change across projects)? Flag it.
 
-### Surface your own take (the three-part contribution)
+### Surface your own take (the three-part contribution) — ED-5, mandatory
 
-When you present the draft, also volunteer your own input — without being asked. Plain prose, four parts:
+When you present the draft, also volunteer your own input — without being asked, every time. Not optional, not skippable; if a section has nothing material, say so explicitly. Plain prose, four parts:
 
 - **What we missed** — gaps in the ticket; evidence you couldn't pull but should ("grab the exception at `{path}` to confirm")
 - **What we should consider** — alternative causes, related areas the same root cause might affect, severity/priority angles
@@ -247,10 +247,13 @@ EOF
 )"
 ```
 
-After creation, **backfill the Story ID into the body** (the number didn't exist at create time — keep `{ISSUE_NUM}` literal in the body, this fills it). Mechanical and non-optional:
+After creation, **extract the number, prefix the title with the Story ID, and backfill the Story ID into the body** (the number didn't exist at create time — keep `{ISSUE_NUM}` literal in the body, this fills it). All three are mechanical and non-optional — the title prefix is what shows the Story ID (e.g. `HC-474`) in every board/issue list:
 
 ```bash
 ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
+# Prefix the title with the Story ID (e.g. "HC-474: {Title}")
+gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"
+# Backfill the Story ID into the body
 gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
   | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
   | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
@@ -289,7 +292,7 @@ gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){u
 # 6. Story ID (text field — e.g., "FI-263")
 gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{text:$val}}){projectV2Item{id}}}' \
   -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
-  -f field="{STORY_ID_FIELD_ID}" -f val="{PREFIX}-{NNN}"
+  -f field="{STORY_ID_FIELD_ID}" -f val="{PREFIX}-{ISSUE_NUMBER}"
 ```
 
 All `{...}` placeholders come from `CLAUDE.md` → "Work Tracking" section. If `CLAUDE.md` does not have field IDs, query them dynamically:
@@ -326,6 +329,8 @@ EOF
 
 ### 3c. Confirm
 
+> **ED-5 backstop:** the confirmation below does not replace your proactive contribution — that must have been surfaced with the Phase 2 draft. Don't let "ticket created" stand in for it.
+
 Post confirmation with the issue link:
 
 ```markdown
@@ -347,7 +352,7 @@ If the user describes another issue, loop back to **Phase 1**.
 Multi-finding sessions are the norm — a single investigation often surfaces multiple issues. Each gets its own ticket.
 
 ---
-<!-- skill-version: 5.1 -->
-<!-- last-updated: 2026-06-27 -->
+<!-- skill-version: 5.3 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
