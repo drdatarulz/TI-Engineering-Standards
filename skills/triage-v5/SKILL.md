@@ -247,10 +247,13 @@ EOF
 )"
 ```
 
-After creation, **backfill the Story ID into the body** (the number didn't exist at create time — keep `{ISSUE_NUM}` literal in the body, this fills it). Mechanical and non-optional:
+After creation, **extract the number, prefix the title with the Story ID, and backfill the Story ID into the body** (the number didn't exist at create time — keep `{ISSUE_NUM}` literal in the body, this fills it). All three are mechanical and non-optional — the title prefix is what shows the Story ID (e.g. `HC-474`) in every board/issue list:
 
 ```bash
 ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
+# Prefix the title with the Story ID (e.g. "HC-474: {Title}")
+gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --title "{PREFIX}-${ISSUE_NUM}: {Title}"
+# Backfill the Story ID into the body
 gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
   | sed "s/{ISSUE_NUM}/${ISSUE_NUM}/g" \
   | gh issue edit $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --body-file -
@@ -289,7 +292,7 @@ gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){u
 # 6. Story ID (text field — e.g., "FI-263")
 gh api graphql -f query='mutation($proj:ID!,$item:ID!,$field:ID!,$val:String!){updateProjectV2ItemFieldValue(input:{projectId:$proj,itemId:$item,fieldId:$field,value:{text:$val}}){projectV2Item{id}}}' \
   -f proj="{PROJECT_ID}" -f item="$ITEM_ID" \
-  -f field="{STORY_ID_FIELD_ID}" -f val="{PREFIX}-{NNN}"
+  -f field="{STORY_ID_FIELD_ID}" -f val="{PREFIX}-{ISSUE_NUMBER}"
 ```
 
 All `{...}` placeholders come from `CLAUDE.md` → "Work Tracking" section. If `CLAUDE.md` does not have field IDs, query them dynamically:
@@ -349,7 +352,7 @@ If the user describes another issue, loop back to **Phase 1**.
 Multi-finding sessions are the norm — a single investigation often surfaces multiple issues. Each gets its own ticket.
 
 ---
-<!-- skill-version: 5.2 -->
+<!-- skill-version: 5.3 -->
 <!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
