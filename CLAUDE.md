@@ -124,6 +124,23 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | File | Purpose |
 |------|---------|
 | [templates/CLAUDE-project.md](templates/CLAUDE-project.md) | Template CLAUDE.md for new projects — copy and fill in project-specific sections |
+| [templates/workflows/](templates/workflows/) | CI workflow templates (fast / integration / ui tests) — copied into each project's `.github/workflows/` |
+| [templates/scripts/orchestrate.sh](templates/scripts/orchestrate.sh) | Thin orchestration entrypoint wrapper projects vendor as `scripts/orchestrate.sh` |
+
+---
+
+## Process & Workflow
+
+The end-to-end agentic development process (discovery → PRD → backlog → orchestrated pipeline → deploy) and the tooling that runs it:
+
+| Path | Purpose |
+|------|---------|
+| [workflow/agentic-development-workflow.md](workflow/agentic-development-workflow.md) | Master process doc — all phases, the v5 pipeline, mode-switching orchestrator, four-tier testing |
+| [workflow/README.md](workflow/README.md) | Workflow overview + per-ticket v5 pipeline at a glance |
+| [workflow/screen-inventory-template.md](workflow/screen-inventory-template.md) | Screen Inventory artifact template (per-surface UI-scope decisions) |
+| [workflow/workflow-diagram.html](workflow/workflow-diagram.html) | Interactive visual diagram of the pipeline |
+| [developer-tools/self-hosted-runner-setup.md](developer-tools/self-hosted-runner-setup.md) | Provision the self-hosted runner that executes the v5 test workflows |
+| [developer-tools/](developer-tools/) | Operator tooling — the dumb loop driver, runner/hooks/VM setup guides |
 
 ---
 
