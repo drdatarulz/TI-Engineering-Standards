@@ -325,8 +325,8 @@ For each milestone, for each story in that milestone:
 
 ### Next Steps
 1. Review the created issues on the project board
-2. Run `refine-story-v4` on each story to add technical detail
-3. Use `orchestrate-v4` to begin implementation
+2. Run `refine-story-v5` on each story to add technical detail
+3. Use `orchestrate-v5` to begin implementation
 ```
 
 ---

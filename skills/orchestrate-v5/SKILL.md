@@ -27,7 +27,7 @@ This is the per-ticket pipeline WORKING mode runs for each of the up-to-N ticket
 3.   REVIEW (implementation) ─ engineering-review-v5 mode=implementation (tiers + TR grid + build + fast tests)
      └─ Loop: reviewer ↔ implementer (max 3 iterations)
      └─ On approve → continue to 3.5
-3.5. SECURITY REVIEW ──────── security-review-v4 (OWASP Top 10 + infrastructure)
+3.5. SECURITY REVIEW ──────── security-review-v5 (OWASP Top 10 + infrastructure)
      └─ Loop: reviewer ↔ implementer (max 2 iterations)
      └─ On pass → merge PR #1 (fast + integration gates must be green)
 4.   INTEGRATION TESTS ────── integration-test-v5 (real-infra only; creates PR #2)
@@ -529,9 +529,9 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 Run an OWASP Top 10 security analysis on the approved implementation PR. If the PR contains infrastructure files (`.bicep`, `Dockerfile`, `.github/workflows/*.yml`), the infrastructure security checklist runs automatically. Max 2 iterations (security issues that persist after one fix likely need human judgment).
 
-#### 3.5a. Spawn security-review-v4
+#### 3.5a. Spawn security-review-v5
 
-Read `.claude/skills/security-review-v4/SKILL.md` and substitute:
+Read `.claude/skills/security-review-v5/SKILL.md` and substitute:
 - `{PR_NUMBER}` → the implementation PR number
 - `{ISSUE_NUMBER}` → the GitHub issue number
 - `{STORY_ID}` → the story ID
@@ -544,7 +544,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
 #### 3.5b. Process security review result
 
-**Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v4 skill posts its own audit comment; verify it was posted but do not duplicate it.)
+**Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v5 skill posts its own audit comment; verify it was posted but do not duplicate it.)
 
 **If `STATUS: Passed`:**
 - Merge the PR:
@@ -857,7 +857,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   Omit the CI/CD Health table if all watchers reported `Passed` (i.e., nothing interesting happened).
   Use the per-ticket metrics tracked in `session_metrics.tickets[]` for this ticket. Tokens should be formatted with comma separators (e.g., `45,230`). Duration should be in human-readable format (e.g., `1m 35s`). Omit rows for phases that were skipped (e.g., if no integration tests were run, omit that row).
 
-  **Capturing the model per phase.** Every per-stage subagent skill (`refine-story-v5`, `implement-ticket-v5`, `engineering-review-v5`, `security-review-v4`, `integration-test-v5`, `ui-test-v5`) reports its model in the `MODEL:` line of its STATUS block. Extract that value verbatim and use it in the table above. Use the friendly name (e.g., `Opus 4.7`, `Sonnet 4.6`, `Haiku 4.5`) rather than the model ID. When a phase runs multiple iterations on different models (rare, but possible if you override per iteration), list them comma-separated (e.g., `Opus 4.7, Sonnet 4.6`).
+  **Capturing the model per phase.** Every per-stage subagent skill (`refine-story-v5`, `implement-ticket-v5`, `engineering-review-v5`, `security-review-v5`, `integration-test-v5`, `ui-test-v5`) reports its model in the `MODEL:` line of its STATUS block. Extract that value verbatim and use it in the table above. Use the friendly name (e.g., `Opus 4.7`, `Sonnet 4.6`, `Haiku 4.5`) rather than the model ID. When a phase runs multiple iterations on different models (rare, but possible if you override per iteration), list them comma-separated (e.g., `Opus 4.7, Sonnet 4.6`).
 
   **Capturing the orchestrator's own model.** Report the model the orchestrator (this session) is running on — read it from the system prompt's "You are powered by the model named …" line. Use the same friendly-name format.
 

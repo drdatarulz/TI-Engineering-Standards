@@ -440,7 +440,7 @@ Full reconciliation details: `{checklist_file_path}`
 ### Next Steps
 1. Review created/updated issues on the project board
 2. All tickets (new, updated, and flagged) have been refined via `refine-story-v5` — review refinement comments on each
-3. Use `implement-ticket-v4` to begin implementation
+3. Use `implement-ticket-v5` to begin implementation
 ```
 
 ---

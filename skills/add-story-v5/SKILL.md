@@ -59,7 +59,7 @@ REPO_NAME=$(echo "$REPO_NWO" | cut -d/ -f2)
 
 ### 0d. Resolve Project Board IDs
 
-Query GraphQL for project ID, field ID, and status option IDs (same pattern as orchestrate-v4 Step 0c).
+Query GraphQL for project ID, field ID, and status option IDs (same pattern as orchestrate-v5 Step 0c).
 
 ---
 
@@ -252,8 +252,8 @@ Tell the user what was created:
 | {number} | {PREFIX}-{number} | {title} | {milestone or "Standalone"} |
 
 **Next steps:**
-- Run `refine-story-v4 #{number}` to add technical detail
-- Or add to the next `orchestrate-v4` batch
+- Run `refine-story-v5 #{number}` to add technical detail
+- Or add to the next `orchestrate-v5` batch
 ```
 
 ---
