@@ -74,6 +74,8 @@ For each file changed in the PR, read the complete file (not just the diff) to u
 
 ## Step 2: Run Checklist
 
+**Review under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). The reviewer is the *adversarial* half of the discipline: do not trust the PR's prose or the spec's asserted data flows — **re-trace them to source (ED-1)** and try to prove them wrong (ED-2). A "checked" criterion or an asserted data flow with no backing source is flagged, not trusted (ED-3). Two checks below are ED applied: the Acceptance Criteria Integrity check (ED-1/ED-3) and the Ungrounded Claim / Data-Flow check (ED-1). Watch for hidden scope-forks (ED-4). Cite the ED rules by ID; do not restate them.
+
 ### v5 Test Enforcement (tiers + TR rules)
 
 This is the heart of v5 review: keep each behavior at its cheapest sufficient tier and the TR rules honest. Run the rows scoped to `{MODE}` (see the grid in Step 2.5), **plus TR-10 on every mode**. Cite `standards/testing.md` → Test Tiers / Test Rules. Each is **[JUDGMENT]** unless noted [CI].
@@ -200,9 +202,27 @@ that calls the API's endpoints. If direct access is genuinely warranted,
 get explicit approval from the project owner and document the exception.
 ```
 
+### Ungrounded Claim / Data-Flow Check (Implementation Mode, ED-1)
+
+The PR description and the linked spec assert how data moves — "captures X from the Y response", "the handler receives Z", "this effect re-fires on W". These are the claims most likely to be **plausible but never traced to source**, and they pass review silently because they *read* correctly.
+
+For each asserted data flow / payload shape / return type the PR relies on, **confirm it against the actual definition** (the DTO/type, the endpoint, the effect's dependency list) — don't accept the prose. The specific failure to catch: a spec asserts a field arrives on a payload that never carries it (e.g. "captured from the POST response" when the field only exists on a different GET response). If the implementation is built on an ungrounded claim, the feature is quietly broken even though every test the implementer wrote passes.
+
+**If an asserted data flow doesn't match the source:** blocking violation.
+
+```
+**[Standards Violation: Ungrounded Claim]**
+The PR/spec asserts "{claim}" but the source shows otherwise: `{type/endpoint}`
+(`{file}:{line}`) does not carry `{field}` / is keyed on `{actual}`. The behavior
+this relies on cannot work as written.
+
+**Standard:** `standards/engineering-discipline.md` — ED-1 (grounded claims)
+**Fix:** Re-trace the data flow to source and correct the approach (or the spec).
+```
+
 ### Scope Deferral & Acceptance Criteria Integrity Check (Implementation Mode Only)
 
-After reviewing the code, perform TWO checks:
+After reviewing the code, perform TWO checks. (Check 1 is ED-1/ED-3 applied: a checked criterion is a *claim* of completed work — it must be grounded in code, never trusted on assertion.)
 
 #### Check 1: Acceptance criteria vs. code (HARD GATE)
 
@@ -419,6 +439,6 @@ DETAILS:
 A FAIL on any [JUDGMENT] TR row means STATUS must be `ChangesRequested`, routed back to the owning skill.
 
 ---
-<!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-22 -->
+<!-- skill-version: 5.1 -->
+<!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->
