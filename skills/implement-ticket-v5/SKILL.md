@@ -63,6 +63,8 @@ Do NOT write any code until all three steps are complete.
 
 All rules from the 12 standards files apply — you loaded them in the Context Loading step above. The most commonly violated rules involve: Domain zero-dependency, Dapper-only, no mocking frameworks, hand-rolled fakes, no Co-Authored-By. When in doubt, re-check the standards files.
 
+**Implement under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). Do not code against an assumed data flow or contract — when your implementation depends on what a payload contains, what an endpoint returns, or how an interface behaves, **confirm it in the source first (ED-1)**, don't trust the spec's prose or a plausible mental model. Before you finalize the PR you run an **adversarial self-review (ED-2)** — see step 4.5. Cite the ED rules by ID; do not restate them.
+
 ## Scope Deferral Rules (Non-Negotiable)
 
 - **NEVER check off an acceptance criterion that you did not implement.** A checked checkbox means the code exists in this PR. If you cannot implement a criterion, leave it unchecked.
@@ -142,6 +144,14 @@ Use the build and test commands from the project's `CLAUDE.md`:
 - Every test must reach a real assertion — no silent passes, no `Skip`, no asserting buggy behavior (TR-8).
 - Confirm the full solution builds with no errors
 
+### 4.5. ADVERSARIAL SELF-REVIEW (ED-2) — before committing
+
+Treat the diff you just wrote as a suspect, not a finished product. Try to prove it wrong before the reviewer does:
+
+- **Re-trace each assumption to source (ED-1).** For every data flow / payload shape / return type / contract your code relies on, confirm it against the actual definition (`file:line`) — especially the ones that *felt* obviously right. A spec can assert a data flow the payload type never carried; do not inherit that error into the implementation.
+- **Acceptance-criteria integrity.** For every criterion you are about to check off, confirm the backing code actually exists in this diff. A checked box with no code is a phantom (ED-3) — leave it unchecked and report Partial.
+- **Scope-fork check (ED-4).** If your approach turned out to change blast radius or which test tiers apply (e.g., a "frontend-only" ticket that now needs an API/Contract change), surface it in the PR body and issue comment — don't hide it.
+
 ### 5. COMMIT & PUSH
 - Stage specific files by name (never `git add .`)
 - Commit message format: `{STORY_ID}: Concise description of why this change was made`
@@ -208,6 +218,8 @@ gh issue comment {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$(cat <<
 
 **Key decisions:**
 - [List decisions made during implementation]
+
+**Discipline self-check (ED):** Assumptions traced to source (ED-1); adversarial self-review run (ED-2); every checked criterion has backing code in the diff (no phantoms, ED-3); scope-forks surfaced (ED-4). See `standards/engineering-discipline.md`.
 
 **Status:** Ready for engineering review
 EOF
@@ -340,6 +352,6 @@ When invoked with `{FIX_MODE}=true`, you are addressing review feedback on an ex
    ```
 
 ---
-<!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-22 -->
+<!-- skill-version: 5.1 -->
+<!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->

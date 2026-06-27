@@ -10,6 +10,8 @@ You are refining a GitHub issue into a complete, implementation-ready specificat
 
 This skill is the **seed** step of *define → seed → enforce*: `standards/testing.md` defines the test tiers and Test Rules (TR-*), refine seeds them into the issue (a behavior-first test plan), and `engineering-review-v5` enforces them. Cite the TR rules by ID; do not restate them.
 
+**Work the spec under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-4). A refined spec is the single biggest place a confident-but-wrong assumption hides: this skill once asserted a data flow it never traced to the type. So every claim you write about how the code behaves is **grounded to an observed `file:line` (ED-1)**, the finished spec gets an **adversarial self-review (ED-2)** before it ships (Phase 3.5), anything you can't ground is **labeled a hypothesis (ED-3)**, and any approach that changes blast radius or test tiers is **surfaced as a scope fork (ED-4)**. Cite the ED rules by ID; do not restate them.
+
 **Orchestrator Mode:** When `{ORCHESTRATOR_MODE}` is `true` (substituted by the orchestrator), skip interactive questions (Phase 3) and make best-judgment decisions. When running standalone (the literal `{ORCHESTRATOR_MODE}` appears unsubstituted), use interactive mode.
 
 ## Phase 0: Resolve Project Context & Pull Latest
@@ -90,6 +92,8 @@ Launch parallel searches for full context. Adapt these based on what the issue r
 ## Phase 2: Identify Gaps
 
 Systematically check each category against what the issue currently provides. For each gap found, note whether it needs a user decision or can be resolved from codebase context alone.
+
+**Ground every behavioral claim as you go (ED-1).** When you write the Technical Approach, the File I/O Flow, the Interface Change, or any statement about how the system behaves — what a payload/type contains, what an endpoint returns, what an effect is keyed on, where a value flows — you must have **read it in the source** and you cite the `file:line`. Do not assert a data flow from a plausible mental model; open the type definition / endpoint / effect and confirm. A claim you cannot ground now is written as a hypothesis with the evidence needed to settle it (ED-3), never as fact. This is the exact failure to prevent: a tidy spec that asserts a data flow the payload type never carried.
 
 ### Gap Categories
 
@@ -200,11 +204,29 @@ For each gap that requires a user decision:
 
 After all decisions are resolved, present a summary of all decisions made before proceeding to Phase 4.
 
-### Auto-reveal withheld considerations (interactive mode only)
+## Phase 3.5: Adversarial Self-Review (ED-2) — ALL modes
 
-At the end of an interactive refinement, **automatically volunteer anything you considered but chose not to surface** — options you weighed and set aside, tradeoffs you resolved silently, things the human might want to weigh in on but that you didn't raise as a question. Do this *without being asked* — the user otherwise has to prompt for it every time. Keep it plain prose; **no taxonomy** (don't bucket into assumptions/ambiguities/exclusions), just surface the withheld considerations directly. The user can keep probing in conversation from there.
+Before composing the refined issue, treat the spec you are about to write as a **suspect to cross-examine, not a product to defend**. This runs in **every mode, including orchestrator mode** — it needs source access, not a human, so it is *not* skipped when `{ORCHESTRATOR_MODE}` is `true`.
 
-**If `{ORCHESTRATOR_MODE}` is `true`, SKIP this entirely** — no self-review, no escalation, just proceed to Phase 4.
+For every claim the spec asserts about how the code behaves — each data flow, payload shape, return type, effect dependency, contract — **re-trace it to the actual source (`file:line`) and try to prove it wrong (ED-1/ED-2).** The claims that *feel* obviously right are exactly the class that slips through; doubt those especially.
+
+- Any claim you cannot ground → demote to a **hypothesis (ED-3)**, labeled in the issue with the evidence needed to settle it.
+- If your chosen approach silently changes blast radius or which test tiers apply → surface it as a **scope fork (ED-4)**. In orchestrator mode, default to the **smallest-scope** option **and** record the fork as a follow-up — never silently pick the larger-blast-radius option.
+
+Concretely: open the type/endpoint/effect and confirm before the spec states it as fact. (A two-minute grep of the response type is what collapses an `overallGrade`-class data-flow error before it ever reaches the ticket.)
+
+### Proactive contribution — what I'd add (interactive mode only)
+
+After resolving decisions and the adversarial self-review, **automatically volunteer your own take on the ticket — without being asked.** This is the question the human always asks when writing a ticket; surface it every time so they don't have to prompt for it. Four parts:
+
+- **What we missed** — gaps you see in the ticket
+- **What we should consider** — angles, options, risks worth raising
+- **What I'd add** — your own recommendations to strengthen it
+- **What I considered and set aside** — options weighed and rejected, tradeoffs resolved silently
+
+Plain prose; **no taxonomy buckets** — surface the items directly. The user can keep probing from there. A genuine scope-fork (ED-4) that changes the work gets escalated as a decision, not buried in prose.
+
+**If `{ORCHESTRATOR_MODE}` is `true`, SKIP only this conversational surfacing** (not Phase 3.5) — instead fold the adversarial-review findings, any hypotheses (ED-3), and contribution items into the issue comment (4c), and create a follow-up ticket for any genuine scope-fork.
 
 ## Phase 4: Update the Issue
 
@@ -347,6 +369,10 @@ gh issue comment {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --body "$(cat <<
 
 **Open questions:** [None | list any that need manual attention]
 
+**Hypotheses (ED-3):** [None | each claim that could not be grounded to source, with the evidence needed to settle it]
+
+**Discipline self-check (ED):** Behavioral claims grounded to `file:line` (ED-1); adversarial self-review run (ED-2); ungrounded claims labeled as hypotheses above (ED-3); scope-forks surfaced (ED-4). See `standards/engineering-discipline.md`.
+
 ### TR checklist — refine (producer)
 
 Refine owns the test-plan rows. Fill PASS/FAIL **with evidence** (never a bare check). `engineering-review-v5` re-checks these adversarially.
@@ -385,6 +411,6 @@ OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-22 -->
+<!-- skill-version: 5.1 -->
+<!-- last-updated: 2026-06-27 -->
 <!-- pipeline: v5 -->
