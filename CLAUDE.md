@@ -77,6 +77,7 @@ Read each of these files — they contain the engineering rules and conventions 
 | [standards/database.md](standards/database.md) | SQL Server conventions, primary keys, timestamps, migrations |
 | [standards/documentation.md](standards/documentation.md) | XML docs, architecture docs (dual-format md + draw.io) |
 | [standards/dotnet.md](standards/dotnet.md) | .NET runtime, Minimal APIs, Dapper, DbUp, DI conventions |
+| [standards/engineering-discipline.md](standards/engineering-discipline.md) | How to work: grounded claims + adversarial self-review (ED-1..ED-4) |
 | [standards/error-handling.md](standards/error-handling.md) | Error responses, HTTP status codes, validation, pagination |
 | [standards/git-workflow.md](standards/git-workflow.md) | Branching, commits, PR process |
 | [standards/logging.md](standards/logging.md) | Serilog, log levels, correlation IDs, health checks |
@@ -123,6 +124,17 @@ The seven **pipeline** skills are now **v5** (four-tier model + TR enforcement �
 | File | Purpose |
 |------|---------|
 | [templates/CLAUDE-project.md](templates/CLAUDE-project.md) | Template CLAUDE.md for new projects — copy and fill in project-specific sections |
+
+---
+
+## How To Work (Universal)
+
+These habits apply to **every task on every project** — see [standards/engineering-discipline.md](standards/engineering-discipline.md) for the full rules (ED-1..ED-4):
+
+- **Confirm, don't guess (ED-1).** Trace any claim about how the code behaves to an observed `file:line` before writing it as fact. A plausible model is a hypothesis, not a fact.
+- **Falsify, don't rubber-stamp (ED-2).** Treat your own just-produced spec/ticket/PR as a suspect — try to break each claim before finalizing it.
+- **Label hypotheses (ED-3).** An ungrounded claim is written as a hypothesis with the evidence needed to settle it, never as established fact.
+- **Surface scope forks (ED-4).** If the chosen approach changes blast radius or which test tiers apply, say so — never let a ticket hide it.
 
 ---
 
