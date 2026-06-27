@@ -86,8 +86,9 @@ inventory (per-surface UI scope), the hand-built HTML diagram redrawn (WORKING/C
 CI watcher, CLEANUP box), a new self-hosted-runner setup guide in `developer-tools/`, and `CLAUDE.md`
 now indexes the workflow/process/templates layer. `templates/CLAUDE-project.md` was already v5-aligned.
 
-**All six phases of the v5 implementation plan are now complete.** Remaining optional follow-up:
-archive the v4 skills once you're ready (deferred by choice — see Cross-cutting).
+**All six phases of the v5 implementation plan are now complete**, and the v4 → v5 transition is
+finished: all thirteen v4 skills moved to `skills/archive/` (2026-06-27), v5 is the only synced
+generation. Nothing outstanding.
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -333,8 +334,7 @@ Apply G1 (copy vs. edit). Each skill cites `standards/testing.md` rather than re
   chunks/relaunches, CLEANUP fires, crash recovery works.
 - [x] **5.3 — Tuned N** against observed reliability.
 - [x] **5.4 — Lessons captured and folded back**: the v5 round-out (PR #5) and the Story ID fix (PR #6).
-  v5 is proven; rolling to other repos is unblocked. (v4-skill archival still deferred per earlier call —
-  see Cross-cutting.)
+  v5 is proven; rolling to other repos is unblocked. v4 skills archived 2026-06-27 (see Cross-cutting).
 
 ---
 
@@ -378,8 +378,9 @@ was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
 
 - [ ] Retire `notes/ui-test-anti-patterns.md` (now folded into the standard) — or keep for the SDET
   review history. Your call.
-- [ ] Once v5 is proven, update the standards-repo `CLAUDE.md` skills table and move v4 skills to
-  `skills/archive/` (per G1).
+- [x] Once v5 is proven, update the standards-repo `CLAUDE.md` skills table and move v4 skills to
+  `skills/archive/` (per G1). **Done 2026-06-27** — all 13 v4 skills archived; CLAUDE.md transition
+  note marked complete.
 - [ ] Keep `v5-changes.md` and this plan in sync if decisions change mid-build.
 
 ---
