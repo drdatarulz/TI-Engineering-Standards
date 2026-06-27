@@ -80,10 +80,14 @@ back into the standards repo along the way:
 - **Story ID in the ticket body** (PR #6, merged): the four ticket skills now put `{PREFIX}-{NNN}` in
   the description with a mechanical post-create backfill (was missing ~75% of the time).
 
-**Next action: Phase 6 — process documentation** (the final standards-repo phase). The workflow/process
-layer is still v4-coded and now actively contradicts what shipped. Phase 6 must also fold in the
-round-out (ED discipline, the six authoring/audit skills, the contribution step) — these post-date this
-plan's original Phase 6 list below.
+**Phase 6 — COMPLETE (2026-06-27)** (PR #7). The workflow/process layer rewritten to v5: master doc +
+README (mode-switching orchestrator, four-tier testing, UI on the runner, ED + contribution), screen
+inventory (per-surface UI scope), the hand-built HTML diagram redrawn (WORKING/CLEANUP, relaunch loop,
+CI watcher, CLEANUP box), a new self-hosted-runner setup guide in `developer-tools/`, and `CLAUDE.md`
+now indexes the workflow/process/templates layer. `templates/CLAUDE-project.md` was already v5-aligned.
+
+**All six phases of the v5 implementation plan are now complete.** Remaining optional follow-up:
+archive the v4 skills once you're ready (deferred by choice — see Cross-cutting).
 
 **Already done:** #9 UI-test anti-patterns are live in `standards/testing.md` (commit `de70473`).
 **Deferred (do NOT build):** #4 mutation testing (paydown only); the concurrent overseer (upgrade to #6).
@@ -347,20 +351,20 @@ was planned. Apply **G1** (copy-to-`-v5` vs. edit in place) per artifact.
   **self-hosted runner** execution (#8), the **mode-switching orchestrator + dumb loop** (#6, replaces
   the v4 supervisor/worker description), and the **TR checklist** dual sign-off (#10). Remove
   "Playwright gates every PR" and Docker-required-locally framing.
-- [ ] **6.2 — `workflow/workflow-diagram.html`**: regenerate for the v5 pipeline (currently labeled
+- [x] **6.2 — `workflow/workflow-diagram.html`**: regenerate for the v5 pipeline (currently labeled
   "v4 pipeline"). **Note:** hand-built HTML — regeneration is real work, not a tweak. G1 call:
   new `workflow-diagram-v5.html` vs. edit in place.
 - [x] **6.3 — `workflow/README.md`**: update the stage list, drop the "v4 pipeline" labels, point at
   the v5 diagram, refresh `-v4`→`-v5` skill names.
 - [x] **6.4 — `workflow/screen-inventory-template.md`**: add the **per-surface UI-scope decision**
   (#3 / TR-5) — record per surface whether it's in/out of UI-tier scope.
-- [~] **6.5 — `templates/CLAUDE-project.md` + the project entrypoint wrapper:** update test-run
+- [x] **6.5 — `templates/CLAUDE-project.md` + the project entrypoint wrapper:** update test-run
   patterns to the four tiers + trigger model; add the Contract tier; reference the TR checklist;
   refresh skill names per G1. **Also ship the thin driver wrapper** — a `templates/scripts/orchestrate.sh`
   (~3 lines: `git -C ../TI-Engineering-Standards pull --ff-only` → exec `developer-tools/orchestrate-loop.sh`
   with `--project-dir "$(pwd)"`) that projects vendor as `scripts/orchestrate.sh`, plus a documented
   one-command flow in the template CLAUDE.md: `git clone <project>` → `git pull` → `./scripts/orchestrate.sh`.
-- [ ] **6.6 — `developer-tools/`**: document the **self-hosted runner** setup (#8 — install-as-service,
+- [x] **6.6 — `developer-tools/`**: document the **self-hosted runner** setup (#8 — install-as-service,
   WSL2/Linux, Docker access, persistent-runner hygiene) — likely a new doc alongside the existing
   hooks/VM-scripts.
 - [x] **6.7 — Index `workflow/` in `CLAUDE.md`** — the folder is currently **not referenced** in the

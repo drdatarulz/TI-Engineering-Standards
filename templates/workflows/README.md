@@ -3,7 +3,9 @@
 Parameterized GitHub Actions workflows that implement the v5 trigger model
 (`standards/testing.md` → CI/CD Testing Tiers). They are **repo-agnostic templates** —
 the standards repo ships them, each project instantiates them once. All three run on a
-**self-hosted runner** (`runs-on: self-hosted`).
+**self-hosted runner** (`runs-on: self-hosted`) — see
+[developer-tools/self-hosted-runner-setup.md](../../developer-tools/self-hosted-runner-setup.md)
+to provision one.
 
 | Workflow | Tier | Trigger | Gates merge? |
 |----------|------|---------|--------------|

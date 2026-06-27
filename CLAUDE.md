@@ -139,6 +139,7 @@ The end-to-end agentic development process (discovery → PRD → backlog → or
 | [workflow/README.md](workflow/README.md) | Workflow overview + per-ticket v5 pipeline at a glance |
 | [workflow/screen-inventory-template.md](workflow/screen-inventory-template.md) | Screen Inventory artifact template (per-surface UI-scope decisions) |
 | [workflow/workflow-diagram.html](workflow/workflow-diagram.html) | Interactive visual diagram of the pipeline |
+| [developer-tools/self-hosted-runner-setup.md](developer-tools/self-hosted-runner-setup.md) | Provision the self-hosted runner that executes the v5 test workflows |
 | [developer-tools/](developer-tools/) | Operator tooling — the dumb loop driver, runner/hooks/VM setup guides |
 
 ---
