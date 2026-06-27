@@ -113,9 +113,9 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/triage-v5](skills/triage-v5/SKILL.md) | Interactive investigation and bug triage — evidence-first runtime diagnosis (pull the real exception before theorizing), never writes code, output is always a ticket |
 | [skills/conformance-v5](skills/conformance-v5/SKILL.md) | Audit a project against TI Engineering Standards incl. the v5 four-tier test model — informational only, produces a gap report |
 
-> **Note:** v1, v2, and v3 skills remain in `skills/archive/` for historical reference but are no longer actively maintained.
+> **Note:** v1–v4 skills remain in `skills/archive/` for historical reference but are no longer actively maintained or synced (the auto-sync protocol skips `archive/`).
 >
-> **v4 → v5 transition:** the v4 copies of the rebuilt skills **remain in `skills/`** and are still synced — v4 keeps running until v5 is proven on the pilot. Only then do the v4 copies move to `skills/archive/`. The round-out (the six authoring/audit skills: `prd-to-backlog-v5`, `add-story-v5`, `reconcile-backlog-v5`, `triage-v5`, `conformance-v5`, `security-review-v5`) plus the ED-discipline patches to `refine-story-v5` / `implement-ticket-v5` / `engineering-review-v5` are tracked in [notes/v5-round-out-plan.md](notes/v5-round-out-plan.md).
+> **v4 → v5 transition — COMPLETE (2026-06-27).** v5 is proven on the pilot; all thirteen v4 skills have been moved to `skills/archive/`. v5 is the only synced generation. The round-out (the six authoring/audit skills plus the ED-discipline patches to `refine-story-v5` / `implement-ticket-v5` / `engineering-review-v5`) is tracked in [notes/v5-round-out-plan.md](notes/v5-round-out-plan.md); the full build is in [notes/v5-implementation-plan.md](notes/v5-implementation-plan.md).
 
 ---
 
