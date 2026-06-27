@@ -5,7 +5,7 @@
 > rebuilt the **eight pipeline skills** to the four-tier + TR model. This plan covers the
 > **six remaining v4-only skills** — giving each a v5 that inherits the established v5 "ways"
 > plus one new cross-cutting pattern (the three-part proactive contribution step).
-> **Created:** 2026-06-26. **Status:** LOCKED — ready to execute (decisions resolved; build all at once).
+> **Created:** 2026-06-26. **Status:** EXECUTED 2026-06-27 on branch `v5-round-out-plan` (PR #5) — standard + 6 new skills + 3 ED patches built. Awaiting review/merge.
 > **Principle (carried over):** **define → seed → enforce**, single source of truth in
 > `standards/testing.md`, cite TR by ID, never restate.
 
@@ -164,11 +164,11 @@ Encode Pattern 0 as a standard so it reaches every project/instance from source:
 - The local memory entry (`grounded-and-adversarial`) stays as a personal stopgap, but the **standard
   is the source of truth**.
 
-## Still to confirm (non-blocking)
-- **Patterns G + D on the *other* existing v5 skills** (`implement-ticket-v5`, `engineering-review-v5`).
-  Recommended yes (the discipline is universal; engineering-review already has partial adversarial DNA
-  via the phantom-AC check) — but it expands blast radius beyond the six + refine. **Not auto-included;**
-  confirm before touching impl/review so we don't quietly balloon scope.
+## Resolved (was "still to confirm")
+- **Patterns G + D on the other existing v5 skills** (`implement-ticket-v5`, `engineering-review-v5`):
+  **CONFIRMED yes** (Kevin, 2026-06-27 — "patch everything"). Both patched: implement gets step 4.5
+  adversarial self-review (ED-2); engineering-review gets the Ungrounded Claim / Data-Flow check (ED-1)
+  and the ED-tagged phantom-AC check.
 
 ## Build footprint (what will change when we execute)
 - **Foundational (first):** new `standards/engineering-discipline.md` (ED-1..ED-4) + `CLAUDE.md`
