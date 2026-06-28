@@ -867,6 +867,16 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
   ```
   (Board automation moves it to Done)
 
+- **Branch cleanup (local hygiene).** The *remote* branches were already removed at each merge via `--delete-branch`; this clears the local leftovers so they don't pile up across a run. The per-merge `git branch -d … 2>/dev/null` is best-effort and **silently fails on squash-merges or unmerged-looking refs** — this sweep is the guarantee, and it also prunes the stale `origin/*` tracking refs that `--delete-branch` orphans (nothing else does):
+  ```bash
+  git checkout main && git pull origin main
+  git fetch --prune origin   # drop local origin/* refs for branches --delete-branch already removed
+  # delete every local branch whose upstream is "gone" (= its PR merged and the remote branch was deleted)
+  git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads \
+    | awk '$2=="[gone]"{print $1}' | grep -E '^(story|fix|task|ci-fix)/' | xargs -r git branch -D
+  ```
+  `-D` is safe here: a "gone" upstream means the work already merged to `main`. This also sweeps any `ci-fix/*` branches left by background CI repairs.
+
 Note: Acceptance criteria are primarily checked off in Stage 5b before merging, so this step is a safety net. The individual stage comments (Refinement, Implementation, Review results, Integration Tests) provide the audit trail, and the observability metrics comment provides the cost/performance record.
 
 ---
@@ -876,6 +886,12 @@ Note: Acceptance criteria are primarily checked off in Stage 5b before merging, 
 After processing N tickets (or when the scoped Ready queue empties mid-chunk):
 
 - Ensure every completed ticket is checkpointed (Stage 8) and the tracking-issue body reflects current state.
+- **Backstop branch sweep** — run the same prune + gone-upstream delete as Stage 8 once more, to catch any branch a per-ticket close missed (e.g. a hand-driven stage, or a merge whose Stage 8 didn't complete):
+  ```bash
+  git checkout main && git pull origin main && git fetch --prune origin
+  git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads \
+    | awk '$2=="[gone]"{print $1}' | grep -E '^(story|fix|task|ci-fix)/' | xargs -r git branch -D
+  ```
 
 **What happens next depends on whether a relaunch loop is driving you — detected by whether `ORCHESTRATE_N` is set (the dumb loop exports it; a direct session does not):**
 
@@ -1149,6 +1165,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.0 -->
-<!-- last-updated: 2026-06-24 -->
+<!-- skill-version: 5.1 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
