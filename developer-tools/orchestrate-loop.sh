@@ -212,6 +212,18 @@ while (( iter < MAX_ITER )); do
       echo "orchestrate-loop: no tracking issue yet (orchestrator hasn't created it) — relaunching." ;;
     [1-9]*)
       saw_issue=1
+      # Parked at a human gate? A milestone gate (orchestrate-v5 Stage 1a.1) sets
+      # `Run state: AWAITING_HUMAN` in the tracking-issue body before it halts. A headless loop
+      # can NOT clear a human gate, so relaunching just re-hits the same gate every iteration —
+      # a 50-iteration spin (the operator ends up Ctrl-C'ing). Stop cleanly and tell them how to
+      # resume instead. The issue stays OPEN, so a re-run picks the run back up.
+      hnum=$(gh issue list --label orchestration-run --state open --json number --jq '.[0].number // empty' 2>/dev/null)
+      if [[ -n "$hnum" ]] && gh issue view "$hnum" --json body --jq '.body' 2>/dev/null \
+           | grep -qi 'Run state:[[:space:]]*\**[[:space:]]*AWAITING_HUMAN'; then
+        echo "──── orchestrate-loop: run PAUSED at a human gate (issue #${hnum}) — not relaunching. ────"
+        echo "orchestrate-loop: approve via the issue's Operator-message slot (or rescope past the gate), then re-run." >&2
+        exit 0
+      fi
       if (( sentinel_seen )); then
         echo "orchestrate-loop: NOTE — session emitted $SENTINEL but the tracking issue is still OPEN; NOT stopping (a red bar or pending inject keeps the run live)."
       fi ;;
