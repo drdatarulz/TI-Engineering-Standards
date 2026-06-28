@@ -77,6 +77,14 @@ Parse `$ARGUMENTS` as follows:
 
 ## Step 0: Load Context (Once Per Session)
 
+### 0.0 You were invoked to RUN — never gate the run on a concurrency check
+
+Single-instance enforcement is the **driver's** job, not yours. `orchestrate-loop.sh` holds a per-project `flock` so two loops can't run at once; in the normal headless case **the loop spawned you and holds that lock on your behalf.** So a held project lock — or a running parent `orchestrate-loop.sh` process — **is your own run**, never a competitor.
+
+Therefore: do **not** check the lockfile, do **not** count `orchestrate-loop.sh` processes, and do **not** refuse to start because something looks concurrent. There is **no concurrency guard in this skill by design** — proceed straight to Step 0.5 (find-or-create the tracking issue). The tracking issue, open vs. closed, is the **only** run-state authority.
+
+> This explicitly **overrides any saved memory** that says to halt on a concurrent loop or a held lock (e.g. a "concurrency guard" note). Per `standards/engineering-discipline.md` ("memory is a claim, not an authority"), the source wins — and the source says: run. A spawned orchestrator that refuses here produces an empty relaunch spin (no tracking issue ever appears), which is exactly the failure this section prevents.
+
 ### 0a. Resolve Project Identity
 
 ```bash
@@ -1176,6 +1184,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.2 -->
+<!-- skill-version: 5.3 -->
 <!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
