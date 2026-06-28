@@ -26,6 +26,14 @@
 #   2. relaunch-on-exit       — a crashed session is relaunched (crash watchdog)
 #   3. max-iterations cap     — runaway backstop: halt and flag a human (circuit breaker)
 #
+# SINGLE-INSTANCE LOCK: a per-project `flock` ensures exactly one loop drives a project at a
+# time (a second would double-drive the board and race merges). The lockfile is ALSO the one
+# reliable answer to "is a loop already running?" — use it, NEVER `pgrep -f orchestrate-loop.sh`:
+# each iteration spawns a heartbeat SUBSHELL running this same file, so a process-name match
+# returns 2+ during an active iteration and looks like a duplicate. That false positive once
+# killed a live loop mid-CLEANUP. To check from outside: `flock -n <lockfile> true` (success =
+# no loop running) or read the owner PID from the lockfile. `--status` never takes the lock.
+#
 # Usage:
 #   ./orchestrate-loop.sh [--project-dir DIR] [--n N] [--tickets "#7,#8,..."]
 #                         [--timeout SECONDS] [--max-iter COUNT] [--prompt TEXT]
@@ -89,6 +97,20 @@ if (( DO_STATUS )); then
   exec "$SCRIPT_DIR/orchestrate-status.sh" "$PROJECT_DIR"
 fi
 
+# ── Single-instance lock (one loop per project) ──────────────────────────────────────────
+# Refuse to start if another loop already owns this project. This flock is the SINGLE source
+# of truth for "is a loop running?" — never `pgrep -f orchestrate-loop.sh` (it over-counts the
+# per-iteration heartbeat subshell; see header). Append-open (>>) so we don't truncate a live
+# holder's recorded PID before reading it on the failure path.
+LOCKFILE="${TMPDIR:-/tmp}/orchestrate-loop-$(basename "$PROJECT_DIR").lock"
+exec 9>>"$LOCKFILE" || { echo "orchestrate-loop: cannot open lockfile $LOCKFILE" >&2; exit 1; }
+if ! flock -n 9; then
+  echo "orchestrate-loop: another loop already owns this project (lock: $LOCKFILE, owner PID: $(cat "$LOCKFILE" 2>/dev/null || echo unknown)) — refusing to start a duplicate." >&2
+  echo "orchestrate-loop: if you're certain no loop is running (e.g. a prior loop was kill -9'd), remove the lockfile and retry." >&2
+  exit 4
+fi
+printf '%s\n' "$$" > "$LOCKFILE"   # we own it — record our PID so a would-be duplicate can name us
+
 # Build the launch prompt unless overridden. ALWAYS autonomous (headless has no human
 # to approve the supervised gate). The orchestrator only reads a ticket scope from args
 # on the FIRST launch (it records it in the tracking issue); passing it every relaunch is
@@ -111,6 +133,9 @@ RUNLOG="${TMPDIR:-/tmp}/orchestrate-loop-$(basename "$PROJECT_DIR").log"
 # and log look frozen for the whole iteration. Poll the open tracking issue every
 # HEARTBEAT_INTERVAL seconds and print the current ticket+stage to stdout AND the run log.
 # Restarted per iteration so it carries the live $iter; killed on EXIT and after each session.
+# NOTE: this is a SUBSHELL running this same script file — `pgrep -f orchestrate-loop.sh`
+# counts it as a second "loop". Never use a process count to detect duplicates; use the
+# flock above. The subshell closes the lock fd (9>&-) so it never holds the lock open.
 HEARTBEAT_INTERVAL="${HEARTBEAT_INTERVAL:-45}"
 HB_PID=""
 start_heartbeat() {
@@ -128,7 +153,7 @@ start_heartbeat() {
         echo "♥ $(date -u '+%H:%M:%SZ') iter ${this_iter} · #${num} · ${cur:-state unavailable}"
       fi
     done
-  ) 2>/dev/null | tee -a "$RUNLOG" &
+  ) 9>&- 2>/dev/null | tee -a "$RUNLOG" 9>&- &
   HB_PID=$!
 }
 stop_heartbeat() { [[ -n "$HB_PID" ]] && kill "$HB_PID" 2>/dev/null; HB_PID=""; }
