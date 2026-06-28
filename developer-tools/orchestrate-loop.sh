@@ -176,6 +176,14 @@ while (( iter < MAX_ITER )); do
   # the durable run log (tee -a), and capture it to $logfile so we can grep for the sentinel.
   # The heartbeat runs concurrently so the terminal/log keep moving while claude is silent.
   echo "── iteration ${iter} · $(date -u '+%H:%M:%SZ') ──" | tee -a "$RUNLOG"
+  # Remember if a tracking issue is already OPEN at launch. If a single session then adopts AND
+  # closes it (e.g. a CLEANUP relaunch that reaches the fixpoint on its first iteration — the
+  # exact case of re-running the loop to finish a parked run), the post-session "0 open" below
+  # is a fixpoint-CLOSE, not "issue never created." Without this the loop misreads it and
+  # relaunches into brand-new work (e.g. grabbing the next milestone instead of stopping).
+  if gh issue list --label orchestration-run --state open --json number --jq 'length' 2>/dev/null | grep -q '^[1-9]'; then
+    saw_issue=1
+  fi
   start_heartbeat "$iter"
   timeout "$TIMEOUT" claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee -a "$RUNLOG" "$logfile"
   rc=${PIPESTATUS[0]}
@@ -193,13 +201,29 @@ while (( iter < MAX_ITER )); do
   open_runs=$(gh issue list --label orchestration-run --state open --json number --jq 'length' 2>/dev/null || echo "?")
   case "$open_runs" in
     0)
-      if (( saw_issue )); then
-        echo "──── orchestrate-loop: tracking issue CLOSED — run reached fixpoint. Stopping. ────"
+      # Stop if we ever saw this run's issue open (pre- or post-session) OR the session emitted
+      # the real RUN_COMPLETE: with zero open issues, both mean the run reached its fixpoint and
+      # closed. (sentinel_seen is safe to trust HERE — the issue is genuinely gone; the #377
+      # "don't trust a substring" caveat only applies while an issue is still OPEN, below.)
+      if (( saw_issue || sentinel_seen )); then
+        echo "──── orchestrate-loop: tracking issue CLOSED / $SENTINEL — run reached fixpoint. Stopping. ────"
         exit 0
       fi
       echo "orchestrate-loop: no tracking issue yet (orchestrator hasn't created it) — relaunching." ;;
     [1-9]*)
       saw_issue=1
+      # Parked at a human gate? A milestone gate (orchestrate-v5 Stage 1a.1) sets
+      # `Run state: AWAITING_HUMAN` in the tracking-issue body before it halts. A headless loop
+      # can NOT clear a human gate, so relaunching just re-hits the same gate every iteration —
+      # a 50-iteration spin (the operator ends up Ctrl-C'ing). Stop cleanly and tell them how to
+      # resume instead. The issue stays OPEN, so a re-run picks the run back up.
+      hnum=$(gh issue list --label orchestration-run --state open --json number --jq '.[0].number // empty' 2>/dev/null)
+      if [[ -n "$hnum" ]] && gh issue view "$hnum" --json body --jq '.body' 2>/dev/null \
+           | grep -qi 'Run state:[[:space:]]*\**[[:space:]]*AWAITING_HUMAN'; then
+        echo "──── orchestrate-loop: run PAUSED at a human gate (issue #${hnum}) — not relaunching. ────"
+        echo "orchestrate-loop: approve via the issue's Operator-message slot (or rescope past the gate), then re-run." >&2
+        exit 0
+      fi
       if (( sentinel_seen )); then
         echo "orchestrate-loop: NOTE — session emitted $SENTINEL but the tracking issue is still OPEN; NOT stopping (a red bar or pending inject keeps the run live)."
       fi ;;

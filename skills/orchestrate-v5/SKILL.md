@@ -316,7 +316,12 @@ gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json labels --jq 
 
 1. Run the smoke test checklist from the milestone issue body
 2. Report milestone results to the user
-3. **STOP regardless of mode** (supervised or autonomous). Output:
+3. **Mark the run parked for a human, then STOP regardless of mode** (supervised or autonomous). First set `Run state: AWAITING_HUMAN` in the tracking-issue body — this is what stops the dumb loop from re-hitting this gate on every relaunch (a headless session can't approve a milestone, so without the marker the loop spins until `--max-iter`):
+   ```bash
+   # overwrite the tracking-issue body with **Run state:** AWAITING_HUMAN (milestone #{N} — {title})
+   gh issue edit {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --body "<body, Run state = AWAITING_HUMAN>"
+   ```
+   Leave the tracking issue **OPEN** (this is a pause, not a fixpoint — never `RUN_COMPLETE` here). The operator resumes by approving in the **operator-message slot** (e.g. "proceed past milestone #{N}") or rescoping past the gate, then re-running the loop; the next session that proceeds overwrites the body back to `Run state: WORKING`. Then output:
 
 ```
 ## Milestone Reached: {MILESTONE_TITLE}
@@ -979,6 +984,12 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 none
 
 **Mode (last session):** WORKING | CLEANUP
+**Run state:** WORKING | AWAITING_HUMAN
+<!-- WORKING normally. Set AWAITING_HUMAN ONLY when the run is parked at a human gate (a
+     milestone, Stage 1a.1). The dumb loop STOPS relaunching when it sees AWAITING_HUMAN — a
+     headless session can't clear a human gate, so re-launching would just re-hit it forever.
+     Every normal session overwrites this back to WORKING, so it clears itself once the
+     operator approves and a session proceeds past the gate. -->
 **Started:** <UTC>   **Last session:** <UTC>
 **Chunk size N:** 3   **Scope:** <ticket list | full board>
 
@@ -1165,6 +1176,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.1 -->
+<!-- skill-version: 5.2 -->
 <!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
