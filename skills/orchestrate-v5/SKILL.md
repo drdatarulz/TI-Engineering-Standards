@@ -69,7 +69,7 @@ Parse `$ARGUMENTS` as follows:
 1. **Supervision**: If the first word is `supervised` or `autonomous`, use it and consume it. Default `supervised` for interactive use; the dumb loop launches `autonomous`.
 2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v5 supervised #7,#8,#9,#10,#11`. In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets (do *these*, even if more sit in Up Next). On first launch the scope is **persisted to the tracking issue** (Step 0.5) so it survives relaunch; this is the only time launch args are read for scope. With no list, the scope is `full board` (= all Up Next, evaluated live).
    - **A bare integer is a ticket number** (`18` ≡ `#18` ≡ `HC-18`). The `#` and the `HC-`/`SF-` prefix are optional; a trailing number is **always** an issue to scope to. `autonomous 18` means "run issue #18" — it does **not** and **cannot** mean "run 18 tickets."
-3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2).
+3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2). **`ORCHESTRATE_N` being set is AUTHORITATIVE proof the loop is driving you and will relaunch you** — it is the driver's only source. Process up to N, then exit for relaunch (see WORKING chunk-completion). Never reinterpret a *set* `ORCHESTRATE_N` as a single-session run by inspecting processes or doubting the relaunch (cf. Step 0.0); a direct single-session run is signalled by `ORCHESTRATE_N` being *unset*, not by a guess.
 
 **Mode is NOT a launch argument — it is selected from durable state after Step 0** (see Mode Selection). `supervised`/`autonomous` only controls whether you stop between tickets.
 
@@ -906,9 +906,9 @@ After processing N tickets (or when the scoped Ready queue empties mid-chunk):
     | awk '$2=="[gone]"{print $1}' | grep -E '^(story|fix|task|ci-fix)/' | xargs -r git branch -D
   ```
 
-**What happens next depends on whether a relaunch loop is driving you — detected by whether `ORCHESTRATE_N` is set (the dumb loop exports it; a direct session does not):**
+**What happens next depends on whether a relaunch loop is driving you. This is determined SOLELY by the environment: `ORCHESTRATE_N` is set ⟺ the dumb loop spawned you and WILL relaunch you (the driver is its only source — `export ORCHESTRATE_N`). This signal is AUTHORITATIVE — do NOT second-guess it by inspecting processes, hunting for the parent `orchestrate-loop.sh`, or reasoning about whether a relaunch "will really happen" (cf. Step 0.0). If `ORCHESTRATE_N` is set, a loop IS driving you, full stop.**
 
-- **Looped run (`ORCHESTRATE_N` is set):** append `⟳ chunk done — exiting for relaunch` to the event log and **exit the session.** Do NOT roll into CLEANUP in this process — exiting and letting the loop relaunch is what gives the next chunk fresh context (#6). The relaunch re-runs Mode Selection: more scoped Ready → another WORKING chunk; none → CLEANUP.
+- **Looped run (`ORCHESTRATE_N` is set):** append `⟳ chunk done — exiting for relaunch` to the event log and **exit the session.** Do NOT roll into CLEANUP in this process — exiting and letting the loop relaunch is what gives the next chunk fresh context (#6). The relaunch re-runs Mode Selection: more scoped Ready → another WORKING chunk; none → CLEANUP. **Never keep processing extra scoped tickets "in case nothing relaunches you" — that downgrade defeats the whole point of chunked relaunch (fresh context per chunk) and is a contract violation: a `--n 1` run must do exactly one ticket and exit, not silently run the entire scope in one long session. `ORCHESTRATE_N` set is your proof a loop will pick up where you left off.**
 - **Single-session run (`ORCHESTRATE_N` unset — you were launched directly, not by the loop):** there is **no relaunch** to run the wrap-up, so **continue in this same session.** When the scoped Ready queue is empty, fall through to **CLEANUP** (below); let it reach the fixpoint and **close the tracking issue**. This is what makes a direct run self-complete and leave no dangling open `orchestration-run` issue. (You may still emit `RUN_COMPLETE` — harmless with no loop listening.)
 - In **supervised** mode, honor the Supervised Mode Gate (stop between tickets) regardless of the above. After the *last* scoped ticket and a final "proceed", a single-session run still falls through to CLEANUP and closes out; a looped run exits and the loop's next relaunch handles CLEANUP.
 
@@ -1184,6 +1184,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.3 -->
+<!-- skill-version: 5.4 -->
 <!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
