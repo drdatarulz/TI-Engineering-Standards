@@ -66,6 +66,17 @@ GitHub's **sub-issues** feature links stories to their parent milestone marker, 
 - Sub-issue linking uses the story's **database ID** (not the issue number) — retrieve it via the GraphQL API
 - Both the `prd-to-backlog` and `add-story` skills handle this linking automatically after creating issues
 
+### Post-build additions — the `followup` label
+
+A milestone's **original** stories are created up front (e.g. via `prd-to-backlog`) and carry only their type label (`story`/`bug`). **Any ticket created *after* a milestone's initial build** that belongs to the still-active milestone — mid-development bug fixes, post-staging items, scope additions surfaced during triage — **must**:
+
+1. Be linked as a **sub-issue of the active milestone marker** (per the rules above), and
+2. Carry the **`followup`** label, in addition to its type label.
+
+This keeps the original committed scope (`[story]`) distinct from everything added after the build (`[story,followup]` / `[bug,followup]`), so a milestone's growth is legible at a glance. **Never relabel the original stories.** Create the label if missing: `gh label create followup --repo {owner}/{repo} --description "Added after the milestone's initial build" --color "FBCA04"`.
+
+The convention is **manual by design** — the sub-issue link is the signal that a ticket belongs to the milestone, so it can't be inferred before the link exists. Projects may name the active milestone marker in their own `CLAUDE.md` so contributors know which marker to link against.
+
 ## GTD Labels
 
 Apply GTD labels as needed for workflow management:
