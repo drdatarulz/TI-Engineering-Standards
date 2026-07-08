@@ -69,7 +69,7 @@ Parse `$ARGUMENTS` as follows:
 1. **Supervision**: If the first word is `supervised` or `autonomous`, use it and consume it. Default `supervised` for interactive use; the dumb loop launches `autonomous`.
 2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v5 supervised #7,#8,#9,#10,#11`. In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets (do *these*, even if more sit in Up Next). On first launch the scope is **persisted to the tracking issue** (Step 0.5) so it survives relaunch; this is the only time launch args are read for scope. With no list, the scope is `full board` (= all Up Next, evaluated live).
    - **A bare integer is a ticket number** (`18` ≡ `#18` ≡ `HC-18`). The `#` and the `HC-`/`SF-` prefix are optional; a trailing number is **always** an issue to scope to. `autonomous 18` means "run issue #18" — it does **not** and **cannot** mean "run 18 tickets."
-3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default ~**3** — the measured reliability threshold). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2). **`ORCHESTRATE_N` being set is AUTHORITATIVE proof the loop is driving you and will relaunch you** — it is the driver's only source. Process up to N, then exit for relaunch (see WORKING chunk-completion). Never reinterpret a *set* `ORCHESTRATE_N` as a single-session run by inspecting processes or doubting the relaunch (cf. Step 0.0); a direct single-session run is signalled by `ORCHESTRATE_N` being *unset*, not by a guess.
+3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default **1** — one ticket per relaunch, for maximum fresh-context reliability; operators may raise it, e.g. `--n 3`, on runs of small low-risk tickets). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2). **`ORCHESTRATE_N` being set is AUTHORITATIVE proof the loop is driving you and will relaunch you** — it is the driver's only source. Process up to N, then exit for relaunch (see WORKING chunk-completion). Never reinterpret a *set* `ORCHESTRATE_N` as a single-session run by inspecting processes or doubting the relaunch (cf. Step 0.0); a direct single-session run is signalled by `ORCHESTRATE_N` being *unset*, not by a guess.
 
 **Mode is NOT a launch argument — it is selected from durable state after Step 0** (see Mode Selection). `supervised`/`autonomous` only controls whether you stop between tickets.
 
@@ -204,7 +204,21 @@ On each session, **immediately after Step 0.5 loads the tracking issue — befor
 1. **Read the slot.** If empty / `none`, skip to Step 0.6.
 2. **Act on it first — it sets context for this session.** It can tell you to: accept an already-completed green CI/UI run instead of re-dispatching, treat a blocker as resolved, skip/retry a stage, change scope, halt and wait, etc. Treat it as **higher priority than your default control flow** — it exists precisely to override a default that went wrong. Before re-dispatching or re-halting on any external job, this is also where you reconcile: *did the run I was waiting on already finish green?* (The autonomous version of that check belongs in the stage itself; the slot is the human backstop.)
 3. **Consume it — log verbatim + outcome.** Append an event-log comment: `✉ operator message handled: "<message>" → <action taken / result>`. This is both the audit trail and the idempotency mechanism — a handled message lives in the append-only log, never the slot.
-4. **Clear the slot — but only if unchanged.** When you overwrite the body this session, blank the slot back to `none` **only if its content still matches what you read in step 1.** If it changed (the operator dropped a *new* message mid-session), leave the new text for the next loop — never blank a message you did not read. This closes the one write race.
+4. **Clear the slot — but only if unchanged.** When you overwrite the body this session, blank the slot back to `none` **only if its content still matches what you last read from the live issue.** If it changed (the operator dropped a *new* message mid-session), do **not** blank it — go handle it now (loop back to step 2 for the new text) or, if you genuinely cannot act this session, leave it verbatim for the next loop. Never blank a message you did not read. This closes the write race.
+
+**The operator slot is READ-BEFORE-WRITE on EVERY body edit — not just once at session start.** This is the fix for the real failure the operator hit: they dropped "add these tickets to the run" into the slot, and the orchestrator *blew it away without acting on it.* The cause is that the body is rewritten many times per ticket (Stage transitions update `Current ticket`, checkpoints update progress — see "Keep the tracking issue live"). Each of those `gh issue edit … --body` calls is a full-body overwrite, and any one built from a stale in-memory copy silently clobbers a message that arrived after Step 0.55's first read.
+
+So treat **every** body write as a read-modify-write, never a blind overwrite from memory:
+
+```bash
+# BEFORE any `gh issue edit {TRACKING_ISSUE} --body`, re-fetch the LIVE body and re-read the slot:
+LIVE=$(gh issue view {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --json body --jq .body)
+# Extract the operator-slot text from $LIVE (the lines under "### 📨 Operator message" before "**Mode").
+```
+
+- **Slot still `none` / unchanged** → rebuild the body with your stage/progress updates and write; leave the slot `none`.
+- **Slot holds text you have NOT handled** (a mid-session drop) → **stop and handle it first** (steps 2–3 above) before you write anything else. Acting on a fresh "add #12,#13 to the run" mid-session means appending those tickets to the `Scope:` field — exactly the message the operator kept losing. Only after handling do you write, blanking the slot per step 4.
+- **Never** reconstruct the body from a copy captured earlier in the session and write it back — that is precisely what erases an in-flight message. The live issue is the source of truth for the slot on every write.
 
 **Guardrail — overrides are explicit, never silent.** If a message directs you past a **hard safety bar** (e.g. "mark done / close despite a red test", overriding *"if you see it, you own it"*), you may comply, but log it as an acknowledged override: `✉ operator OVERRIDE (acknowledged): <what bar, why> per operator message`. The escape hatch stays open; it just never happens invisibly.
 
@@ -300,7 +314,7 @@ WORKING mode processes **up to N** Ready tickets — those **in this run's scope
 
 At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's **Current ticket**.
 
-**Keep the tracking issue live — the orchestrator maintains it, every stage.** Update the body's `Current ticket: {STORY_ID} @ Stage {n} ({name})` field **every time you enter a new stage** below (refine → implement → review → security → integration → review → ui → review → checkpoint) with a `gh issue edit {TRACKING_ISSUE} --body`, so the issue always reflects the true current stage — for anyone monitoring the run, and so a relaunched process recovers accurate state — never a stale "Stage 1." Also append a short tracking-issue event-log **comment** at the high-level milestones — PR opened, PR merged, review REQUEST_CHANGES, ticket done — so the comment thread is a skimmable timeline. (The *detailed* per-stage audit still lands on the work ticket as before; the tracking issue carries the run-level summary.)
+**Keep the tracking issue live — the orchestrator maintains it, every stage.** Update the body's `Current ticket: {STORY_ID} @ Stage {n} ({name})` field **every time you enter a new stage** below (refine → implement → review → security → integration → review → ui → review → checkpoint) with a `gh issue edit {TRACKING_ISSUE} --body`, so the issue always reflects the true current stage. **Each of these body writes is a read-modify-write that re-reads the operator slot first (Step 0.55, step 4) — re-fetch the live body, preserve/act on the slot, then write.** These frequent per-stage overwrites are exactly how an in-flight operator message gets clobbered if you rebuild the body from a stale in-memory copy; never do that — for anyone monitoring the run, and so a relaunched process recovers accurate state — never a stale "Stage 1." Also append a short tracking-issue event-log **comment** at the high-level milestones — PR opened, PR merged, review REQUEST_CHANGES, ticket done — so the comment thread is a skimmable timeline. (The *detailed* per-stage audit still lands on the work ticket as before; the tracking issue carries the run-level summary.)
 
 For EACH ticket, execute these stages:
 
@@ -985,9 +999,11 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 ```markdown
 ## Orchestration Run
 
-### 📨 Operator message (read FIRST each session — Step 0.55)
-<!-- Operator: drop a course-correction here between loops. The orchestrator reads this
-     before any decision, acts on it, logs the result to a comment, and clears it to `none`.
+### 📨 Operator message (read FIRST each session, and re-read before every body write — Step 0.55)
+<!-- Operator: drop a course-correction here between loops (e.g. "add #12,#13 to the run").
+     The orchestrator reads this before any decision, acts on it, logs the result to a comment,
+     and clears it to `none`. It also re-reads this slot before EVERY body overwrite (each is a
+     read-modify-write) so a message dropped mid-session is never silently clobbered.
      Default value is `none`. -->
 none
 
@@ -999,7 +1015,7 @@ none
      Every normal session overwrites this back to WORKING, so it clears itself once the
      operator approves and a session proceeds past the gate. -->
 **Started:** <UTC>   **Last session:** <UTC>
-**Chunk size N:** 3   **Scope:** <ticket list | full board>
+**Chunk size N:** 1   **Scope:** <ticket list | full board>
 
 ### Progress
 - **Current ticket:** {STORY_ID} @ Stage {n} | none
@@ -1184,6 +1200,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.4 -->
-<!-- last-updated: 2026-06-28 -->
+<!-- skill-version: 5.5 -->
+<!-- last-updated: 2026-07-08 -->
 <!-- pipeline: v5 -->

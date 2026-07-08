@@ -6,7 +6,7 @@
 # all logic lives in `developer-tools/orchestrate-loop.sh` upstream, so this never drifts.
 #
 # Usage (from the project root):
-#   ./scripts/orchestrate.sh                          # full board, N=3, autonomous
+#   ./scripts/orchestrate.sh                          # full board, N=1, autonomous
 #   ./scripts/orchestrate.sh --tickets "#7,#8,#9"     # scope the run to these tickets
 #   ./scripts/orchestrate.sh --n 5 --timeout 2400     # any orchestrate-loop.sh flag
 #

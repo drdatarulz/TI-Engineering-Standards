@@ -45,7 +45,7 @@ if upd_s=$(date -u -d "$updated" +%s 2>/dev/null); then
 fi
 
 # pull a single-line field's value: strip up to and including the (last) matched label,
-# so a label sharing a line with another (e.g. "Chunk size N:** 3 **Scope:** #21,#23")
+# so a label sharing a line with another (e.g. "Chunk size N:** 1 **Scope:** #21,#23")
 # still yields just the value.
 field() { printf '%s\n' "$body" | grep -m1 -i "$1" | sed 's/[*`]//g' | sed "s/.*$1[[:space:]]*//I; s/[[:space:]]*\$//"; }
 # pull the bullet line(s) that follow a section header

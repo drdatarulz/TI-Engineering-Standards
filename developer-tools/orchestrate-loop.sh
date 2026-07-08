@@ -38,7 +38,7 @@
 #   ./orchestrate-loop.sh [--project-dir DIR] [--n N] [--tickets "#7,#8,..."]
 #                         [--timeout SECONDS] [--max-iter COUNT] [--prompt TEXT]
 #   ./orchestrate-loop.sh --status [--project-dir DIR]   # one-glance run status, then exit
-# Defaults: --project-dir "$(pwd)"  --n 3  --timeout 5400  --max-iter 50
+# Defaults: --project-dir "$(pwd)"  --n 1  --timeout 5400  --max-iter 50
 #
 # OBSERVABILITY: `claude -p` is silent until a session ends, so the loop prints a periodic
 # HEARTBEAT line (current ticket @ stage, polled from the tracking issue) every
@@ -57,7 +57,10 @@
 set -uo pipefail
 
 PROJECT_DIR="$(pwd)"
-N=3                 # tickets per WORKING chunk (measured reliability threshold ~3)
+N=1                 # tickets per WORKING chunk. Default 1: one ticket per relaunch = maximum
+                    # fresh-context reliability (each ticket gets a brand-new session). Raise it
+                    # (e.g. --n 3) to trade some context freshness for fewer relaunches on a run
+                    # of small, low-risk tickets; ~3 was the old measured reliability ceiling.
 TIMEOUT=5400        # per-session timeout, seconds (90m). This is a HANG guard, not a work
                     # budget — it should only ever fire on a wedged session, never mid-stage.
                     # A big story's implement ran ~30-45m on the pilot and kept tripping the
@@ -121,7 +124,7 @@ if [[ -z "$PROMPT" ]]; then
   PROMPT="$PROMPT."
 fi
 
-# The orchestrator reads N from the environment (config; default ~3).
+# The orchestrator reads N from the environment (config; default 1).
 export ORCHESTRATE_N="$N"
 
 # Durable trail for headless post-mortem (terminal scrollback is lost when unattended;
