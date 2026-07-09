@@ -45,7 +45,7 @@ The orchestrator is **stateless and relaunched** by the dumb loop: it self-selec
 
 ## Working discipline
 
-Every skill works under [standards/engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-4): confirm claims against source, adversarially self-review before finalizing. The ticket-producing skills end with a three-part contribution (*what we missed / should consider / I'd add*).
+Every skill works under [standards/engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-5): confirm claims against source, adversarially self-review before finalizing. The ticket-producing skills then hand the finished draft to a **two-lens cold read** (ED-5) — fresh-context subagents, one implementer and one product owner, read the ticket with none of the authoring conversation and report what's *missing*. Interactive mode only.
 
 ## Related
 

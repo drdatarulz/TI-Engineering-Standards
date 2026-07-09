@@ -1,6 +1,6 @@
 ---
 name: add-story-v5
-description: "Conversationally create one or more stories for an existing project. Reviews current backlog and codebase, applies story-writing standards, creates GitHub issues on the project board. Surfaces a three-part contribution before creating; supports a non-interactive mode for callers (reconcile / orchestrator)."
+description: "Conversationally create one or more stories for an existing project. Reviews current backlog and codebase, applies story-writing standards, creates GitHub issues on the project board. Runs a two-lens cold read (ED-5) before creating; supports a non-interactive mode for callers (reconcile / orchestrator)."
 argument-hint: "[description of what to add, or leave blank for interactive mode]"
 ---
 
@@ -10,9 +10,9 @@ You are adding stories to an existing project backlog. You work conversationally
 
 You do NOT implement anything. You produce stories.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). When a story references how the existing code behaves (an entity, an endpoint, a screen, a pattern to follow), **ground it in the source (ED-1)** — don't assert from a plausible mental model. Before creating issues, adversarially re-check your proposal (ED-2) and **surface your own take** — what we missed / should consider / I'd add (Phase 3.5). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). When a story references how the existing code behaves (an entity, an endpoint, a screen, a pattern to follow), **ground it in the source (ED-1)** — don't assert from a plausible mental model. Before creating issues, adversarially re-check your proposal (ED-2), then hand the drafted stories to a **two-lens cold read by fresh-context subagents (ED-5, Phase 3.5)** — you are the one person who cannot see what they left out. Cite the ED rules by ID; do not restate them.
 
-**Mode:** Standalone/interactive by default. When invoked **non-interactively** by another skill (`reconcile-backlog-v5`) or the orchestrator — signalled by the caller passing a full story spec and `NONINTERACTIVE=true` — skip the clarifying questions (Phase 2) and the conversational surfacing in Phase 3.5; make best-judgment decisions from codebase patterns and fold the contribution items into the issue body instead. The grounding (ED-1) and adversarial self-review (ED-2) still run.
+**Mode:** Standalone/interactive by default. When invoked **non-interactively** by another skill (`reconcile-backlog-v5`) or the orchestrator — signalled by the caller passing a full story spec and `NONINTERACTIVE=true` — skip the clarifying questions (Phase 2) and the cold read (Phase 3.5, ED-5 is interactive-only); make best-judgment decisions from codebase patterns and proceed. The grounding (ED-1) and adversarial self-review (ED-2) still run.
 
 ## Phase 0: Load Context
 
@@ -134,20 +134,28 @@ Wait for user approval before creating issues.
 
 ---
 
-## Phase 3.5: Adversarial Self-Review & Contribution
+## Phase 3.5: Adversarial Self-Review & Cold Read
 
-Before creating anything, cross-examine your own proposal, then volunteer your take.
+Before creating anything, cross-examine your own proposal, then hand it to fresh eyes.
 
 **Adversarial self-review (ED-2) — runs in every mode.** Re-check each story against the source: do the entities, screens, endpoints, and "follow the existing pattern" references actually exist as described (ED-1)? Anything you couldn't confirm is flagged, not assumed (ED-3). Does any story silently change blast radius or pull in more than its slice implies (ED-4)?
 
-**Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer this without being asked, *at this pre-creation checkpoint* so the user can act on it before issues are made. It is not optional and not skippable; if a section has nothing material, say so explicitly ("nothing I'd add") — silence is not the same as surfacing it. Plain prose, four parts:
+**Cold read (ED-5) — interactive mode only.** This pre-creation checkpoint *is* the handback point, so the cold read attaches here, before any issue exists. See `standards/engineering-discipline.md` → ED-5 for the rule; this is its wiring.
 
-- **What we missed** — capabilities, edge cases, or dependencies the description didn't mention but the backlog/codebase implies
-- **What we should consider** — sequencing, milestone boundaries, alternatives to the proposed split
-- **What I'd add** — criteria or watch-outs that strengthen the stories
-- **What I considered and set aside** — splits/groupings weighed and rejected, with why
+Spawn **two subagents in parallel** (one message, two `Agent` calls). Each receives **the drafted story bodies verbatim and nothing else from this session** — not the conversation that produced them, not your reasoning, not a summary of intent. They must see only what a developer picking the story up cold would see.
 
-In **non-interactive mode**, skip the conversational surfacing and fold these items into the issue body (a `## Notes` section) instead; a genuine scope-fork becomes a flagged follow-up rather than a silent choice.
+| Reader | Give it | It asks |
+|---|---|---|
+| **Implementer** | The drafted stories + repo access | *Can I build exactly this, and will I know when I'm done?* |
+| **Product owner / BA** | The drafted stories + the PRD, Screen Inventory, and Decisions Log **if the project has them** + `standards/story-writing-standards.md` | *Does this deliver the outcome someone wanted, and what happens to everyone it touches?* |
+
+Give each reader the **reader contract** verbatim (ED-5 → *The reader contract*).
+
+**Ground the product reader (ED-1).** `add-story-v5` frequently runs on projects with no PRD loaded. If there is none, **say so to the reader** — an ungrounded product lens invents requirements, worse than saying nothing.
+
+Present per ED-5 → *What you hand back*: the cold read, then your set-asides (splits and groupings you weighed and rejected, each with its reversal condition). Then wait for approval.
+
+In **non-interactive mode** (`NONINTERACTIVE=true`), **skip the cold read entirely** — there is no human to read it (ED-5). The self-review above still runs; fold its hypotheses (ED-3) into the issue body as a `## Notes` section, and make a genuine scope-fork a flagged follow-up rather than a silent choice.
 
 ---
 
@@ -250,7 +258,7 @@ If adding stories to an **existing** milestone, use the same process — get the
 
 ### 4d. Confirm
 
-> **ED-5 backstop:** the creation report below does **not** replace your proactive contribution. You must have surfaced it at the Phase 3.5 checkpoint — if you reached this step without doing so, surface it now before confirming.
+> **ED-5 backstop (interactive mode):** the creation report below does **not** replace the cold read. You must have run it and surfaced its findings at the Phase 3.5 checkpoint — if you reached this step without doing so, the issues were created before anyone read them cold. Surface it now before confirming.
 
 Tell the user what was created:
 
@@ -267,7 +275,7 @@ Tell the user what was created:
 ```
 
 ---
-<!-- skill-version: 5.2 -->
-<!-- last-updated: 2026-06-28 -->
+<!-- skill-version: 5.3 -->
+<!-- last-updated: 2026-07-09 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

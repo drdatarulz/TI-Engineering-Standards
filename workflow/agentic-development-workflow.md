@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a **mode-switching orchestrator** (`orchestrate-v5`, relaunched by a dumb loop) running a PR-based pipeline with review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code. Every skill works under [engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-4: confirm against source, adversarially self-review).
+This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a **mode-switching orchestrator** (`orchestrate-v5`, relaunched by a dumb loop) running a PR-based pipeline with review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code. Every skill works under [engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-5: confirm against source, adversarially self-review, cold-read the ticket with fresh eyes).
 
 The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift, and milestone-based review gates to ensure human validation at meaningful intervals.
 
@@ -476,7 +476,7 @@ When picking up a project after significant time away:
 
 ## Skills Reference (v5)
 
-All skills work under `standards/engineering-discipline.md` (ED-1..ED-4); the ticket-producing skills end with a three-part contribution (*what we missed / should consider / I'd add*).
+All skills work under `standards/engineering-discipline.md` (ED-1..ED-5); the ticket-producing skills hand the finished draft to a **two-lens cold read** (ED-5) — fresh-context subagents, one implementer and one product owner, reporting what the ticket is *missing*. Interactive mode only: a ticket refined unattended mid-development never receives one, and `engineering-review-v5` is its backstop.
 
 ### Story Creation & Backlog Maintenance
 | Skill | Purpose |
@@ -511,7 +511,7 @@ All skills work under `standards/engineering-discipline.md` (ED-1..ED-4); the ti
 | project-tracking.md | Board structure, labels, custom fields, issue types |
 | environments.md | Environment definitions, Bicep conventions, pipeline structure, promotion flow, conformance checklist |
 | testing.md | Four-tier test model (Unit/Contract/Integration/UI), TR-1..TR-11 rules, CI/CD trigger model, critical-path |
-| engineering-discipline.md | How to work: grounded claims + adversarial self-review (ED-1..ED-4) |
+| engineering-discipline.md | How to work: grounded claims + adversarial self-review + two-lens cold read (ED-1..ED-5) |
 | git-workflow.md | Branching, commits, PR process, deployment strategy |
 | architecture.md | Dependency inversion, interface-first design, project layering |
 | api-design.md | Endpoint return types, DTOs, serialization, naming conventions |

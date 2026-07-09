@@ -10,7 +10,7 @@ You are refining a GitHub issue into a complete, implementation-ready specificat
 
 This skill is the **seed** step of *define → seed → enforce*: `standards/testing.md` defines the test tiers and Test Rules (TR-*), refine seeds them into the issue (a behavior-first test plan), and `engineering-review-v5` enforces them. Cite the TR rules by ID; do not restate them.
 
-**Work the spec under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). A refined spec is the single biggest place a confident-but-wrong assumption hides: this skill once asserted a data flow it never traced to the type. So every claim you write about how the code behaves is **grounded to an observed `file:line` (ED-1)**, the finished spec gets an **adversarial self-review (ED-2)** before it ships (Phase 3.5), anything you can't ground is **labeled a hypothesis (ED-3)**, and any approach that changes blast radius or test tiers is **surfaced as a scope fork (ED-4)**. Cite the ED rules by ID; do not restate them.
+**Work the spec under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). A refined spec is the single biggest place a confident-but-wrong assumption hides: this skill once asserted a data flow it never traced to the type. So every claim you write about how the code behaves is **grounded to an observed `file:line` (ED-1)**, the finished spec gets an **adversarial self-review (ED-2)** before it ships (Phase 3.5), anything you can't ground is **labeled a hypothesis (ED-3)**, and any approach that changes blast radius or test tiers is **surfaced as a scope fork (ED-4)**. Then the finished spec goes to a **two-lens cold read by fresh-context subagents (ED-5)** — interactive mode only — because the author is the one person who cannot see what the ticket left out. Cite the ED rules by ID; do not restate them.
 
 **Orchestrator Mode:** When `{ORCHESTRATOR_MODE}` is `true` (substituted by the orchestrator), skip interactive questions (Phase 3) and make best-judgment decisions. When running standalone (the literal `{ORCHESTRATOR_MODE}` appears unsubstituted), use interactive mode.
 
@@ -215,20 +215,17 @@ For every claim the spec asserts about how the code behaves — each data flow, 
 
 Concretely: open the type/endpoint/effect and confirm before the spec states it as fact. (A two-minute grep of the response type is what collapses an `overallGrade`-class data-flow error before it ever reaches the ticket.)
 
-### Prepare your proactive contribution (ED-5)
+### Note your set-asides (ED-5)
 
-From the adversarial self-review, assemble your own take on the ticket — four parts:
+As you work, keep a running note of the branches you **weighed and rejected** — approaches, splits, extra criteria, tradeoffs you resolved silently. These are the one half of ED-5 the cold reader structurally cannot produce (it never weighed anything), so they have to come from you.
 
-- **What we missed** — gaps you see in the ticket
-- **What we should consider** — angles, options, risks worth raising
-- **What I'd add** — your own recommendations to strengthen it
-- **What I considered and set aside** — options weighed and rejected, tradeoffs resolved silently
+Record a set-aside **only if you can name the condition that would reverse it.** *"Considered making the sync idempotent; set aside because retries seemed out of scope — would reverse if the caller can retry"* is a set-aside. *"Called it `SyncTask` rather than `SyncJob`"* is trivia; drop it.
 
-Plain prose; **no taxonomy buckets**. A genuine scope-fork (ED-4) that changes the work gets escalated as a decision, not buried in prose.
+You surface these in **4e**, together with the cold read. Not here.
 
-**You do not deliver it here — you deliver it in 4e as the terminal output (ED-5).** This is deliberate: the contribution is the only output that produces no durable artifact, so if it's surfaced mid-skill it gets swallowed by the "issue updated, report done" wrap-up. Prepare it now; surface it *last*.
+A genuine scope-fork (ED-4) that changes the work is *not* a set-aside — escalate it as a decision.
 
-**If `{ORCHESTRATOR_MODE}` is `true`** (no human): don't surface conversationally — instead fold the adversarial-review findings, any hypotheses (ED-3), and contribution items into the issue comment (4c), and create a follow-up ticket for any genuine scope-fork.
+**If `{ORCHESTRATOR_MODE}` is `true`** (no human): the cold read does not run at all (ED-5 is interactive-only). Fold the adversarial-review findings and any hypotheses (ED-3) into the issue comment (4c), and create a follow-up ticket for any genuine scope-fork. Then proceed on best judgment — do not stop and ask.
 
 ## Phase 4: Update the Issue
 
@@ -397,16 +394,28 @@ EOF
 
 **If running standalone:** Look up the project board IDs dynamically (query GraphQL for the project, field, and option IDs), then update the item's status to "Up Next".
 
-### 4e. Confirm / Report
+### 4e. Cold Read, then Confirm / Report
 
-**Standalone mode — the refinement is NOT complete until you do this (ED-5).** Your final message to the user has two parts, in this order:
+**If `{ORCHESTRATOR_MODE}` is `true`, SKIP the cold read** and go straight to the structured report. ED-5 is interactive-only — see `standards/engineering-discipline.md` → ED-5.
 
-1. **Your proactive contribution** (the four-part take you prepared in Phase 3.5) — *what we missed / what we should consider / what I'd add / what I considered and set aside*. This is mandatory and comes first. Do not let "the issue is updated" stand in for it.
-2. Then the confirmation: the issue has been updated and moved to "Up Next", with a link.
+**Standalone mode — the refinement is NOT complete until the cold read is surfaced (ED-5).**
 
-If you have nothing material for a section, say so explicitly ("nothing I'd add beyond the spec") — silence is not the same as having surfaced it. A genuine scope-fork goes to the user as a decision, not a prose aside.
+**Run the cold read.** Spawn **two subagents in parallel** (one message, two `Agent` calls). Each receives the **refined issue body verbatim and nothing else from this session** — no summary of your intent, no decisions list, no reasoning trail. The whole value is that they cannot see what you meant, only what you wrote.
 
-**Orchestrator mode:** Return a structured report (the contribution was folded into the issue comment per Phase 3.5):
+| Reader | Give it | It asks |
+|---|---|---|
+| **Implementer** | The issue body + repo access + `standards/testing.md` | *Can I build exactly this, and will I know when I'm done?* |
+| **Product owner / BA** | The issue body + the PRD, Screen Inventory, and Decisions Log **if the project has them** + `standards/story-writing-standards.md` | *Does this deliver the outcome someone wanted, and what happens to everyone it touches?* |
+
+Give each reader the **reader contract** verbatim (ED-5 → *The reader contract*).
+
+**Ground the product reader (ED-1).** `refine-story-v5` often runs with no PRD in reach. If the project has none, **tell the reader so explicitly** — an ungrounded product lens invents business requirements, which is worse than saying nothing.
+
+Compose the final message per ED-5 → *What you hand back*: the cold read, then your Phase 3.5 set-asides, then the confirmation (issue updated and moved to "Up Next", with a link).
+
+**Do not edit the issue from the cold read.** The findings are a conversation. If the user accepts some, apply them on the next turn, in one edit. A genuine scope-fork goes to the user as a decision, not a prose aside.
+
+**Orchestrator mode:** Return a structured report (no cold read was run):
 
 ```
 STATUS: Refined
@@ -416,11 +425,11 @@ DECISIONS_COUNT: [number of decisions made]
 SECTIONS_UPDATED: [comma-separated list]
 BEHAVIORS_COUNT: [rows in the behavior-first Test Coverage table]
 CRITICAL_PATH_COUNT: [behaviors marked Critical? ✓ | 0]
-CONTRIBUTION_SURFACED: [standalone: yes — to the user | orchestrator: folded into issue comment]
+COLD_READ: [standalone: surfaced — N findings (X blocking) | orchestrator: skipped — no human (ED-5)]
 OPEN_QUESTIONS: [None | count]
 ```
 
 ---
-<!-- skill-version: 5.3 -->
-<!-- last-updated: 2026-06-28 -->
+<!-- skill-version: 5.4 -->
+<!-- last-updated: 2026-07-09 -->
 <!-- pipeline: v5 -->

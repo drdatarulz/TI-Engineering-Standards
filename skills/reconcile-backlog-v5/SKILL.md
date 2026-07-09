@@ -1,6 +1,6 @@
 ---
 name: reconcile-backlog-v5
-description: "Reconcile PRD version changes against an existing backlog and codebase. Diffs the old and new PRDs, classifies each change as new ticket / update existing ticket / no action, surfaces a three-part contribution, and executes via add-story-v5 + refine-story-v5 after user approval. Uses a checklist file for state tracking."
+description: "Reconcile PRD version changes against an existing backlog and codebase. Diffs the old and new PRDs, classifies each change as new ticket / update existing ticket / no action, runs a two-lens cold read (ED-5), and executes via add-story-v5 + refine-story-v5 after user approval. Uses a checklist file for state tracking."
 argument-hint: "[old PRD path] [new PRD path] [optional: --decisions-log path]"
 ---
 
@@ -10,7 +10,7 @@ You are reconciling changes between two versions of a PRD against an existing pr
 
 You do NOT implement anything. You produce and update stories.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Your classifications hinge on claims about what's already built — **"already implemented", "needs a code change", "unaffected"** — and those are exactly the claims most likely to be plausible-but-wrong. **Ground every "already built / not built" classification in the source (ED-1)**; never classify from a plausible memory of the codebase. Adversarially re-check the classification set and **surface your own take** before executing (ED-2, Phase 4). Anything you can't confirm is flagged, not assumed (ED-3). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Your classifications hinge on claims about what's already built — **"already implemented", "needs a code change", "unaffected"** — and those are exactly the claims most likely to be plausible-but-wrong. **Ground every "already built / not built" classification in the source (ED-1)**; never classify from a plausible memory of the codebase. Adversarially re-check the classification set (ED-2), then hand it to a **two-lens cold read by fresh-context subagents (ED-5)** before executing (Phase 4). Anything you can't confirm is flagged, not assumed (ED-3). Cite the ED rules by ID; do not restate them.
 
 ---
 
@@ -288,16 +288,28 @@ Present the full plan to the user in conversation. Structure it as:
 **Ready to execute? Or adjust anything first?**
 ```
 
-### Adversarial self-review & contribution (before the plan above)
+### Adversarial self-review & cold read (before the plan above)
 
-Cross-examine the classification set, then volunteer your take alongside the plan:
+Cross-examine the classification set, then hand it to fresh eyes:
 
-- **Adversarial self-review (ED-2).** For every "already built / unaffected / needs a code change" classification, confirm it against the source (ED-1) — open the file, don't classify from memory. A wrong "already built" silently drops needed work; a wrong "needs change" creates phantom tickets. Anything unconfirmed is flagged as a hypothesis (ED-3), not a settled classification.
-- **Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer it alongside the plan, every time; not optional, not skippable; if a section has nothing material, say so explicitly:
-  - **What we missed** — PRD deltas with no row, or ripple effects of a change beyond the obvious ticket
-  - **What we should consider** — classifications you were unsure about, merges/splits, sequencing
-  - **What I'd add** — flag tickets or watch-outs the diff implies
-  - **What I considered and set aside** — classifications weighed and rejected, with why
+**Adversarial self-review (ED-2).** For every "already built / unaffected / needs a code change" classification, confirm it against the source (ED-1) — open the file, don't classify from memory. A wrong "already built" silently drops needed work; a wrong "needs change" creates phantom tickets. Anything unconfirmed is flagged as a hypothesis (ED-3), not a settled classification.
+
+**Cold read (ED-5).** The plan-approval gate below is the handback point, so the cold read attaches here. See `standards/engineering-discipline.md` → ED-5 for the rule; this is its wiring.
+
+**This is the only cold read in the reconcile flow.** Phase 5 invokes `add-story-v5` and `refine-story-v5` non-interactively, and ED-5 does not run unattended — so anything the readers don't catch here is never read cold by anyone. Weight it accordingly.
+
+Spawn **two subagents in parallel** (one message, two `Agent` calls). Each receives **the classification plan verbatim and nothing else from this session** — not your reasoning about why each row landed where it did.
+
+| Reader | Give it | It asks |
+|---|---|---|
+| **Implementer** | The plan + repo access | *Is each "already built" actually built, and is each "needs a change" actually buildable as scoped?* |
+| **Product owner / BA** | The plan + **both PRD versions** + the Screen Inventory | *Does this plan absorb every delta the new PRD introduced, and what does it do to users of the old behavior?* |
+
+Give each reader the **reader contract** verbatim (ED-5 → *The reader contract*).
+
+The product reader has both PRDs, so hold it to ED-1: every claimed gap cites the PRD delta it comes from. Its highest-value question is the one the plan's own structure hides — *which change in the new PRD has no row at all?*
+
+Present per ED-5 → *What you hand back*, alongside the plan: the cold read, then your set-asides (classifications and merges/splits you weighed and rejected, each with its reversal condition).
 
 **STOP and wait for user approval.** The user may:
 - Approve as-is → proceed to Phase 5
@@ -325,7 +337,7 @@ For each approved new ticket (NT-*), **invoke the `add-story-v5` skill** rather 
 - The target milestone
 - The source context: "PRD reconciliation {Old Version} → {New Version}, {Decision reference}"
 
-In non-interactive mode add-story-v5 still runs its grounding (ED-1) and adversarial self-review (ED-2), and folds its contribution items into the issue body rather than asking you.
+In non-interactive mode add-story-v5 still runs its grounding (ED-1) and adversarial self-review (ED-2), and folds its hypotheses (ED-3) into the issue body rather than asking you. It does **not** run a cold read — ED-5 is interactive-only, and yours (above) was the flow's one cold read.
 
 The add-story skill will:
 1. Review the current backlog and codebase for context
@@ -411,7 +423,7 @@ Mark all rows in the reconciliation progress table as `✅ Done`.
 
 ## Phase 6: Report
 
-> **ED-5 backstop:** this report does not replace your proactive contribution — that must have been surfaced with the Phase 4 plan. Don't let "reconciliation complete" stand in for it.
+> **ED-5 backstop:** this report does not replace the cold read — that must have been run and surfaced with the Phase 4 plan. Don't let "reconciliation complete" stand in for it.
 
 ```markdown
 ## Reconciliation Complete: {Old Version} → {New Version}
@@ -460,7 +472,7 @@ If the skill is re-invoked or context is compressed mid-run:
 3. **Resume from the incomplete phase** — do not repeat completed work
 
 ---
-<!-- skill-version: 5.1 -->
-<!-- last-updated: 2026-06-28 -->
+<!-- skill-version: 5.2 -->
+<!-- last-updated: 2026-07-09 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
