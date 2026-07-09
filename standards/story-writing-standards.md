@@ -138,7 +138,7 @@ Acceptance criteria are the contract between the story and the developer. They a
 
 **Always create new stories through the `add-story-v5` skill — never hand-roll `gh issue create`.** This applies to *every* new story, including ones that surface mid-flow: a "companion" story, a split discovered during `refine-story-v5`, or a finding raised during an adversarial review. When the need for a new story appears while you are already inside another skill or flow, stop and invoke `add-story-v5` for the creation step, then resume.
 
-The skill is not a convenience wrapper around issue creation — it runs a pre-creation story-writing-standards check, an adversarial self-review (ED-2), and surfaces the three-part contribution (ED-5) *before* the issue exists, then standardizes board wiring (`project-tracking.md`). Bypassing it skips that discipline at the one moment it is cheapest to apply; the cost shows up later as understated scope, missed dependencies, or blast-radius errors that a creation-time review would have caught. Momentum is not a reason to skip it.
+The skill is not a convenience wrapper around issue creation — it runs a pre-creation story-writing-standards check and an adversarial self-review (ED-2), standardizes board wiring (`project-tracking.md`), and closes with a cold read of the saved stories (ED-5). Bypassing it skips that discipline at the one moment it is cheapest to apply; the cost shows up later as understated scope, missed dependencies, or blast-radius errors that a creation-time review would have caught. Momentum is not a reason to skip it.
 
 When adding stories to an existing backlog (not during initial PRD decomposition):
 

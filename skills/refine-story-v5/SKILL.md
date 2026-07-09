@@ -10,7 +10,7 @@ You are refining a GitHub issue into a complete, implementation-ready specificat
 
 This skill is the **seed** step of *define → seed → enforce*: `standards/testing.md` defines the test tiers and Test Rules (TR-*), refine seeds them into the issue (a behavior-first test plan), and `engineering-review-v5` enforces them. Cite the TR rules by ID; do not restate them.
 
-**Work the spec under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). A refined spec is the single biggest place a confident-but-wrong assumption hides: this skill once asserted a data flow it never traced to the type. So every claim you write about how the code behaves is **grounded to an observed `file:line` (ED-1)**, the finished spec gets an **adversarial self-review (ED-2)** before it ships (Phase 3.5), anything you can't ground is **labeled a hypothesis (ED-3)**, and any approach that changes blast radius or test tiers is **surfaced as a scope fork (ED-4)**. Cite the ED rules by ID; do not restate them.
+**Work the spec under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). A refined spec is the single biggest place a confident-but-wrong assumption hides: this skill once asserted a data flow it never traced to the type. So every claim you write about how the code behaves is **grounded to an observed `file:line` (ED-1)**, the finished spec gets an **adversarial self-review (ED-2)** before it ships (Phase 3.5), anything you can't ground is **labeled a hypothesis (ED-3)**, any approach that changes blast radius or test tiers is **surfaced as a scope fork (ED-4)**, and the saved issue gets a **cold read (ED-5)** as the terminal step (4e). Cite the ED rules by ID; do not restate them.
 
 **Orchestrator Mode:** When `{ORCHESTRATOR_MODE}` is `true` (substituted by the orchestrator), skip interactive questions (Phase 3) and make best-judgment decisions. When running standalone (the literal `{ORCHESTRATOR_MODE}` appears unsubstituted), use interactive mode.
 
@@ -215,20 +215,9 @@ For every claim the spec asserts about how the code behaves — each data flow, 
 
 Concretely: open the type/endpoint/effect and confirm before the spec states it as fact. (A two-minute grep of the response type is what collapses an `overallGrade`-class data-flow error before it ever reaches the ticket.)
 
-### Prepare your proactive contribution (ED-5)
+**If `{ORCHESTRATOR_MODE}` is `true`** (no human): fold the adversarial-review findings and any hypotheses (ED-3) into the issue comment (4c), and create a follow-up ticket for any genuine scope-fork.
 
-From the adversarial self-review, assemble your own take on the ticket — four parts:
-
-- **What we missed** — gaps you see in the ticket
-- **What we should consider** — angles, options, risks worth raising
-- **What I'd add** — your own recommendations to strengthen it
-- **What I considered and set aside** — options weighed and rejected, tradeoffs resolved silently
-
-Plain prose; **no taxonomy buckets**. A genuine scope-fork (ED-4) that changes the work gets escalated as a decision, not buried in prose.
-
-**You do not deliver it here — you deliver it in 4e as the terminal output (ED-5).** This is deliberate: the contribution is the only output that produces no durable artifact, so if it's surfaced mid-skill it gets swallowed by the "issue updated, report done" wrap-up. Prepare it now; surface it *last*.
-
-**If `{ORCHESTRATOR_MODE}` is `true`** (no human): don't surface conversationally — instead fold the adversarial-review findings, any hypotheses (ED-3), and contribution items into the issue comment (4c), and create a follow-up ticket for any genuine scope-fork.
+Note the ED-5 cold read is a *separate* pass and does not run here — it reads the saved issue in 4e, not the draft. Do not try to anticipate it.
 
 ## Phase 4: Update the Issue
 
@@ -397,16 +386,13 @@ EOF
 
 **If running standalone:** Look up the project board IDs dynamically (query GraphQL for the project, field, and option IDs), then update the item's status to "Up Next".
 
-### 4e. Confirm / Report
+### 4e. Cold Read (ED-5), then Confirm / Report
 
-**Standalone mode — the refinement is NOT complete until you do this (ED-5).** Your final message to the user has two parts, in this order:
+**Cold read (ED-5).** Now that the issue is saved, run the ED-5 cold read against `gh issue view {ISSUE_NUMBER}` and deliver the synthesis as your final output — before the confirmation, not after it. See `standards/engineering-discipline.md`. Skip when `{ORCHESTRATOR_MODE}` is `true`.
 
-1. **Your proactive contribution** (the four-part take you prepared in Phase 3.5) — *what we missed / what we should consider / what I'd add / what I considered and set aside*. This is mandatory and comes first. Do not let "the issue is updated" stand in for it.
-2. Then the confirmation: the issue has been updated and moved to "Up Next", with a link.
+Then confirm: the issue has been updated and moved to "Up Next", with a link. If the cold read surfaces gaps you and the user agree on, edit the issue body (`gh issue edit`) and say so.
 
-If you have nothing material for a section, say so explicitly ("nothing I'd add beyond the spec") — silence is not the same as having surfaced it. A genuine scope-fork goes to the user as a decision, not a prose aside.
-
-**Orchestrator mode:** Return a structured report (the contribution was folded into the issue comment per Phase 3.5):
+**Orchestrator mode:** Return a structured report (ED-5 does not run; ED-2/ED-3 findings were folded into the issue comment per Phase 3.5):
 
 ```
 STATUS: Refined

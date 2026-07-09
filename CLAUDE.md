@@ -94,12 +94,12 @@ Read each of these files — they contain the engineering rules and conventions 
 
 Shared skills live in `skills/` and are auto-copied to each project's `.claude/skills/` during sync. Projects can override any skill by placing a customized version in their own `.claude/skills/` directory.
 
-**All pipeline and authoring skills are now v5** (four-tier model + TR enforcement — see [standards/testing.md](standards/testing.md)) and apply the grounded + adversarial **engineering discipline** (ED-1..ED-5 — see [standards/engineering-discipline.md](standards/engineering-discipline.md)). The ticket-producing skills end with a three-part contribution step (what we missed / should consider / I'd add).
+**All pipeline and authoring skills are now v5** (four-tier model + TR enforcement — see [standards/testing.md](standards/testing.md)) and apply the grounded + adversarial **engineering discipline** (ED-1..ED-5 — see [standards/engineering-discipline.md](standards/engineering-discipline.md)). The ticket-producing skills end with an ED-5 cold read: a fresh subagent reads the saved ticket and says what's missing.
 
 | Skill | Purpose |
 |-------|---------|
-| [skills/prd-to-backlog-v5/SKILL.md](skills/prd-to-backlog-v5/SKILL.md) | Decompose a PRD into a milestoned backlog of vertical-slice stories; nominates the repo-wide critical-path journeys; three-part contribution |
-| [skills/add-story-v5/SKILL.md](skills/add-story-v5/SKILL.md) | Conversationally create incremental stories for an existing project; three-part contribution; non-interactive mode for callers |
+| [skills/prd-to-backlog-v5/SKILL.md](skills/prd-to-backlog-v5/SKILL.md) | Decompose a PRD into a milestoned backlog of vertical-slice stories; nominates the repo-wide critical-path journeys; ED-5 cold read |
+| [skills/add-story-v5/SKILL.md](skills/add-story-v5/SKILL.md) | Conversationally create incremental stories for an existing project; ED-5 cold read; non-interactive mode for callers |
 | [skills/refine-story-v5](skills/refine-story-v5/SKILL.md) | Refine a GitHub issue into an implementation-ready spec with a behavior-first test plan (one tier per behavior, critical journeys declared); adversarial self-review (ED-2) in all modes |
 | [skills/implement-ticket-v5](skills/implement-ticket-v5/SKILL.md) | Implement a single ticket — writes Unit + Contract tests per the tier table (no logic in Contract). Pushes branch, creates PR. Supports FIX mode |
 | [skills/engineering-review-v5](skills/engineering-review-v5/SKILL.md) | Review a PR against standards. Three modes; enforces tiers two-way (missing + redundant), counts critical-path, emits the TR checklist grid |
@@ -152,7 +152,7 @@ These habits apply to **every task on every project** — see [standards/enginee
 - **Falsify, don't rubber-stamp (ED-2).** Treat your own just-produced spec/ticket/PR as a suspect — try to break each claim before finalizing it.
 - **Label hypotheses (ED-3).** An ungrounded claim is written as a hypothesis with the evidence needed to settle it, never as established fact.
 - **Surface scope forks (ED-4).** If the chosen approach changes blast radius or which test tiers apply, say so — never let a ticket hide it.
-- **Contribute, last (ED-5).** When producing/refining a ticket, volunteer your own take — *what we missed / should consider / I'd add* — automatically, as the final, non-skippable step. It must be the wrap-up, or it gets skipped.
+- **Cold read, last (ED-5).** Once a ticket is saved, hand it to a fresh subagent — the saved text and the repo, not your reasoning — and ask what's *missing*. Confirm or reject each finding against source and own the synthesis. Automatic, terminal, interactive-mode only.
 - **Memory is a claim, not an authority.** A recalled memory reflects what was true when written. Re-ground it against current source before acting (ED-1); if it conflicts with the standards or the code, the **source wins** and the memory is stale.
 
 ---

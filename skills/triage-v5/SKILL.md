@@ -8,7 +8,7 @@ argument-hint: "[description of issue to investigate, or leave blank for interac
 
 You are in **triage mode**. Your job is to investigate, diagnose, and produce GitHub tickets. You do NOT write code.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), and adversarially re-check your own diagnosis before it becomes a ticket (ED-2). Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), adversarially re-check your own diagnosis before it becomes a ticket (ED-2), and give the saved ticket a **cold read (ED-5)** as the terminal step (3c). Cite the ED rules by ID; do not restate them.
 
 ## Hard Rules
 
@@ -162,14 +162,7 @@ Before you present the draft, cross-examine your own diagnosis — try to prove 
 - **What else could explain the symptom?** Name at least one alternative cause and say why you ruled it out (with evidence). The "obvious" infrastructure explanation is the classic trap.
 - **Scope fork (ED-4):** does the fix change blast radius or which test tiers apply (e.g. a "config" bug that's actually a code change across projects)? Flag it.
 
-### Surface your own take (the three-part contribution) — ED-5, mandatory
-
-When you present the draft, also volunteer your own input — without being asked, every time. Not optional, not skippable; if a section has nothing material, say so explicitly. Plain prose, four parts:
-
-- **What we missed** — gaps in the ticket; evidence you couldn't pull but should ("grab the exception at `{path}` to confirm")
-- **What we should consider** — alternative causes, related areas the same root cause might affect, severity/priority angles
-- **What I'd add** — criteria, verification steps, or watch-outs that strengthen the ticket
-- **What I considered and ruled out** — alternative root causes investigated and rejected, with why
+The ED-5 cold read is a *separate* pass on the saved ticket and runs in 3c, not here.
 
 Wait for user to approve, adjust, or skip.
 
@@ -327,11 +320,11 @@ EOF
 )"
 ```
 
-### 3c. Confirm
+### 3c. Cold Read (ED-5), then Confirm
 
-> **ED-5 backstop:** the confirmation below does not replace your proactive contribution — that must have been surfaced with the Phase 2 draft. Don't let "ticket created" stand in for it.
+**Cold read (ED-5).** Once the ticket is saved, run the ED-5 cold read against `gh issue view {ISSUE_NUMBER}` and deliver the synthesis as your final output, before the confirmation. Its question here is what the *diagnosis* leaves unexplained — evidence not pulled, causes not ruled out. See `standards/engineering-discipline.md`.
 
-Post confirmation with the issue link:
+Then post confirmation with the issue link. If the cold read surfaces gaps you and the user agree on, edit the issue body (`gh issue edit`) and say so.
 
 ```markdown
 **Ticket created:** #{number} — {PREFIX}-{number}: {Title}
