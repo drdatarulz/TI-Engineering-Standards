@@ -1,6 +1,6 @@
 ---
 name: prd-to-backlog-v5
-description: "Decompose a PRD, Screen Inventory, and Decisions Log into a milestoned backlog of vertical-slice stories. Nominates the repo-wide critical-path journeys, runs a two-lens cold read (ED-5), and creates GitHub issues on the project board following TI story-writing standards."
+description: "Decompose a PRD, Screen Inventory, and Decisions Log into a milestoned backlog of vertical-slice stories. Nominates the repo-wide critical-path journeys, surfaces a three-part contribution, and creates GitHub issues on the project board following TI story-writing standards."
 argument-hint: "[path to PRD] [optional: --screen-inventory path] [optional: --decisions-log path]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[path to PRD] [optional: --screen-inventory path] [optional: --d
 
 You are converting a PRD into a development backlog. You produce well-structured, right-sized stories with milestones following TI story-writing standards. You create GitHub issues and organize them on the project board.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Ground decomposition claims about existing code in the source (ED-1); adversarially re-check the backlog (ED-2), then hand it to a **two-lens cold read by fresh-context subagents (ED-5)** before creating issues (Phase 2.5). The backlog is also the natural place to **budget the repo-wide critical-path journeys** (TR-6 ceiling is 10 across the whole repo) — nominate them once here (Phase 1f) so refine/ui-test draw from a budgeted pool instead of each story minting its own. Cite ED/TR rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Ground decomposition claims about existing code in the source (ED-1); adversarially re-check the backlog and **surface your own take** before creating issues (ED-2, Phase 2.5). The backlog is also the natural place to **budget the repo-wide critical-path journeys** (TR-6 ceiling is 10 across the whole repo) — nominate them once here (Phase 1f) so refine/ui-test draw from a budgeted pool instead of each story minting its own. Cite ED/TR rules by ID; do not restate them.
 
 You do NOT implement anything. You produce stories.
 
@@ -164,26 +164,18 @@ Wait for approval. If the user requests changes, adjust and re-present.
 
 ---
 
-## Phase 2.5: Adversarial Self-Review & Cold Read
+## Phase 2.5: Adversarial Self-Review & Contribution
 
-Before creating issues, cross-examine the backlog, then hand it to fresh eyes.
+Before creating issues, cross-examine the backlog, then volunteer your take.
 
 **Adversarial self-review (ED-2).** Re-check claims about the existing codebase against the source (ED-1) — foundation work that may already exist, entities/screens assumed present. Is the critical-path list within the ≤10 ceiling and genuinely the highest-value flows (ED-4 — an over-budget set is a scope fork)? Anything unconfirmed is flagged, not assumed (ED-3).
 
-**Cold read (ED-5) — interactive mode only.** The Phase 2 approval gate is the handback point, so the cold read attaches here, before any issue exists. See `standards/engineering-discipline.md` → ED-5 for the rule; this is its wiring.
+**Surface your own take (the three-part contribution) — ED-5, mandatory.** Volunteer this without being asked, *together with the Phase 2 plan* (re-present if needed) so the user can act on it before any issues are created. Not optional, not skippable; if a section has nothing material, say so explicitly. Four parts:
 
-Spawn **two subagents in parallel** (one message, two `Agent` calls). Each receives **the drafted backlog verbatim and nothing else from this session** — not your decomposition reasoning, not the conversation, not a summary of intent. The author is the one reader who cannot see what the backlog left out; that is the entire point.
-
-| Reader | Give it | It asks |
-|---|---|---|
-| **Implementer** | The drafted stories + milestones + repo access | *Can each of these be built as written, in the order given, and will I know when each is done?* |
-| **Product owner / BA** | The drafted stories + **the PRD, Screen Inventory, and Decisions Log** + `standards/story-writing-standards.md` | *Does this backlog deliver the product the PRD describes, and what happens to everyone it touches?* |
-
-Give each reader the **reader contract** verbatim (ED-5 → *The reader contract*).
-
-This is the **one skill where the product reader is fully grounded** — it has the PRD in hand, so hold it to ED-1: every claimed gap cites the PRD section it comes from. Its highest-value question is the one only it can ask: *what does the PRD promise that no story delivers?*
-
-Present per ED-5 → *What you hand back*, together with the Phase 2 plan (re-present it if needed): the cold read, then your set-asides (decompositions, milestone boundaries, and splits you weighed and rejected, each with its reversal condition).
+- **What we missed** — capabilities/screens/flows implied by the PRD but absent from the decomposition; foundation work not called out
+- **What we should consider** — alternative milestone boundaries, story splits/merges, sequencing risks, the critical-path nominations
+- **What I'd add** — stories, dependencies, or watch-outs that strengthen the backlog
+- **What I considered and set aside** — decompositions weighed and rejected, with why
 
 ---
 
@@ -329,7 +321,7 @@ For each milestone, for each story in that milestone:
 
 ## Phase 4: Report
 
-> **ED-5 backstop:** this creation report does **not** replace the cold read — that must have been run and surfaced with the Phase 2.5 plan. Don't let "backlog created" stand in for it.
+> **ED-5 backstop:** this creation report does **not** replace your proactive contribution — that must have been surfaced with the Phase 2.5 plan. Don't let "backlog created" stand in for it.
 
 ```markdown
 ## Backlog Created
@@ -352,7 +344,7 @@ For each milestone, for each story in that milestone:
 ```
 
 ---
-<!-- skill-version: 5.3 -->
-<!-- last-updated: 2026-07-09 -->
+<!-- skill-version: 5.2 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->

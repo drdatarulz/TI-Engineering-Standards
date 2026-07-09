@@ -8,7 +8,7 @@ argument-hint: "[description of issue to investigate, or leave blank for interac
 
 You are in **triage mode**. Your job is to investigate, diagnose, and produce GitHub tickets. You do NOT write code.
 
-**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), and adversarially re-check your own diagnosis before it becomes a ticket (ED-2). Then hand the drafted ticket to a **two-lens cold read by fresh-context subagents (ED-5)** — the investigator is the last person who can see what the ticket left out. Cite the ED rules by ID; do not restate them.
+**Work under engineering discipline** (`standards/engineering-discipline.md`, ED-1..ED-5). Triage's entire value is the reasoning trail, so the discipline is non-negotiable here: **reason backward from the actual error, not forward from the symptom.** A confident-but-wrong root cause is worse than none — it sends someone to "fix" already-correct code. Ground every claim in observed evidence (ED-1), label anything you can't confirm as a hypothesis (ED-3), and adversarially re-check your own diagnosis before it becomes a ticket (ED-2). Cite the ED rules by ID; do not restate them.
 
 ## Hard Rules
 
@@ -162,22 +162,14 @@ Before you present the draft, cross-examine your own diagnosis — try to prove 
 - **What else could explain the symptom?** Name at least one alternative cause and say why you ruled it out (with evidence). The "obvious" infrastructure explanation is the classic trap.
 - **Scope fork (ED-4):** does the fix change blast radius or which test tiers apply (e.g. a "config" bug that's actually a code change across projects)? Flag it.
 
-### Cold read the draft (ED-5)
+### Surface your own take (the three-part contribution) — ED-5, mandatory
 
-Presenting the draft is the handback point, so the cold read attaches here — before the ticket is written. See `standards/engineering-discipline.md` → ED-5 for the rule; this is its wiring.
+When you present the draft, also volunteer your own input — without being asked, every time. Not optional, not skippable; if a section has nothing material, say so explicitly. Plain prose, four parts:
 
-Spawn **two subagents in parallel** (one message, two `Agent` calls). Each receives **the drafted ticket verbatim and nothing else from this session** — not your investigation trail, not the evidence you pulled, not why you landed on this root cause. They see what an engineer sees when the bug is assigned to them cold.
-
-| Reader | Give it | It asks |
-|---|---|---|
-| **Implementer** | The drafted ticket + repo access | *Can I reproduce this from what's written, and will I know when it's fixed?* |
-| **Product owner / BA** | The drafted ticket + the PRD / Screen Inventory **if the project has them** | *Who is actually affected, is the severity right, and what else does this break for them?* |
-
-Give each reader the **reader contract** verbatim (ED-5 → *The reader contract*).
-
-**Ground the product reader (ED-1).** Triage usually runs with no PRD in reach. **Say so to the reader** — a product lens guessing at user impact is how a `P3` becomes a `P1` on vibes.
-
-Present per ED-5 → *What you hand back*: the cold read, then your set-asides — the alternative root causes you investigated and rejected, each with its reversal condition ("would reverse if the log shows a timeout before the null"). **In triage the set-asides are the most valuable half of ED-5:** a ruled-out cause with a live reversal condition is exactly what saves the next engineer when your root cause turns out wrong.
+- **What we missed** — gaps in the ticket; evidence you couldn't pull but should ("grab the exception at `{path}` to confirm")
+- **What we should consider** — alternative causes, related areas the same root cause might affect, severity/priority angles
+- **What I'd add** — criteria, verification steps, or watch-outs that strengthen the ticket
+- **What I considered and ruled out** — alternative root causes investigated and rejected, with why
 
 Wait for user to approve, adjust, or skip.
 
@@ -337,7 +329,7 @@ EOF
 
 ### 3c. Confirm
 
-> **ED-5 backstop:** the confirmation below does not replace the cold read — that must have been run and surfaced with the Phase 2 draft. Don't let "ticket created" stand in for it.
+> **ED-5 backstop:** the confirmation below does not replace your proactive contribution — that must have been surfaced with the Phase 2 draft. Don't let "ticket created" stand in for it.
 
 Post confirmation with the issue link:
 
@@ -360,7 +352,7 @@ If the user describes another issue, loop back to **Phase 1**.
 Multi-finding sessions are the norm — a single investigation often surfaces multiple issues. Each gets its own ticket.
 
 ---
-<!-- skill-version: 5.4 -->
-<!-- last-updated: 2026-07-09 -->
+<!-- skill-version: 5.3 -->
+<!-- last-updated: 2026-06-28 -->
 <!-- pipeline: v5 -->
 <!-- pipeline: v4 -->
