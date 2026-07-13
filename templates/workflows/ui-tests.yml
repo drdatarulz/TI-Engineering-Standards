@@ -16,13 +16,15 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        # Defaults to the dispatch ref (github.ref_name) so `gh workflow run --ref <branch>`
-        # checks out that branch with no extra flag. `--ref` sets which YAML runs + the git
-        # context but does NOT populate this input; without this default it would fall back to
-        # a literal and silently check out the wrong branch. See templates/workflows/README.md.
-        description: Branch or SHA to test (defaults to the dispatched ref)
+        # Left empty on purpose: GitHub REJECTS a context expression in a workflow_dispatch
+        # input `default` ("no context is available here") — it fails the whole file to parse.
+        # The dispatched-ref fallback is resolved in the checkout step below via
+        # `inputs.ref || github.ref_name`, where the github context IS available. So
+        # `gh workflow run --ref <branch>` checks out that branch with no extra flag, and
+        # `-f ref=<x>` still overrides. See templates/workflows/README.md.
+        description: Branch or SHA to test (empty = the dispatched ref)
         required: false
-        default: ${{ github.ref_name }}
+        default: ''
       filter:
         description: 'xUnit --filter expression (empty = full suite)'
         required: false
@@ -34,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref_name }}
 
       - uses: actions/setup-dotnet@v4
         with:

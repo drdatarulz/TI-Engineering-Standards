@@ -42,11 +42,13 @@ not the same thing:
   (`github.ref` / `github.ref_name` / `github.sha`). It does **not** populate the `ref` input.
 - `-f ref=<branch>` sets the `ref` *input*, which is what the **checkout step** actually pulls.
 
-The template's `ref` input now defaults to `${{ github.ref_name }}`, so **`--ref <branch>`
-alone checks out that branch correctly** — no extra flag needed. (Before this default it fell
-back to `main` and silently tested the wrong branch — a feature branch's harness files like
-`docker-compose.ui.yml` aren't on `main`, so the run would fail confusingly or pass against
-stale code.) Passing `-f ref=<branch>` explicitly still works and overrides the default;
+The `ref` input defaults to empty, and the **checkout step** resolves it as
+`${{ inputs.ref || github.ref_name }}`, so **`--ref <branch>` alone checks out that branch
+correctly** — no extra flag needed. (Note: the fallback lives in the checkout step, NOT in the
+input `default` — GitHub rejects a context expression like `${{ github.ref_name }}` in a
+`workflow_dispatch` input `default` ["no context is available here"], which fails the whole
+workflow file to parse. The checkout step's `with:` is one of the places the `github` context
+*is* available.) Passing `-f ref=<branch>` explicitly still works and overrides the default;
 `refine`/`orchestrate` flows pass it for clarity. Pin a raw SHA via `-f ref=<sha>` if needed.
 
 ## Merge gate
