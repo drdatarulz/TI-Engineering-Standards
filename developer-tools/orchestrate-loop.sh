@@ -178,7 +178,7 @@ while (( iter < MAX_ITER )); do
   # Guard 1: timeout kills a hung session (exit 124). Stream output LIVE to the operator and
   # the durable run log (tee -a), and capture it to $logfile so we can grep for the sentinel.
   # The heartbeat runs concurrently so the terminal/log keep moving while claude is silent.
-  echo "── iteration ${iter} · $(date -u '+%H:%M:%SZ') ──" | tee -a "$RUNLOG"
+  echo "── iteration ${iter} · $(date -u '+%H:%M:%SZ') ──" | tee -a "$RUNLOG" 9>&-
   # Remember if a tracking issue is already OPEN at launch. If a single session then adopts AND
   # closes it (e.g. a CLEANUP relaunch that reaches the fixpoint on its first iteration — the
   # exact case of re-running the loop to finish a parked run), the post-session "0 open" below
@@ -188,7 +188,14 @@ while (( iter < MAX_ITER )); do
     saw_issue=1
   fi
   start_heartbeat "$iter"
-  timeout "$TIMEOUT" claude -p "$PROMPT" --dangerously-skip-permissions 2>&1 | tee -a "$RUNLOG" "$logfile"
+  # CLOSE THE LOCK FD (9) for the session AND the tee. `claude -p` spawns long-lived background
+  # descendants — the ci-fix side-channel poller, run_in_background bash, detached workflow agents —
+  # which would otherwise INHERIT fd 9 and keep the flock held after THIS loop exits. That stale
+  # hold makes the next run falsely report "another loop already owns this project (owner PID …)"
+  # naming a long-dead PID, until the stray child finally dies and the lock frees on its own. The
+  # heartbeat subshell already closes fd 9 for the same reason; this is the far bigger inheritance
+  # path (an orphaned background poller can outlive the session by minutes). See header lock notes.
+  timeout "$TIMEOUT" claude -p "$PROMPT" --dangerously-skip-permissions 9>&- 2>&1 | tee -a "$RUNLOG" "$logfile" 9>&-
   rc=${PIPESTATUS[0]}
   stop_heartbeat
 
