@@ -100,11 +100,14 @@ duplicate is cut.
 
 **TR-8 / TR-9 — test integrity & anti-patterns:** flag silent failures (a test that can exit without asserting — guard-and-bail, conditional-assert, exception-swallow), any `[Fact(Skip=...)]` (TR-8), and in ui-tests mode: hardcoded waits (`Task.Delay`/`WaitForTimeoutAsync`/`Thread.Sleep`) or inline locators outside the POM (TR-9). The greppable ones are **[CI]** — link the job/grep rather than re-deriving; the judgment is whether a passing test actually asserts the right thing.
 
-**TR-6 — critical-path count (ui-tests mode, reviewer-only, [CI]+[JUDGMENT]):** count the **repo-wide** tagged set:
+**TR-6 — critical-path count (ui-tests mode, reviewer-only, [CI]+[JUDGMENT]):** count the **repo-wide** set of *active* `[Trait("CriticalPath","true")]` **attributes** — never comment lines or commented-out example traits:
 ```bash
-grep -rl 'Trait("CriticalPath", *"true")' tests/ | xargs grep -c 'CriticalPath' | awk -F: '{s+=$2} END {print s}'
-# or: dotnet test --filter "CriticalPath=true" --list-tests
+# Authoritative — the set CI actually runs, immune to comments:
+dotnet test --filter "CriticalPath=true" --list-tests
+# Quick grep alternative — active attributes only (leading-whitespace-anchored, so //-commented lines are excluded):
+grep -rE '^[[:space:]]*\[Trait\("CriticalPath", *"true"\)\]' tests/ | wc -l
 ```
+> Do **not** use `grep -rl 'Trait("CriticalPath","true")' tests/ | xargs grep -c 'CriticalPath'` — `grep -c` counts every line mentioning `CriticalPath` (including the explanatory comments that document *why* a journey is **not** tagged, and commented-out `[Trait(...)]` examples), which inflates the number and can raise a **false** ceiling breach. Count active attributes only.
 - **Ceiling > 10 → blocking (hard).** REQUEST_CHANGES; demote the least-critical journey(s) until ≤10.
 - **Floor < 3 → advisory.** Flag (a one-page app may legitimately have fewer); do not block.
 
