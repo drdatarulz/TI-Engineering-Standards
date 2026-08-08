@@ -5,8 +5,12 @@
 > **planner skill** turns a ticket list into a dependency graph + a shared ticket pool; you then
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
-> **Created:** 2026-08-05. **Last updated:** 2026-08-05 (shared-pool model — lanes removed).
-> **Status:** DRAFT — for discussion, not yet executed.
+> **Created:** 2026-08-05. **Last updated:** 2026-08-08.
+> **Status:** DRAFT — design complete. A cold-read review (2026-08-08) found two blockers, a cluster
+> of should-fixes, and a scope question; **all twelve findings (CR-1…CR-12) have been worked through
+> and resolved** — see **Cold-read findings** below, with resolutions folded into the body. Scope
+> decided: **model A (full shared pool)**. Ready to move from design to a build plan (see build
+> order); not yet implemented.
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
 > coordination machinery is **inert without a plan ticket** — a plain `./scripts/orchestrate.sh`
 > run behaves exactly as it does today.
@@ -25,33 +29,52 @@ lightweight **claim handshake** stops two of them from grabbing the same one.
 
 ---
 
+## Deployment topology (foundational — read first)
+
+**Each worker runs in its own separate clone (or git worktree) of the repo; they share only the
+remote.** There is **no shared working tree** — a worker doing `git checkout`/branch/commit only ever
+touches its own local checkout, exactly like a developer on their own machine. What is **shared** is
+the **remote repo, the GitHub Project board, the issues (plan ticket + per-worker tracking issues),
+and the `gh` token / rate-limit budget** — which is why all the coordination (claims, ownership,
+reaper, rate-limit budgeting) lives on that GitHub surface, never on the filesystem. Operationally:
+launch each worker from *its own* clone directory (so `--project-dir "$(pwd)"` resolves to a distinct
+tree per worker). This is the premise that makes "two workers merging is just two developers merging"
+(see §What we do NOT build) actually true rather than hand-waving.
+
+---
+
 ## Concepts
 
-- **Plan ticket** — one GitHub issue (label `orchestration-plan`) that is the single **coordination
+- **Plan ticket** — one GitHub issue (label `orchestration-plan`) that is the primary **coordination
   surface** for a parallel run. Its **body** holds the static plan (the ticket pool + the
   dependency graph), written once by the planner. Its **comments** are the append-only coordination
-  log — claims and completions. Everything a worker needs to decide "what do I do next?" is one
-  fetch of this issue.
+  log — claims and completions. A worker's scan is *mostly* this one issue, but not *only* it:
+  ownership/liveness come from enumerating the per-worker tracking issues, and `blocked` from a
+  board-status read (CR-8, CR-10). **Exactly one is kept live** — the planner applies
+  `orchestration-run`'s newest-wins dedupe rule (`SKILL.md:185`) to the `orchestration-plan` label,
+  closing any stale older plan ticket (CR-9).
 - **Dependency graph** — a flat, per-ticket edge list: `blocked → blockers`, where a ticket may
   have many blockers. This is the **only** carrier of correctness — a ticket runs only once *every*
   blocker is `✓ completed`. It knows nothing about workers or ordering beyond the edges.
 - **Ticket pool** — the flat set of tickets in scope for the run. No partition, no lane. A ticket
   is **ready** when it is in the pool, not yet completed, unclaimed, and all its blockers are
   completed.
-- **Worker** — one orchestrator instance with an id (`--worker w2`, or auto-generated if omitted —
-  see Worker identity below). The id is an **ephemeral process identity** — it names *which
-  orchestrator*, not *which work* (work is the shared pool). It keys the worker's lock, run log,
-  and its own run-state tracking issue, and it stamps the worker's claims. Stable across that
-  worker's relaunches; distinct between workers.
+- **Worker** — one orchestrator instance, **running in its own clone/worktree** (see Deployment
+  topology), with an id (`--worker w2`, or auto-generated if omitted — see Worker identity below).
+  The id is an **ephemeral process identity** — it names *which orchestrator*, not *which work* (work
+  is the shared pool). It keys the worker's lock, run log, and its own run-state tracking issue, and
+  it stamps the worker's claims. Stable across that worker's relaunches; distinct between workers.
 - **Claim handshake** — how a worker takes a ticket without another worker double-taking it. To
   take `#5`, a worker appends a claim comment stamped with its id; the **earliest** such claim wins
   the acquisition race (see below). Loser moves on; winner works it. The claim comment does **only
   this one job** — break the acquisition tie at the instant two workers grab the same ticket.
 - **Ownership** — who is *currently* working a ticket. This lives in the winner's **run-state
   tracking issue** (`Current ticket: #5 @ stage n @token <claim-id>`), which the skill already
-  maintains every stage — **not** in the claim comment. The `@token` is the winning claim's comment
-  ID (monotonic); **ownership = the live worker holding the highest token for a ticket**, which is
-  what lets a reclaim supersede and a falsely-reaped worker yield (see reaper). The split is
+  maintains every stage — **not** in the claim comment. The `@token` is the worker's claim comment
+  ID (monotonic). **Ownership = the *earliest* live claim (lowest token) — the incumbent wins as
+  long as it's alive; a challenger yields.** This is the *same* rule as acquisition (earliest wins),
+  now applied to ongoing ownership too — see the reaper for why the flip from "highest wins" matters
+  (it kills a takeover livelock). The split (ownership in the tracking issue, not the claim) is
   deliberate: a claim comment lingers after the claimer has lost or died, so if ownership were read
   off claims a leftover could poison resolution later (a live loser's stale claim spuriously
   "re-winning" a reaper-reclaimed ticket). Because ongoing ownership is the tracking issue, a
@@ -95,20 +118,22 @@ at all and the handshake below becomes the rare safety net, not the common path.
    leave my losing claim comment where it is (it's inert — see Ownership; end-of-run cleanup will
    remove it), and I do *not* re-claim `#5` unless it later frees up.
 5. **Pre-dispatch recheck (layer 3).** On a win, right before handing `#5` to `implement-ticket-v5`,
-   do one more cheap read: "do I still hold the highest live token for `#5`?" This catches any
-   residual race at the exact point where a double-run would waste real effort, for near-zero cost.
-   The same check gates every later mutating action too (push, open PR, `✓ completed`) — that's the
-   fencing-token yield that stops a falsely-reaped worker from clobbering its reclaimer. Then move
+   **refresh my own liveness ping, then read**: "am I the *earliest* live claim for `#5`?" (Ping
+   first so a live worker always counts itself live.) If an earlier live claim exists, the incumbent
+   is back — **I yield** (I'm the challenger). This same check gates every later mutating action
+   (push, open PR, `✓ completed`), and is what makes "incumbent-wins-if-alive" hold. Then move
    `#5` to In Progress and run the pipeline.
 
 **Why the delay (layer 2).** The winner is fixed by server-assigned comment ID, *not* by who reads
 first — so two simultaneous reads can't both win **as long as each read is complete**. The one real
 risk is a *stale* read: a worker re-reads before another's lower-ID claim has propagated, sees only
-its own, and wrongly declares itself earliest. A short jittered wait closes exactly that window.
-(Honest caveat, ED-3: GitHub's read-your-writes / gap-free-ordering behavior on the comments list is
-treated here as a **hypothesis**, not a confirmed guarantee — which is *why* the settle delay is the
-prudent default instead of trusting an immediate re-read. If we confirm the guarantee, the delay can
-shrink or go.)
+its own, and wrongly declares itself earliest. A short jittered wait closes that window. A 10-sample
+baseline probe (2026-08-08, CR-6) measured read-your-own-writes as **effectively immediate — visible
+on the first read, ~1s dominated by `gh` call overhead, zero stale reads** — so **~5s settle delay
+gives ≈5× margin.** Caveat (ED-3): that probe was single-client (cross-worker visibility could be
+marginally worse) and small-sample (misses a rare tail), which is *why* the delay keeps margin and
+the fail-safe backstops (earliest-live-claim + `✓ completed`-at-merge) carry the tail — read
+consistency is an **efficiency** assumption here, not a correctness one.
 
 **Leftover claims are inert, so cleanup waits for the end.** Because ongoing ownership is the
 tracking issue (see Ownership), a losing or dead claim comment left on the thread affects nothing —
@@ -124,6 +149,14 @@ A worker that wins `#5` then dies mid-work would wedge it. Recovery is the exist
 (`orchestrate-v5/SKILL.md:229`) generalized to N workers, and it needs three parts — a **liveness
 signal** to detect death, a **fencing token** so a *false* death can't double-run, and **partial-
 work handling** so a reclaim doesn't duplicate artifacts.
+
+**First: in worker mode the *legacy global* Step 0.6 sweep is DISABLED** (see CR-5). That sweep
+assumes a single driver and resets *any* In-Progress ticket that looks orphaned — which in worker
+mode is another worker's live work. Recovery in worker mode is only these two, both scoped: a
+relaunching worker **self-recovers** just what its own tracking issue owns (its `Current ticket`,
+if not `✓ completed`); and this reaper reclaims *another* worker's ticket **only on death** (stale
+liveness), never because a ticket merely looks In-Progress. Nothing strands: selection runs off the
+pool math (`ready = pool − done − held`), not the board column.
 
 **Liveness — a process-level ping, not a stage-level one.** The tracking issue only updates every
 *stage*, and a big implement runs 30–45 min silent — so "issue quiet" ≠ "worker dead." Fix: the
@@ -145,31 +178,41 @@ GitHub's secondary rate limit bites on content writes:
 - Because the ping is stage-independent, the TTL no longer has to clear a 40-min stage — it only
   covers transient API blips, so **TTL drops to ~10–20 min** (from the 90m session timeout).
 
-`wK` is **dead** when its liveness comment's `updatedAt` is older than the TTL.
+`wK` is **dead** when its liveness comment's `updatedAt` is older than the TTL — **but the reaper is
+throttle-aware: if its own `gh` calls are being rate-limited it does NOT reap** (a stale ping is
+ambiguous under throttle — starved vs. dead). This breaks the rate-limit feedback loop (throttle →
+missed pings → false reaps → reclaim storm → more writes); under pressure the system stops reaping
+and self-heals when throttle clears. See CR-4.
 
-**Fencing token — so a false death can't double-run (the load-bearing part).** Takeover without
-*relinquish* is just a race with extra steps: if `wK` was only paused past the TTL, a naive "resume
-my own ticket" rule makes it resume `#5` *while the reclaimer works it* → double-run. So every
-acquisition — first-time **or** reclaim — carries a **monotonic token = the winning claim's comment
-ID**. A worker records ownership as `Current ticket: #5 @token <id>`, and:
+**Incumbent-wins-if-alive — so a false death can't double-run *and* can't livelock (the load-bearing
+part).** The naive rule "the taker-over wins" (highest token) has two failures: it discards the
+incumbent's progress (it was further along), and — worse — if takeovers are triggered by *slowness*,
+the taker-over is also slow, gets taken over, and the ticket churns between workers forever, never
+finishing. So the rule is **the earliest live claim wins — the incumbent keeps `#5` as long as it's
+alive; the challenger yields.** Every acquisition (first-time or reclaim) carries a **monotonic
+token = the claim's comment ID**, recorded as `Current ticket: #5 @token <id>`:
 
-- **Ownership = the live worker holding the *highest* token for `#5`.** A reclaim posts a new claim
-  → higher token → **definitively supersedes** the dead worker's.
-- **Before resuming, and before any mutating action** (push, open PR, post `✓ completed`), a worker
-  re-checks it still holds the highest live token for `#5`. If a higher one exists it was
-  superseded: it **yields** — abandons `#5` and returns to the pool. So a resurrected `wK` sees the
-  reclaimer's higher token and stands down instead of resuming.
+- **Ownership = the *earliest* live claim (lowest token).** A slow-but-alive incumbent keeps its
+  lower token → **keeps the ticket** → no churn, no lost progress. A reclaim only wins because the
+  incumbent is **dead** (dropped from the live set, so the reclaimer becomes the earliest *live*
+  claim) — real-death recovery still works, no wedge.
+- **Before resuming and before any mutating action** (push, open PR, `✓ completed`), a worker
+  **refreshes its own liveness ping, then re-reads**: "am I the earliest live claim?" If an earlier
+  live claim exists, the incumbent is back → the challenger **yields** (abandons `#5`, returns to
+  the pool). A resurrected incumbent, being the earliest live claim, reclaims its own work; the
+  challenger stands down. (Ping-first so a live worker always counts itself live.)
+- **Why "alive" is trustworthy:** the liveness ping is the **loop's**, not the work session's — so a
+  worker stuck in a long or wedged stage still counts alive (the loop keeps pinging and will
+  relaunch a hung session via its own timeout). Only a dead *loop* goes stale. So "still alive" ≈
+  "will make progress" — exactly the thing that makes the incumbent worth keeping.
 
-This also settles the brief window where a resurrected worker and its reclaimer both show
-`Current: #5`: highest token wins, no cross-worker issue edits needed (the dead worker's stale
-`Current` is simply outvoted — nobody reaches into anyone else's issue).
-
-**Partial-work handling — adopt or tear down, never blind-restart.** A worker rarely dies at a clean
-stage boundary; it may have left a branch, pushed commits, an open PR, `#5` at In Progress, and a
-`ci-fix` background poller. A from-scratch restart makes a *second* branch/PR. So on reclaim, apply
-the existing nuance (`SKILL.md:229`): if the dead worker's PR exists and is mid-review-loop,
-**adopt** it and resume from there; if there's no usable state, **tear it down** (branch, PR, board
-status) before re-running. Reclaim is adopt-or-teardown, not "free to pool and forget."
+**Partial-work handling — hands off the other worker's branch.** Since a resurrected incumbent can
+win back `#5`, the challenger must **never destroy the incumbent's work** — no adopt, no teardown of
+someone else's branch/PR. Each worker works its **own** branch; the **yielder cleans up its own** on
+standing down; a genuinely-dead worker's orphan branch/PR is swept at **CLEANUP** (like the claim
+comments). The `✓ completed #5` marker at merge is the final backstop: whoever posts it first wins,
+and the other, seeing it on its pre-merge recheck, tears down its own branch. (Depends on liveness
+being trustworthy and on GitHub read-consistency — CR-4, CR-6.)
 
 Note: the reaper keys on **tracking-issue liveness + tokens**, never on claim comments — leftover
 claims never enter into it.
@@ -199,10 +242,12 @@ The thread is tidied **once, at the fixpoint**, never mid-journey:
 On each fresh relaunch, a worker:
 
 1. Fetches the plan ticket (pool + graph from the body; claims + completions from the comments).
-2. Computes `done` (has `✓ completed`), `held` (a **live** worker holds the highest token for it —
-   read from tracking issues; a **dead** holder, liveness past TTL, does not count), and
-   `ready = pool − done − held`, keeping only tickets whose blockers ⊆ `done`. (Ownership is read
-   from tracking issues, not claim comments — see Ownership.)
+2. Computes `done` (has `✓ completed`), `held` (some **live** worker owns it — the earliest live
+   claim; read from tracking issues; a **dead** holder, liveness past TTL, does not count), `blocked`
+   (board Status = Waiting/Blocked — the one board signal trusted; CR-8), and
+   `ready = pool − done − held − blocked`, keeping only tickets whose blockers ⊆ `done`. (Ownership
+   from tracking issues and completion from `✓ completed` — not the board's In-Progress/Done; only
+   Waiting/Blocked is read from the board.)
 3. **If `ready` is non-empty:** pick one **at random** (not the topmost — see claim handshake layer
    1), run the claim handshake. On win, take it through the pipeline, post `✓ completed`, then
    **exit for relaunch** (fresh context per ticket, exactly as today). On loss, drop it from the
@@ -241,10 +286,11 @@ Two assumptions today enforce single-driver-per-repo and must become worker-scop
 ### 2. The pool, the claim handshake, and the reaper
 
 New logic in `orchestrate-v5` mode selection: the worker's loop above (scan → claim → work →
-complete), the claim resolution (earliest claim by comment ID breaks acquisition; ownership +
-fencing token recorded in the tracking issue; highest live token wins), the reaper (orphan-recovery
-keyed on tracking-issue liveness + token, with adopt-or-teardown of partial work), and the
-end-of-run cleanup pass (delete untaken claims at the fixpoint). Plus, in `orchestrate-loop.sh`, the
+complete), the claim resolution (**earliest live claim wins** — for both acquisition and ongoing
+ownership; token = claim comment ID recorded in the tracking issue), the reaper (orphan-recovery
+keyed on tracking-issue liveness; **incumbent-wins-if-alive**, challenger yields, hands off the
+other's branch), and the end-of-run cleanup pass (delete untaken claims at the fixpoint). Plus, in
+`orchestrate-loop.sh`, the
 **TTL/4 liveness ping** — an in-place edit of the worker's single `❤ alive` comment (process-level,
 throttle-conscious). This is the genuinely new coordination code.
 
@@ -273,8 +319,13 @@ how many you'll run — it produces the plan; you decide worker count at launch.
 **Input:** a ticket list — e.g. *"plan tickets #1–#15."*
 
 **What it does:**
-1. Reads each ticket (title, body, acceptance criteria, milestone) to **infer the dependency
-   graph** — what must run before what, and what is independent.
+0. **Precondition — every pool ticket must be refined** (CR-7). Runs `refine-story-v5`'s own
+   Already-Refined check (`skills/refine-story-v5/SKILL.md:55` — body has all spec sections); if any
+   ticket isn't refined, **halt and name it** — do not build the graph from content Stage 1 will
+   rewrite. (Matches practice: refine first, then orchestrate.)
+1. Reads each refined ticket — the explicit **`## Dependency on {issue#}`** section
+   (`refine-story-v5:323`) for *declared* edges, and the body/AC to **infer** edges only where a
+   ticket is silent — building the dependency graph.
 2. **Shows you the proposed graph** and waits for a one-look confirm before committing (see below).
 3. On confirm, writes the **plan ticket** (pool + graph) and prints example launch commands.
 
@@ -346,9 +397,12 @@ automatic load-balancing.
 - **A central dispatcher / coordinator.** Claiming is peer-to-peer, resolved through GitHub's
   append-only comment ordering. No extra service, no single point of failure — consistent with the
   stateless-relaunch design.
-- **Merge serialization between workers.** If two workers touch the same files, their merges race —
-  but that is the **same** situation as two human developers, and git resolves it the same way
-  (rebase / re-run CI). Not a new problem parallelism introduces; nothing special to build.
+- **Merge serialization between workers.** Because each worker is in its **own clone** (see
+  Deployment topology), two workers touching the same files is exactly two human developers on
+  separate checkouts — git resolves it the same way (rebase / re-run CI). Not a new problem
+  parallelism introduces; nothing special to build. (This holds *only* because of the separate-clone
+  topology — under a shared working tree it would instead be repo corruption, which is why the
+  topology is stated as a foundational requirement, not an assumption.)
 
 ---
 
@@ -397,6 +451,133 @@ than a rewrite, and is the safety net for every existing single-driver run.
    (plus the ED-5 cold read). A silent autonomous path would ship an unconfirmed *inferred* graph
    with zero checks — not worth the risk for the one skill whose single output is the correctness
    graph everything else depends on.
+
+---
+
+## Cold-read findings (2026-08-08) — work through one at a time
+
+A fresh adversarial reviewer read this plan against the repo (all file:line citations verified
+accurate). Findings below, most severe first. **Status: all worked through and RESOLVED
+(2026-08-08)** — CR-11 (scope) decided **model A, the full shared pool**; CR-1/CR-2 (blockers) and
+CR-3–CR-10 addressed; resolutions folded into the body above. Each entry keeps its resolution for
+the record.
+
+- **CR-1 — RESOLVED-BY-DESIGN — separate clone per worker.** The concern (concurrent git ops on one
+  working tree → corruption) only arises if workers share a directory, which the plan's launch
+  example implies (`--project-dir "$(pwd)"`). **Intended model: each orchestrator instance runs in
+  its own separate clone (or git worktree), all pushing to one shared remote** — i.e. genuinely "N
+  developers on N checkouts," which git handles. No shared tree, no corruption. *Fix = make the
+  separate-clone model explicit in the plan (one line); not a redesign.* Residual (lock keying) folds
+  into CR-2. *Status: RESOLVED — separate-clone requirement now written into §Deployment topology,
+  the Worker concept, and the §What-we-do-NOT-build merge bullet.*
+  **Topology (for the remaining findings):** local working trees = separate; the **remote repo,
+  board, issues, and `gh` token = shared** — so CR-3/4/5/6/8/9/10 live on that shared GitHub surface,
+  not the tree, and remain.
+- **CR-2 — RESOLVED — worker mode is opt-in via `--worker`.** No `--worker` → **legacy
+  single-driver path, byte-for-byte today's behavior** (basename lock, bare `orchestration-run`
+  label, no auto-id). `--worker w2` → worker mode with that id; `--worker` with no value (or the
+  planner's launch commands) → worker mode, **auto-generated id**. In worker mode the lock/log/
+  tracking-issue key on the **worker id**, not the directory basename (also fixes CR-1's leftover:
+  two same-named clones colliding on one lockfile). **Self-gates per invocation** — no migration, no
+  per-project "converted" state. The whole backward-compat obligation collapses to: *don't touch the
+  no-flag path.* Worker-mode's pool is the explicit plan-ticket set (no blank "grab all Up Next"
+  sweep). Operational rule: don't run legacy + worker-mode against the same board at once (shared
+  queue) — low risk in practice since runs are always scoped. *Status: RESOLVED.*
+- **CR-3 — RESOLVED — flipped to incumbent-wins-if-alive; damage bounded to wasted compute.** The
+  original "highest token / taker-over wins" rule had a **livelock**: if slowness triggers takeover,
+  the taker-over is also slow → taken over → the ticket churns forever, discarding progress each
+  time. Fix: **earliest live claim wins** — the incumbent keeps the ticket as long as it's alive
+  (liveness = the *loop's* ping, so a slow/wedged stage still counts alive); a challenger yields.
+  Real death still recovers (a dead incumbent drops from the live set → challenger becomes earliest
+  live). Consequence: **hands off the other worker's branch** (no adopt/teardown of someone else's
+  work, since a resurrected incumbent can win back), each works its own, yielder cleans up its own,
+  and the `✓ completed` marker at merge is the final backstop (first to post wins; the other tears
+  down its own). The TOCTOU window can't be closed atomically on GitHub, but the worst case is now
+  **wasted compute, never a corrupted `main`**. Depends on CR-4 (liveness trustworthy) + CR-6 (read
+  consistency). *Status: RESOLVED.*
+- **CR-4 — RESOLVED (fail-safe; not urgent until it bites) — backoff + throttle-aware reaper.** Real
+  risk is bursts + a feedback loop, not sustained volume (primary limit ~5k/hr is generous; the
+  *secondary* limit on bursty content-creation is what bites, and its thresholds are undocumented —
+  ED-3). Mitigations: **(1)** every `gh` call honors `Retry-After` / backs off — a rate-limit
+  response is never a stage failure (kills retry pile-on). **(2)** the **reaper is throttle-aware:
+  if its own gh calls are being rate-limited it does NOT reap** — a stale ping is ambiguous under
+  throttle (starved vs. dead), so the reaper's own API health is the discriminator; this breaks the
+  feedback loop (under pressure the system stops reaping, self-heals when throttle clears). **(3)**
+  jitter non-urgent writes; keep the liveness ping tiny/prioritized. **(4)** one identity has a
+  ceiling → guide **small N (~3–5) on one account**; the scaling lever is **distinct GitHub
+  *accounts* per worker** (separate bot/service accounts, or a GitHub App with per-worker
+  installation tokens). NB: the limit is per *account*, not per token — logging in each worker as
+  the *same* user (even separate tokens/sessions) shares one budget; only distinct accounts multiply
+  it. Net: mis-estimating the limit degrades to *slower*, never a reap storm. Confirm safe N
+  with an empirical spike (cf. CR-6) when it matters. *Status: RESOLVED.*
+- **CR-5 — RESOLVED — worker-mode recovery is scoped; the global In-Progress sweep is OFF.** Legacy
+  Step 0.6 (`SKILL.md:229`) assumes a single driver (every In-Progress ticket is *its* crashed work),
+  so its global "sweep all In-Progress, resume-or-reset" is wrong in worker mode. Fix: under a plan
+  ticket, split it and **disable the global sweep** — (1) **self-recovery:** a relaunching worker
+  recovers **only** what its own tracking issue shows it owns (its `Current ticket`, if not yet
+  `✓ completed`), never the global set; (2) **reaper:** another worker's ticket is recovered only
+  when that worker is *dead* (stale liveness), never because it merely looks In-Progress. Being
+  In-Progress is not grounds to reset a ticket; only owner-death is. Nothing strands because
+  selection runs off the **pool math** (`ready = pool − done − held`, `held` from live tracking
+  issues), not the board column — a board ticket with no live owner is simply `ready` again. Tidiness:
+  record ownership in the tracking issue *before* the board move. Legacy mode (no plan ticket) keeps
+  0.6 byte-for-byte (CR-2 rule). *Status: RESOLVED.*
+- **CR-6 — RESOLVED (down-graded to build-informing; baseline measured 2026-08-08).** Re-framed:
+  read-consistency governs **efficiency** (how often two workers waste effort both grabbing a
+  ticket), **not correctness** — correctness is backstopped by earliest-live-claim ownership (CR-3)
+  + the durable `✓ completed`-at-merge gate, neither of which depends on a fragile fresh-write read.
+  So a false assumption degrades to *wasted compute* (same bounded residual as CR-3), not a broken
+  run → **not a hard build gate.** Quick empirical baseline (10-sample lag probe on a throwaway
+  issue, single-client read-your-own-writes): **10/10 comments visible on the first read, ~0.8–0.9s
+  round-trip dominated by `gh` call overhead → propagation effectively immediate, zero stale reads.**
+  Caveats: single-client (cross-worker could be marginally worse), small sample (misses the tail).
+  **Decision: settle delay ~5s (≈5× the baseline); fallbacks = longer delay / read-until-stable if
+  the tail ever bites; adjust empirically later.** *Status: RESOLVED.*
+- **CR-7 — RESOLVED — planner requires refined tickets; then the graph is built from final content
+  + declared edges.** The problem was the graph inferred from *pre-refinement* prose that Stage 1
+  (`refine-story-v5`) then rewrites mid-run. Fix (matches practice: refine before orchestrating):
+  the **planner validates every pool ticket is already refined** — reusing `refine-story-v5`'s own
+  **Already-Refined Detection** (`skills/refine-story-v5/SKILL.md:55` — body contains all required
+  spec sections) — and **halts naming any that aren't**. Two payoffs: (a) refined bodies carry an
+  explicit **`## Dependency on {issue#}`** section (`refine-story-v5:323`), so the planner reads
+  *declared* edges and only *infers* where silent (propose-and-confirm covers the remainder);
+  (b) since pool tickets are already refined, the pipeline's Stage 1 self-detects `AlreadyRefined`
+  and **skips**, so nothing rewrites a ticket after the graph is frozen. **Injected-ticket residual:**
+  a mid-run injected fix must be refined *before* entering the pool (so its `## Dependency on` is
+  visible); since injected fixes almost always depend only on already-done work, they enter as
+  immediately-ready with no blocking edge. Graph never built from un-refined content. *Status:
+  RESOLVED.*
+- **CR-8 — RESOLVED — `ready` subtracts board-Waiting/Blocked (the one board signal we trust).**
+  Fix (a): **`ready = pool − done − held − blocked`**, `blocked` = tickets at board Status
+  **Waiting/Blocked**. Catches both a human park *and* the pipeline's own move-to-Waiting/Blocked on
+  a Blocked stage (`SKILL.md:550`); the ticket drops out of `ready`, no re-claim. Reversible: move it
+  back to Up Next → it re-enters `ready`. **Consistency with CR-5:** the board is authoritative
+  **only for "blocked"** — In-Progress/Done columns stay untrusted (ownership = tracking issues via
+  `held`, completion = `✓ completed` markers). Fix (b): a blocked ticket's dependents **wait, not
+  fail** (the block may lift — resolve → complete → dependents unblock; failing would throw away
+  recoverable work). Surface the impact: the STUCK-trip report (decision #5) **names the blocked
+  blocker** (`#3 unready: blocker #8 in Waiting/Blocked`); optionally surface eagerly when a ticket
+  enters Waiting/Blocked. Adds a board-status read to the scan (consistent with CR-10). *Status:
+  RESOLVED.*
+- **CR-9 — RESOLVED — plan ticket gets the same dedupe rule.** The planner applies
+  `orchestration-run`'s COUNT≥2 "keep the newest open, close the stale older one(s)" rule
+  (`SKILL.md:185`) to the `orchestration-plan` label, so there is never more than one live
+  coordination surface. *Status: RESOLVED.*
+- **CR-10 — RESOLVED (wording) — "one fetch" corrected.** The doc no longer claims a worker decides
+  from "one fetch of the plan ticket." Reality: a scan reads the plan ticket (pool/graph/claims/
+  completions) **plus** enumerates worker tracking issues (ownership/liveness) **plus** a
+  board-status read (Waiting/Blocked, CR-8). Stale auto-id worker issues (loop restarts) are ignored
+  by the liveness filter and swept by dedupe/cleanup so they don't pollute the enumeration or the
+  deadlock-trip count. *Status: RESOLVED.*
+- **CR-11 — RESOLVED — decided: model A, the full shared pool.** The alternative (build-order step 1:
+  hand-launched workers with disjoint `--tickets` scopes, no pool/claim/fence/reaper) is simpler but
+  buys no auto-load-balancing or dependency-gating. Decision: **build the full shared pool** — the
+  premises that made the "over-engineered?" question sharp have since softened (CR-1 shared-tree is a
+  non-issue under separate clones; CR-6 read-consistency measured effectively immediate and is only
+  an efficiency assumption). Step 1 remains a valid *incremental* first milestone (see build order),
+  but the target is A. *Status: RESOLVED.*
+- **CR-12 — nit — DONE.** Header "last updated" was stale (said 08-05 while decisions were resolved
+  08-08). Fixed in this edit.
 
 ---
 
