@@ -6,11 +6,12 @@
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
 > **Created:** 2026-08-05. **Last updated:** 2026-08-08.
-> **Status:** DRAFT — design complete. A cold-read review (2026-08-08) found two blockers, a cluster
-> of should-fixes, and a scope question; **all twelve findings (CR-1…CR-12) have been worked through
-> and resolved** — see **Cold-read findings** below, with resolutions folded into the body. Scope
-> decided: **model A (full shared pool)**. Ready to move from design to a build plan (see build
-> order); not yet implemented.
+> **Status:** DRAFT — happy-path design done; **recovery/close-out machinery has open holes.** Round-1
+> cold read (CR-1…CR-12) all resolved. A **round-2 cold read (2026-08-08)** then found **3 new
+> blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5)** — all on the recovery / injection /
+> close-out paths, or stale wording from folding CR-8 in. See **Second cold-read findings** below.
+> The core ownership model held; scope is **model A (full shared pool)**. Working B/S/N one at a time;
+> **not buildable until at least B1–B3 are resolved.**
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
 > coordination machinery is **inert without a plan ticket** — a plain `./scripts/orchestrate.sh`
 > run behaves exactly as it does today.
@@ -208,11 +209,13 @@ token = the claim's comment ID**, recorded as `Current ticket: #5 @token <id>`:
 
 **Partial-work handling — hands off the other worker's branch.** Since a resurrected incumbent can
 win back `#5`, the challenger must **never destroy the incumbent's work** — no adopt, no teardown of
-someone else's branch/PR. Each worker works its **own** branch; the **yielder cleans up its own** on
-standing down; a genuinely-dead worker's orphan branch/PR is swept at **CLEANUP** (like the claim
-comments). The `✓ completed #5` marker at merge is the final backstop: whoever posts it first wins,
-and the other, seeing it on its pre-merge recheck, tears down its own branch. (Depends on liveness
-being trustworthy and on GitHub read-consistency — CR-4, CR-6.)
+someone else's branch/PR. Each worker works its **own** branch — and this is literal because branch
+names are **worker-scoped** (`story/{STORY_ID}-{worker}-…`, B1), so two workers on one ticket never
+collide on a ref. The **yielder cleans up its own** on standing down; a genuinely-dead worker's
+orphan branch/PR is left untouched (resurrection-safe) and swept at **CLEANUP** (its distinct name
+means it never blocks the reclaimer). The `✓ completed #5` marker at merge is the final backstop:
+whoever posts it first wins, and the other, seeing it on its pre-merge recheck, tears down its own
+branch. (Depends on liveness being trustworthy and on GitHub read-consistency — CR-4, CR-6.)
 
 Note: the reaper keys on **tracking-issue liveness + tokens**, never on claim comments — leftover
 claims never enter into it.
@@ -255,8 +258,12 @@ On each fresh relaunch, a worker:
 4. **If `ready` is empty but `pool − done` is not:** everything left is blocked or claimed → write
    `Run state: WAITING` to the worker's tracking issue and exit; the loop backs off (~5 min) and
    relaunches to re-scan.
-5. **If `pool − done` is empty:** all scoped work is complete → fall to CLEANUP / the run's
-   fixpoint.
+5. **If `pool − done` is empty AND `held` is empty (quiescence):** try to claim the **cleanup role**
+   (`🧹 cleanup-claim` comment on the plan ticket, earliest wins — B2). The winner runs the single
+   heavyweight **CLEANUP** pass (C1–C5); if it injects work or the suite isn't green it re-enters the
+   pool (workers resume WORKING) and does *not* close; only an inject-nothing + green pass closes the
+   **plan ticket** (`RUN_COMPLETE`). Losers exit/relaunch. **The loop stops only when the plan ticket
+   is closed** (S4) — an idle worker WAITS, it never self-stops on being idle.
 
 ---
 
@@ -578,6 +585,104 @@ the record.
   but the target is A. *Status: RESOLVED.*
 - **CR-12 — nit — DONE.** Header "last updated" was stale (said 08-05 while decisions were resolved
   08-08). Fixed in this edit.
+
+---
+
+## Second cold-read findings (2026-08-08, round 2) — work one at a time
+
+A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
+drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
+but found the **recovery / injection / close-out machinery** under-specified — the paths a real
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all **OPEN**.
+
+- **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
+  `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
+  workers on one ticket (reclaim or resurrection window) push the *same* ref → non-ff reject or
+  destructive force-push. Fix: **in worker mode, branch names get a worker segment** —
+  `story/{STORY_ID}-{worker}-{slug}` (and `-{worker}-integration-tests` / `-{worker}-ui-tests`).
+  No two workers ever push the same ref. **This is what makes "swept at CLEANUP" fine** (the
+  reviewer's "too late" objection): under the shared name the reclaimer was *blocked* by the orphan;
+  with its own name it isn't, so a dead worker's orphan `story/HC-5-w1-…` harmlessly waits for
+  CLEANUP. Keeps hands-off + resurrection-safe: **never delete another worker's branch on reclaim**
+  (a resurrected incumbent wins under CR-3 and needs it); a **yielder** closes its *own* PR+branch;
+  the merge gate merges the *owner's* branch (earliest-live-claim); a genuinely-dead worker's orphan
+  branch/PR is swept at **CLEANUP** (extend the `^(story|fix|task|ci-fix)/` sweep, `SKILL.md:903`, to
+  orphaned worker branches + stale worker PRs). Design choice: a dead worker's partial ticket is
+  **redone from scratch** on a fresh branch, not *adopted* — consistent with hands-off; adopting a
+  maybe-not-dead worker's branch reopens the shared-branch race. **Legacy mode (no `--worker`) keeps
+  `story/{STORY_ID}-…` byte-for-byte (CR-2).** *Status: RESOLVED.*
+- **B2 — RESOLVED — CLEANUP is a single *elected* runner; the plan ticket is the fixpoint.** The
+  heavyweight CLEANUP mode (`SKILL.md:931-991`: C1 full UI regression dispatch, C2/C3 audits that
+  **inject tickets**, C4 fix injection, C5 close + `RUN_COMPLETE`) must not run N-way. Fix: when a
+  worker observes **quiescence** (`pool − done` empty **and** `held` empty), it **claims the cleanup
+  role** via an append-only `🧹 cleanup-claim` comment on the plan ticket (earliest-comment-ID wins,
+  same handshake as tickets); **only the winner runs CLEANUP, losers exit/relaunch.** One UI
+  dispatch, one audit pass. **The fixpoint closes the PLAN ticket** (+ `RUN_COMPLETE`) — that is the
+  run authority; per-worker tracking issues are run-state only and never gate completion. The
+  **WORKING↔CLEANUP oscillation is preserved**: injections (C2/C3/C4) use B3's append-safe channel;
+  if the owner injected anything or the suite isn't green it **does not close** — injected work
+  re-enters the pool, workers resume WORKING, a later quiescence re-elects a fresh cleanup owner;
+  only an inject-nothing + green pass reaches C5. (Quiescence's `held`-empty test is shared with the
+  S2 deadlock detector.) *Status: RESOLVED.*
+- **B3 — BLOCKER — no race-safe pool injection.** Pool + graph live in the plan-ticket **body**
+  ("written once"), and the design forbids concurrent body edits (that's why completions are
+  append-only comments). But two live injectors need to *add* tickets mid-run: Stage 2d UI-deferral
+  follow-ups (`SKILL.md:470-478`) and CLEANUP C4 (`SKILL.md:976-978`). Injecting = a body edit = the
+  multi-writer race the design avoids → last-write-wins silently drops an injected ticket → it's
+  never worked (reproduces the II-210/II-226 deferred-work bug). Fix: an **append-safe injection
+  channel** — e.g. a `➕ pool #N` comment (with any dep edges) that the scan unions into the pool,
+  never a body edit. *Status: OPEN.*
+- **S1 — should-fix — the double-run backstop check isn't throttle-aware.** CR-4 makes the *reaper*
+  fail-safe under throttle, but double-run safety actually rests on the pre-dispatch/pre-merge "am I
+  the earliest live claim?" recheck, which reads peer liveness and is *not* throttle-aware. Under a
+  throttle episode both the reaper and its backstop are impaired at once. Specify **fail-closed**
+  (yield/abort on unreadable liveness), matching the reaper. *Status: OPEN.*
+- **S2 — should-fix — deadlock trip defeated by a live-but-wedged worker; "In Progress" contradicts
+  CR-5.** STUCK fires only when "every live worker WAITING **and none In Progress**" — a worker
+  wedged on a poison ticket (loop pinging, session relaunching without progress) holds its claim
+  forever, so the trip never fires. And "In Progress" (board column) contradicts CR-5/CR-8. Fix:
+  define the trip as **`held` empty**, and add a per-worker no-forward-progress bound so one stuck
+  holder can trip the run. *Status: OPEN.*
+- **S3 — should-fix — worker-issue identity can collide with Step 0.5 dedupe.** If identity uses a
+  "worker field" but keeps the base `orchestration-run` label, Step 0.5's COUNT≥2 dedupe
+  (`SKILL.md:185`) has **every worker closing every other worker's tracking issue** each launch. And
+  there's no `gh issue list` filter for an arbitrary field. Resolve: per-worker **label**
+  (`orchestration-run-<worker>`) + a **worker-scoped** dedupe (never touch other workers' issues).
+  *Status: OPEN.*
+- **S4 — RESOLVED (with B2) — worker-loop stops on the plan ticket closing.** In worker mode the
+  loop's stop condition becomes **"the plan ticket is closed" (`RUN_COMPLETE`)**, not the
+  `--label orchestration-run --state open` query (`:194/:218/:237`) — which is per-worker and would
+  stop each worker when merely idle. A worker with no ready ticket **WAITS** (backoff-relaunch),
+  because cleanup may inject work; it stops only when the plan ticket closes (done) or the STUCK trip
+  fires. All workers stop together at close. (Legacy mode keeps the bare-label stop, CR-2.)
+  *Status: RESOLVED.*
+- **S5 — should-fix — post-merge CI breakage is shared-fate.** N workers merge to one main; A's
+  merge can break main for everyone → every worker's background ci-fix watcher (`SKILL.md:1052`)
+  fires on the same red main, multiple FIX agents race on `ci-fix/*` branches, multiple loops may
+  trip the "build fails on main" halt (`SKILL.md:1123`). The "two devs merging, git handles it"
+  bullet covers merge-tree conflicts, not post-merge CI shared-fate — which parallelism genuinely
+  introduces. Needs a single-owner CI-repair rule. *Status: OPEN.*
+- **S6 — should-fix — scan reads are ~O(N²), unbudgeted.** Each worker's scan reads the plan ticket
+  + all N worker issues + a board-status read (expensive `gh project item-list --limit 1000`,
+  `SKILL.md:293`); N workers relaunching → ~N² reads. CR-4 budgeted only writes. Self-heals to
+  "slower" under backoff, but belongs in the rate-limit accounting. *Status: OPEN.*
+- **N1 — nit — `ready` formula stated two ways.** Three-term (`pool − done − held`) at several
+  lines; four-term (`− blocked`) after CR-8. Propagate the `− blocked` everywhere. *Status: OPEN.*
+- **N2 — nit — "not the board column" reads as contradicting CR-8.** CR-5 prose says selection reads
+  "not the board column"; CR-8 reads the board for Waiting/Blocked. Compatible (different columns)
+  but the prose is stale. Reword to "board trusted only for Waiting/Blocked." *Status: OPEN.*
+- **N3 — nit — `✓ completed` timing wording.** Body says posted "through checkpoint" (Stage 8, after
+  all three PR merges), but the backstop is called "`✓ completed`-at-merge." Stage 8 is well after
+  any single merge — clarify when the backstop actually fires. *Status: OPEN.*
+- **N4 — nit — refine citation drift + overstated payoff.** `## Dependency on` is at
+  `refine-story-v5:321` (not :323) and the header is `## Dependency on {PREFIX}-{issue#}`. More
+  substantively: that section is **optional** and **single-blocker-shaped**, so it can't express the
+  many-to-many gate `#4 → #1,#2,#3` — CR-7's "declared edges" payoff (a) is **oversold**; the
+  planner leans on *inference* (ED-1 risk) more than CR-7 implies. Confirm gate still covers it.
+  *Status: OPEN.*
+- **N5 — nit — re-planning closes the live plan ticket.** CR-9's newest-wins dedupe on
+  `orchestration-plan` would close the *active* plan ticket if the planner is re-run mid-flight.
+  Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
 
 ---
 
