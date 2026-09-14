@@ -938,6 +938,8 @@ CLEANUP runs when **no scoped Ready tickets remain** (scope ∩ Up Next == 0) �
 
 ### C1. Full UI regression suite (unfiltered runner dispatch)
 
+> **Runner-availability rule — determine "runner down" from job progress, NEVER from the runner roster.** Do not query `actions/runners` to decide whether a self-hosted runner exists, and never park/halt because a roster is empty or shows only offline runners. The roster is an unreliable oracle in two ways: **(a)** an **org-level** runner does not appear in the **repo** roster at all — `repos/{owner}/{repo}/actions/runners` is structurally blind to it, and the org endpoint (`orgs/{org}/actions/runners`) needs `admin:org` most tokens lack — so a repo whose real runner is org-shared reads as `total_count:1, offline` (a dead **repo-level** runner) or `total_count:0` while the org runner quietly runs everything; **(b)** ephemeral/JIT runners read `total_count:0` between jobs (steady state, not "offline"). The authoritative signal is the **dispatched run itself**: dispatch, then poll `gh run view <id> --json status,conclusion,jobs`. If it leaves `queued` and executes, the runner is present — whatever the roster said. Recent history corroborates: if the same `self-hosted` workflow ran green in the last few days, a runner is there. **Escalate to a circuit-breaker halt ONLY when a dispatched run stays `queued` with `runner: null` past normal pickup (~15 min)** — that, not an empty or offline roster, is the sole "runner genuinely down" signal.
+
 Dispatch `ui-tests.yml` **unfiltered** (full suite) on the self-hosted runner and poll to completion:
 
 ```bash

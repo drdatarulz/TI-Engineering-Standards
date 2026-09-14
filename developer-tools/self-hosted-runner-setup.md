@@ -137,6 +137,7 @@ A long-lived runner accumulates state; budget for it:
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | Jobs queue forever, runner shows **Offline** | Service not running / distro shut down | `sudo ./svc.sh start`; on WSL2 confirm systemd + auto-start (§3) |
+| Repo runner list shows only an **Offline** runner but jobs still run fine | The real runner is registered at the **org** level (a "shared" runner in a runner group) and is invisible to `repos/{owner}/{repo}/actions/runners`; the offline entry is a dead repo-level runner | Nothing to fix — the org runner is doing the work. Confirm via a job's `runner_name`/`runner_group` (`gh api repos/.../actions/runs/<id>/jobs`). Optionally delete the dead repo-level runner so the roster stops misleading. **Never decide "no runner" from the repo roster** (see orchestrate-v5 → C1 "Runner-availability rule"). |
 | Integration/UI jobs fail on `docker` | Runner user can't reach the daemon | Add user to `docker` group; verify `docker run --rm hello-world` as that user |
 | Fast tier fails trying to use Docker | A Testcontainers/Docker reference leaked into a fast-tier project (TR-11) | Move that test to the integration tier — do **not** point `DOCKER_HOST` at the real daemon |
 | UI run checks out the wrong code | `ref` input defaulting to `main` | Pass `--ref <branch>` (and `-f ref=<branch>` for clarity) — see `templates/workflows/README.md` |
