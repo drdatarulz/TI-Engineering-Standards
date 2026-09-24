@@ -5,13 +5,15 @@
 > **planner skill** turns a ticket list into a dependency graph + a shared ticket pool; you then
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
-> **Created:** 2026-08-05. **Last updated:** 2026-08-08.
-> **Status:** DRAFT — happy-path design done; **recovery/close-out machinery has open holes.** Round-1
-> cold read (CR-1…CR-12) all resolved. A **round-2 cold read (2026-08-08)** then found **3 new
-> blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5)** — all on the recovery / injection /
-> close-out paths, or stale wording from folding CR-8 in. See **Second cold-read findings** below.
-> The core ownership model held; scope is **model A (full shared pool)**. Working B/S/N one at a time;
-> **not buildable until at least B1–B3 are resolved.**
+> **Created:** 2026-08-05. **Last updated:** 2026-09-24.
+> **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
+> 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
+> read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
+> S4 are resolved; S1–S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
+> one at a time. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
+> merged to `main`; the elected CLEANUP runner (B2) inherits that bar. `SKILL.md` citations below
+> were re-grounded against `main` @ `96ead7a`.
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
 > coordination machinery is **inert without a plan ticket** — a plain `./scripts/orchestrate.sh`
 > run behaves exactly as it does today.
@@ -260,8 +262,9 @@ On each fresh relaunch, a worker:
    relaunches to re-scan.
 5. **If `pool − done` is empty AND `held` is empty (quiescence):** try to claim the **cleanup role**
    (`🧹 cleanup-claim` comment on the plan ticket, earliest wins — B2). The winner runs the single
-   heavyweight **CLEANUP** pass (C1–C5); if it injects work or the suite isn't green it re-enters the
-   pool (workers resume WORKING) and does *not* close; only an inject-nothing + green pass closes the
+   heavyweight **CLEANUP** pass (C1–C5); if it injects work, the suite isn't green, or the Deploy
+   Pipeline isn't green (DS-112 bar) it re-enters the pool (workers resume WORKING) and does *not*
+   close; only an inject-nothing + tests-green + deploy-green pass closes the
    **plan ticket** (`RUN_COMPLETE`). Losers exit/relaunch. **The loop stops only when the plan ticket
    is closed** (S4) — an idle worker WAITS, it never self-stops on being idle.
 
@@ -593,7 +596,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all **OPEN**.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 + S4 RESOLVED; the rest OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -612,8 +615,9 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all **OPEN
   maybe-not-dead worker's branch reopens the shared-branch race. **Legacy mode (no `--worker`) keeps
   `story/{STORY_ID}-…` byte-for-byte (CR-2).** *Status: RESOLVED.*
 - **B2 — RESOLVED — CLEANUP is a single *elected* runner; the plan ticket is the fixpoint.** The
-  heavyweight CLEANUP mode (`SKILL.md:931-991`: C1 full UI regression dispatch, C2/C3 audits that
-  **inject tickets**, C4 fix injection, C5 close + `RUN_COMPLETE`) must not run N-way. Fix: when a
+  heavyweight CLEANUP mode (`SKILL.md:931-1006`: C1 full UI regression dispatch, C2/C3 audits that
+  **inject tickets**, C4 fix injection, C5 close + `RUN_COMPLETE` — C5 now also carries DS-112's
+  authoritative `deploy.yml` hard bar) must not run N-way. Fix: when a
   worker observes **quiescence** (`pool − done` empty **and** `held` empty), it **claims the cleanup
   role** via an append-only `🧹 cleanup-claim` comment on the plan ticket (earliest-comment-ID wins,
   same handshake as tickets); **only the winner runs CLEANUP, losers exit/relaunch.** One UI
@@ -622,16 +626,53 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all **OPEN
   **WORKING↔CLEANUP oscillation is preserved**: injections (C2/C3/C4) use B3's append-safe channel;
   if the owner injected anything or the suite isn't green it **does not close** — injected work
   re-enters the pool, workers resume WORKING, a later quiescence re-elects a fresh cleanup owner;
-  only an inject-nothing + green pass reaches C5. (Quiescence's `held`-empty test is shared with the
+  only an inject-nothing + tests-green + deploy-green pass reaches C5 close. (Because the elected
+  owner runs C5, the DS-112 deploy bar — poll-to-terminal, re-run-once to classify flaky, route a
+  real red to `ci-fix-v5` — runs exactly once, not N-way. Interaction with S5's CI-repair owner is
+  S5's to settle.) (Quiescence's `held`-empty test is shared with the
   S2 deadlock detector.) *Status: RESOLVED.*
-- **B3 — BLOCKER — no race-safe pool injection.** Pool + graph live in the plan-ticket **body**
-  ("written once"), and the design forbids concurrent body edits (that's why completions are
-  append-only comments). But two live injectors need to *add* tickets mid-run: Stage 2d UI-deferral
-  follow-ups (`SKILL.md:470-478`) and CLEANUP C4 (`SKILL.md:976-978`). Injecting = a body edit = the
-  multi-writer race the design avoids → last-write-wins silently drops an injected ticket → it's
-  never worked (reproduces the II-210/II-226 deferred-work bug). Fix: an **append-safe injection
-  channel** — e.g. a `➕ pool #N` comment (with any dep edges) that the scan unions into the pool,
-  never a body edit. *Status: OPEN.*
+- **B3 — RESOLVED (2026-09-24) — append-only `➕ pool` comments are the one injection channel.**
+  Problem: pool + graph live in the plan-ticket **body** ("written once"), and concurrent body edits
+  are forbidden (last-write-wins). But work gets added mid-run, and a body-edit injection would
+  silently drop tickets under a race (the II-210/II-226 deferred-work bug). There are **three**
+  injectors, not two — the round-2 reviewer missed the third:
+  1. **Stage 2d UI-deferral follow-ups** (`SKILL.md:458-478`) — a worker mid-ticket.
+  2. **CLEANUP C4 fix/re-tier tickets** (`SKILL.md:978-980`) — the elected cleanup owner.
+  3. **The operator slot** — "add #12,#13 to the run" (`SKILL.md:220`). All three today append to
+     the tracking issue's `Scope:` field (C4 says so explicitly at `:980`); in worker mode that field
+     is per-worker run-state, **not** the pool, so writing there would inject into nothing.
+
+  **Fix — one append-safe channel for all three:**
+  - **Format:** a comment on the plan ticket, `➕ pool #N` or `➕ pool #N → #A, #B` (same edge syntax
+    as the body's `## Dependencies`). One comment per injected ticket. Never edited, never deleted
+    (end-of-run cleanup sweeps only untaken `🔒 claim` comments).
+  - **Scan:** `pool = body pool ∪ all ➕ pool #N`; `graph = body edges ∪ ➕ edges`. Union is
+    idempotent, so a double-injection (two workers, or a retry) is harmless. The body stays frozen
+    as the planner wrote it — it remains the confirmed plan, the comments are the delta.
+  - **Operator slot in worker mode:** whichever worker's session reads a mid-run "add #X" converts
+    it to `➕ pool #X` comments on the plan ticket (never `Scope:`). The operator can also just post
+    the `➕ pool` comment on the plan ticket directly — that's the preferred path.
+  - **Refined-first (CR-7 carried over):** a ticket must be refined **before** its `➕` is posted, so
+    its `## Dependency on` is readable and Stage 1 won't rewrite it after it's in the graph. 2d
+    follow-ups and C4 fixes are created by the orchestrator, which refines them (or runs
+    `add-story-v5` non-interactive + `refine-story-v5`) before posting. An operator-added ticket that
+    isn't refined: the converting worker refines it first, then posts.
+  - **Edges on injection:** 2d follow-ups depend on their parent (`➕ pool #F → #P`), which is
+    already `✓ completed` or about to be — so they're effectively immediately ready. C4 fixes are
+    injected at quiescence, when everything is done — no edges. An edge to a ticket **outside the
+    pool** is legal only if that ticket is already closed; otherwise the injected ticket can never
+    become ready → it shows up in the STUCK report (`#F unready: blocker #Z not in pool`), never a
+    silent wedge.
+  - **Close-time race (the one real window):** C5 closes the plan ticket; a `➕` could land between
+    the owner's quiescence read and the close. A 2d injection can't — quiescence means `held` is
+    empty, so no worker is mid-ticket. C4 injections come from the owner itself. The operator can
+    post at any time, though. So **C5 re-reads the plan ticket's `➕ pool` comments immediately
+    before closing**, and if any `➕` ticket is not `✓ completed`, it does **not** close — the new
+    work re-enters the pool and quiescence is re-evaluated later. Residual: an operator `➕` posted
+    in the few seconds between that re-read and the close is lost — accepted; the operator sees the
+    plan ticket closed and re-plans.
+  - **Legacy mode (no `--worker`):** unchanged — injectors keep appending to `Scope:` (CR-2).
+  *Status: RESOLVED.*
 - **S1 — should-fix — the double-run backstop check isn't throttle-aware.** CR-4 makes the *reaper*
   fail-safe under throttle, but double-run safety actually rests on the pre-dispatch/pre-merge "am I
   the earliest live claim?" recheck, which reads peer liveness and is *not* throttle-aware. Under a
@@ -657,9 +698,9 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all **OPEN
   fires. All workers stop together at close. (Legacy mode keeps the bare-label stop, CR-2.)
   *Status: RESOLVED.*
 - **S5 — should-fix — post-merge CI breakage is shared-fate.** N workers merge to one main; A's
-  merge can break main for everyone → every worker's background ci-fix watcher (`SKILL.md:1052`)
+  merge can break main for everyone → every worker's background ci-fix watcher (`SKILL.md:1067`)
   fires on the same red main, multiple FIX agents race on `ci-fix/*` branches, multiple loops may
-  trip the "build fails on main" halt (`SKILL.md:1123`). The "two devs merging, git handles it"
+  trip the "build fails on main" halt (`SKILL.md:1140`). The "two devs merging, git handles it"
   bullet covers merge-tree conflicts, not post-merge CI shared-fate — which parallelism genuinely
   introduces. Needs a single-owner CI-repair rule. *Status: OPEN.*
 - **S6 — should-fix — scan reads are ~O(N²), unbudgeted.** Each worker's scan reads the plan ticket
