@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N2–N5 remain open (N1 done).** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -61,8 +61,9 @@ tree per worker). This is the premise that makes "two workers merging is just tw
   have many blockers. This is the **only** carrier of correctness — a ticket runs only once *every*
   blocker is `✓ completed`. It knows nothing about workers or ordering beyond the edges.
 - **Ticket pool** — the flat set of tickets in scope for the run. No partition, no lane. A ticket
-  is **ready** when it is in the pool, not yet completed, unclaimed, and all its blockers are
-  completed.
+  is **ready** when it is in the pool, not yet completed, not held by a live worker, not parked in
+  board Waiting/Blocked, and all its blockers are completed — `ready = pool − done − held −
+  blocked`, blockers ⊆ `done` (the one canonical form).
 - **Worker** — one orchestrator instance, **running in its own clone/worktree** (see Deployment
   topology), with an id (`--worker w2`, or auto-generated if omitted — see Worker identity below).
   The id is an **ephemeral process identity** — it names *which orchestrator*, not *which work* (work
@@ -162,7 +163,7 @@ mode is another worker's live work. Recovery in worker mode is only these two, b
 relaunching worker **self-recovers** just what its own tracking issue owns (its `Current ticket`,
 if not `✓ completed`); and this reaper reclaims *another* worker's ticket **only on death** (stale
 liveness), never because a ticket merely looks In-Progress. Nothing strands: selection runs off the
-pool math (`ready = pool − done − held`), not the board column.
+pool math (`ready = pool − done − held − blocked`, blockers ⊆ `done`), not the board column.
 
 **Liveness — a process-level ping, not a stage-level one.** The tracking issue only updates every
 *stage*, and a big implement runs 30–45 min silent — so "issue quiet" ≠ "worker dead." Fix: the
@@ -579,7 +580,7 @@ the record.
   `✓ completed`), never the global set; (2) **reaper:** another worker's ticket is recovered only
   when that worker is *dead* (stale liveness), never because it merely looks In-Progress. Being
   In-Progress is not grounds to reset a ticket; only owner-death is. Nothing strands because
-  selection runs off the **pool math** (`ready = pool − done − held`, `held` from live tracking
+  selection runs off the **pool math** (`ready = pool − done − held − blocked`, blockers ⊆ `done`; `held` from live tracking
   issues), not the board column — a board ticket with no live owner is simply `ready` again. Tidiness:
   record ownership in the tracking issue *before* the board move. Legacy mode (no plan ticket) keeps
   0.6 byte-for-byte (CR-2 rule). *Status: RESOLVED.*
@@ -647,7 +648,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 and S1–S6 RESOLVED; N1–N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1 RESOLVED; N2–N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -861,8 +862,10 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 an
   less as backoff stretches. The dominant consumer remains the pipeline's own traffic (PRs,
   reviews, CI polling), which scales with N regardless of where coordination lives.
   *Status: RESOLVED.*
-- **N1 — nit — `ready` formula stated two ways.** Three-term (`pool − done − held`) at several
-  lines; four-term (`− blocked`) after CR-8. Propagate the `− blocked` everywhere. *Status: OPEN.*
+- **N1 — RESOLVED (2026-09-24) — one `ready` formula.** Every statement now reads `ready = pool −
+  done − held − blocked`, blockers ⊆ `done` (Concepts, reaper, CR-5). Matters beyond tidiness: the
+  `− blocked` term is what keeps parked tickets (human park, Blocked stage, S2, M1) out of
+  circulation. *Status: RESOLVED.*
 - **N2 — nit — "not the board column" reads as contradicting CR-8.** CR-5 prose says selection reads
   "not the board column"; CR-8 reads the board for Waiting/Blocked. Compatible (different columns)
   but the prose is stale. Reword to "board trusted only for Waiting/Blocked." *Status: OPEN.*
