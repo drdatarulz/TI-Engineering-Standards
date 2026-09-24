@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N2–N5 remain open (N1 done).** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N3–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -163,7 +163,9 @@ mode is another worker's live work. Recovery in worker mode is only these two, b
 relaunching worker **self-recovers** just what its own tracking issue owns (its `Current ticket`,
 if not `✓ completed`); and this reaper reclaims *another* worker's ticket **only on death** (stale
 liveness), never because a ticket merely looks In-Progress. Nothing strands: selection runs off the
-pool math (`ready = pool − done − held − blocked`, blockers ⊆ `done`), not the board column.
+pool math (`ready = pool − done − held − blocked`, blockers ⊆ `done`). The board is trusted
+**only for Waiting/Blocked** (`blocked`); ownership and completion never come from its In
+Progress/Done columns.
 
 **Liveness — a process-level ping, not a stage-level one.** The tracking issue only updates every
 *stage*, and a big implement runs 30–45 min silent — so "issue quiet" ≠ "worker dead." Fix: the
@@ -580,8 +582,10 @@ the record.
   `✓ completed`), never the global set; (2) **reaper:** another worker's ticket is recovered only
   when that worker is *dead* (stale liveness), never because it merely looks In-Progress. Being
   In-Progress is not grounds to reset a ticket; only owner-death is. Nothing strands because
-  selection runs off the **pool math** (`ready = pool − done − held − blocked`, blockers ⊆ `done`; `held` from live tracking
-  issues), not the board column — a board ticket with no live owner is simply `ready` again. Tidiness:
+  selection runs off the **pool math** (`ready = pool − done − held − blocked`, blockers ⊆ `done`;
+  `held` from live tracking issues). The board is trusted **only for Waiting/Blocked**; ownership
+  and completion never come from it — a ticket sitting In Progress with no live owner is simply
+  `ready` again. Tidiness:
   record ownership in the tracking issue *before* the board move. Legacy mode (no plan ticket) keeps
   0.6 byte-for-byte (CR-2 rule). *Status: RESOLVED.*
 - **CR-6 — RESOLVED (down-graded to build-informing; baseline measured 2026-08-08).** Re-framed:
@@ -648,7 +652,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1 RESOLVED; N2–N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N2 RESOLVED; N3–N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -866,9 +870,9 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   done − held − blocked`, blockers ⊆ `done` (Concepts, reaper, CR-5). Matters beyond tidiness: the
   `− blocked` term is what keeps parked tickets (human park, Blocked stage, S2, M1) out of
   circulation. *Status: RESOLVED.*
-- **N2 — nit — "not the board column" reads as contradicting CR-8.** CR-5 prose says selection reads
-  "not the board column"; CR-8 reads the board for Waiting/Blocked. Compatible (different columns)
-  but the prose is stale. Reword to "board trusted only for Waiting/Blocked." *Status: OPEN.*
+- **N2 — RESOLVED (2026-09-24) — board-trust wording.** "Not the board column" (reaper, CR-5) read
+  as contradicting CR-8's Waiting/Blocked read. Reworded both to "the board is trusted **only for
+  Waiting/Blocked**; ownership and completion never come from it." *Status: RESOLVED.*
 - **N3 — nit — `✓ completed` timing wording.** Body says posted "through checkpoint" (Stage 8, after
   all three PR merges), but the backstop is called "`✓ completed`-at-merge." Stage 8 is well after
   any single merge — clarify when the backstop actually fires. *Status: OPEN.*
