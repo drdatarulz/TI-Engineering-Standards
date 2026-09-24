@@ -393,8 +393,10 @@ how many you'll run — it produces the plan; you decide worker count at launch.
    run in?" analysis the operator does by hand today. It reads every ticket in full (body, AC, any
    `## Dependency on {PREFIX}-{issue#}` sections — `refine-story-v5:321`) and works out what must
    come first: e.g. a new project's foundation tickets strictly one at a time, then the rest fanning
-   out in parallel. Most edges are **its judgment**, not declared data (N4) — the template's
-   dependency section is optional and single-blocker-shaped, so it's an input, not the source.
+   out in parallel. **Every dependency a ticket declares is always in the graph** — the planner may
+   *add* edges its analysis finds, but never drops a declared one (if it thinks one is wrong, it
+   flags it at the confirm step). Since the declared section is optional, many edges will be its
+   judgment (N4).
 2. **Shows you the proposed graph** — each edge with a one-line reason — and waits for a one-look
    confirm before committing (see below).
 3. On confirm, writes the **plan ticket** (pool + graph) and prints example launch commands.
@@ -909,7 +911,8 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   edges, infers only where silent" was oversold. Reframed to match practice: the planner **analyzes
   the tickets as a set and proposes the run order** (serial foundation first, then fan-out, or
   whatever the tickets call for), shows each edge with a one-line reason, and the human confirm is
-  the safeguard. No change to `refine-story-v5`. *Status: RESOLVED.*
+  the safeguard. **Declared dependencies are always honored** — the planner adds to them, never
+  drops them. No change to `refine-story-v5`. *Status: RESOLVED.*
 - **N5 — nit — re-planning closes the live plan ticket.** CR-9's newest-wins dedupe on
   `orchestration-plan` would close the *active* plan ticket if the planner is re-run mid-flight.
   Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
