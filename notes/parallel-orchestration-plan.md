@@ -6,15 +6,13 @@
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
 > **Created:** 2026-08-05. **Last updated:** 2026-09-24.
-> **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
-> 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
-> read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nit N5 remains open.** See **Second cold-read findings** below.
-> The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
-> one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
-> build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
-> merged to `main`; the elected CLEANUP runner (B2) inherits that bar. `SKILL.md` citations below
-> were re-grounded against `main` @ `96ead7a`.
+> **Status:** DESIGN COMPLETE (2026-09-24). Scope is **model A (full shared pool)**. All findings
+> resolved: round-1 cold read CR-1…CR-12 (2026-08-08); round-2 cold read B1–B3, S1–S6, N1–N5
+> (2026-08-08 → 2026-09-24); added findings **U1** (usage-limit wait, runtime piece #5 — built in
+> this plan, not separately) and **M1** (rebase-and-retry on merge conflict). **One open item:**
+> capture the real Claude usage-limit message before writing U1's detection pattern (ED-3).
+> DS-112 (PR #18, deploy-pipeline hard bar on C5) is merged; the elected CLEANUP runner (B2)
+> inherits it. `SKILL.md` citations re-grounded against `main` @ `96ead7a`.
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
 > coordination machinery is **inert without a plan ticket** — a plain `./scripts/orchestrate.sh`
 > run behaves exactly as it does today.
@@ -56,7 +54,7 @@ tree per worker). This is the premise that makes "two workers merging is just tw
   ownership/liveness come from enumerating the per-worker tracking issues, and `blocked` from a
   board-status read (CR-8, CR-10). **Exactly one is kept live** — the planner applies
   `orchestration-run`'s newest-wins dedupe rule (`SKILL.md:185`) to the `orchestration-plan` label,
-  closing any stale older plan ticket (CR-9).
+  closing any stale older plan ticket (CR-9) — but **never one still in flight** (N5).
 - **Dependency graph** — a flat, per-ticket edge list: `blocked → blockers`, where a ticket may
   have many blockers. This is the **only** carrier of correctness — a ticket runs only once *every*
   blocker is `✓ completed`. It knows nothing about workers or ordering beyond the edges.
@@ -665,7 +663,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N4 RESOLVED; N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all RESOLVED (2026-09-24).
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -913,9 +911,13 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   whatever the tickets call for), shows each edge with a one-line reason, and the human confirm is
   the safeguard. **Declared dependencies are always honored** — the planner adds to them, never
   drops them. No change to `refine-story-v5`. *Status: RESOLVED.*
-- **N5 — nit — re-planning closes the live plan ticket.** CR-9's newest-wins dedupe on
-  `orchestration-plan` would close the *active* plan ticket if the planner is re-run mid-flight.
-  Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
+- **N5 — RESOLVED (2026-09-24) — the planner never auto-closes an in-flight plan ticket.** CR-9's
+  newest-wins dedupe would close the *active* plan ticket if the planner were re-run mid-run. Guard:
+  before closing an older `orchestration-plan` ticket, the planner checks whether it is **in
+  flight** — any of its `orchestration-worker` issues (S3) has a fresh liveness ping, or any
+  `taken` claim lacks a `✓ completed`. If so, it **does not close it**: it stops and asks the
+  operator (finish/abandon the running plan first, or cancel the new one). Only a quiet, stale plan
+  ticket is auto-closed. *Status: RESOLVED.*
 
 ### Added findings (post-round-2)
 
