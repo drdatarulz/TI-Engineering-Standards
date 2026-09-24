@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5 and new finding M1 (2026-09-24); S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -262,8 +262,8 @@ On each fresh relaunch, a worker:
    **exit for relaunch** (fresh context per ticket, exactly as today). On loss, drop it from the
    candidate set and try the next.
 4. **If `ready` is empty but `pool − done` is not:** everything left is blocked or claimed → write
-   `Run state: WAITING` to the worker's tracking issue and exit; the loop backs off (~5 min) and
-   relaunches to re-scan.
+   `Run state: WAITING` to the worker's tracking issue and exit; the loop backs off (~5 min,
+   stretching toward ~15 min while nothing changes, jittered — S6) and relaunches to re-scan.
 5. **If `pool − done` is empty AND `held` is empty (quiescence):** try to claim the **cleanup role**
    (`🧹 cleanup-claim` comment on the plan ticket, earliest wins — B2). The winner runs the single
    heavyweight **CLEANUP** pass (C1–C5); if it injects work, the suite isn't green, or the Deploy
@@ -647,7 +647,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 and S1–S5 RESOLVED; S6 and N1–N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 and S1–S6 RESOLVED; N1–N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -835,10 +835,32 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 an
     authoritatively; an open `🔧 ci-repair` claim means not-at-fixpoint.
   - **Legacy mode:** unchanged (CR-2).
   *Status: RESOLVED.*
-- **S6 — should-fix — scan reads are ~O(N²), unbudgeted.** Each worker's scan reads the plan ticket
-  + all N worker issues + a board-status read (expensive `gh project item-list --limit 1000`,
-  `SKILL.md:293`); N workers relaunching → ~N² reads. CR-4 budgeted only writes. Self-heals to
-  "slower" under backoff, but belongs in the rate-limit accounting. *Status: OPEN.*
+- **S6 — RESOLVED (2026-09-24) — batched scan reads (~3 calls/scan, flat in N), stretching idle
+  backoff, and measured budget.** Problem: CR-4 budgeted writes only. A naive scan reads the plan
+  ticket (paginated, growing all run) + each worker's issue *and* liveness comment (~N+1 calls) +
+  the whole board (`gh project item-list --limit 1000`, `SKILL.md:293` — ~10 pages to learn the
+  status of a handful of pool tickets). N workers each reading N workers' state → **~N²**, and idle
+  WAITING workers pay it every backoff cycle for nothing. **Fix:**
+  1. **Board read scoped to the pool.** One GraphQL query for the project Status of just the pool
+     tickets (by issue number), not a full `item-list`. ~1 call instead of ~10. Worker mode only —
+     legacy Mode Selection keeps its `item-list` (CR-2).
+  2. **All workers in one read.** One GraphQL query returns every open `orchestration-worker` issue
+     for this plan (S3) with its body and its `❤ alive` comment's `updatedAt`. 1 call instead of
+     N+1 — this is what removes the N² term.
+  3. **Stretching, jittered idle backoff.** A WAITING worker's backoff starts at ~5 min and grows
+     toward ~15 min while nothing changes, with random jitter so idle workers don't re-scan in
+     lockstep; it **resets to the short interval when a new `✓ completed` or `➕ pool` appears**
+     (the only events that can make a ticket ready). Trade: an idle worker may notice new work a
+     few minutes later, for far fewer idle reads.
+  4. **Measure.** The loop's 45s heartbeat logs remaining REST + GraphQL budget from
+     `gh api rate_limit` (that call doesn't count against the limit) to the run log. The first test
+     run replaces the estimates below with real numbers.
+  **Resulting estimate (ED-3 — unmeasured until #4 runs):** a scan is ~3 calls regardless of N
+  (plan ticket + workers + pool status), so coordination cost is linear — workers × scans. Five
+  workers all idle at a 5-min backoff ≈ 5 × 3 × 12 ≈ **~180 calls/hr** of a 5,000/hr budget, and
+  less as backoff stretches. The dominant consumer remains the pipeline's own traffic (PRs,
+  reviews, CI polling), which scales with N regardless of where coordination lives.
+  *Status: RESOLVED.*
 - **N1 — nit — `ready` formula stated two ways.** Three-term (`pool − done − held`) at several
   lines; four-term (`− blocked`) after CR-8. Propagate the `− blocked` everywhere. *Status: OPEN.*
 - **N2 — nit — "not the board column" reads as contradicting CR-8.** CR-5 prose says selection reads
