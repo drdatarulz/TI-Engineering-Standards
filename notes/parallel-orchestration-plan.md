@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N3–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N4–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -139,8 +139,9 @@ baseline probe (2026-08-08, CR-6) measured read-your-own-writes as **effectively
 on the first read, ~1s dominated by `gh` call overhead, zero stale reads** — so **~5s settle delay
 gives ≈5× margin.** Caveat (ED-3): that probe was single-client (cross-worker visibility could be
 marginally worse) and small-sample (misses a rare tail), which is *why* the delay keeps margin and
-the fail-safe backstops (earliest-live-claim + `✓ completed`-at-merge) carry the tail — read
-consistency is an **efficiency** assumption here, not a correctness one.
+the fail-safe backstops (the pre-merge earliest-live-claim recheck + the per-stage `⛙ merged`
+marker — N3) carry the tail — read consistency is mostly an **efficiency** assumption here; see
+N3 for the narrow residual.
 
 **Leftover claims are inert, so cleanup waits for the end.** Because ongoing ownership is the
 tracking issue (see Ownership), a losing or dead claim comment left on the thread affects nothing —
@@ -222,9 +223,13 @@ someone else's branch/PR. Each worker works its **own** branch — and this is l
 names are **worker-scoped** (`story/{STORY_ID}-{worker}-…`, B1), so two workers on one ticket never
 collide on a ref. The **yielder cleans up its own** on standing down; a genuinely-dead worker's
 orphan branch/PR is left untouched (resurrection-safe) and swept at **CLEANUP** (its distinct name
-means it never blocks the reclaimer). The `✓ completed #5` marker at merge is the final backstop:
-whoever posts it first wins, and the other, seeing it on its pre-merge recheck, tears down its own
-branch. (Depends on liveness being trustworthy and on GitHub read-consistency — CR-4, CR-6.)
+means it never blocks the reclaimer). **Guarding each merge (N3):** before merging any stage's PR,
+the worker's recheck asks both "am I the earliest live claim?" *and* "has any worker already posted
+`⛙ merged #5 · <stage>`?" — if the stage is already merged, it stands down and tears down its own
+branch. Right after its own merge it posts `⛙ merged #5 · <stage> · w2`. `✓ completed #5`
+(Stage 8) only stops a *finished* ticket from being worked again; it fires too late to guard
+individual merges. (Depends on liveness being trustworthy and on GitHub read-consistency — CR-4,
+CR-6; residual in N3.)
 
 Note: the reaper keys on **tracking-issue liveness + tokens**, never on claim comments — leftover
 claims never enter into it.
@@ -555,9 +560,10 @@ the record.
   Real death still recovers (a dead incumbent drops from the live set → challenger becomes earliest
   live). Consequence: **hands off the other worker's branch** (no adopt/teardown of someone else's
   work, since a resurrected incumbent can win back), each works its own, yielder cleans up its own,
-  and the `✓ completed` marker at merge is the final backstop (first to post wins; the other tears
-  down its own). The TOCTOU window can't be closed atomically on GitHub, but the worst case is now
-  **wasted compute, never a corrupted `main`**. Depends on CR-4 (liveness trustworthy) + CR-6 (read
+  and each merge is guarded by the recheck + per-stage `⛙ merged` marker (N3; `✓ completed` only
+  guards a finished ticket). The TOCTOU window can't be closed atomically on GitHub; the worst case
+  is **usually wasted compute, and rarely a duplicate merge of one stage** that CI/review must
+  catch (N3 — corrected from the original "never a corrupted `main`"). Depends on CR-4 (liveness trustworthy) + CR-6 (read
   consistency). *Status: RESOLVED.*
 - **CR-4 — RESOLVED (fail-safe; not urgent until it bites) — backoff + throttle-aware reaper.** Real
   risk is bursts + a feedback loop, not sustained volume (primary limit ~5k/hr is generous; the
@@ -591,8 +597,8 @@ the record.
 - **CR-6 — RESOLVED (down-graded to build-informing; baseline measured 2026-08-08).** Re-framed:
   read-consistency governs **efficiency** (how often two workers waste effort both grabbing a
   ticket), **not correctness** — correctness is backstopped by earliest-live-claim ownership (CR-3)
-  + the durable `✓ completed`-at-merge gate, neither of which depends on a fragile fresh-write read.
-  So a false assumption degrades to *wasted compute* (same bounded residual as CR-3), not a broken
+  + the per-stage `⛙ merged` marker checked before each merge (N3). So a false assumption degrades
+  to *wasted compute* (same bounded residual as CR-3, incl. N3's rare duplicate merge), not a broken
   run → **not a hard build gate.** Quick empirical baseline (10-sample lag probe on a throwaway
   issue, single-client read-your-own-writes): **10/10 comments visible on the first read, ~0.8–0.9s
   round-trip dominated by `gh` call overhead → propagation effectively immediate, zero stale reads.**
@@ -652,7 +658,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N2 RESOLVED; N3–N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N3 RESOLVED; N4–N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -873,9 +879,25 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
 - **N2 — RESOLVED (2026-09-24) — board-trust wording.** "Not the board column" (reaper, CR-5) read
   as contradicting CR-8's Waiting/Blocked read. Reworded both to "the board is trusted **only for
   Waiting/Blocked**; ownership and completion never come from it." *Status: RESOLVED.*
-- **N3 — nit — `✓ completed` timing wording.** Body says posted "through checkpoint" (Stage 8, after
-  all three PR merges), but the backstop is called "`✓ completed`-at-merge." Stage 8 is well after
-  any single merge — clarify when the backstop actually fires. *Status: OPEN.*
+- **N3 — RESOLVED (2026-09-24; upgraded from nit — it hid a real gap) — per-stage merge marker;
+  honest residual.** `✓ completed` is posted at checkpoint (Stage 8), *after* all three of a
+  ticket's PRs merge, yet the plan called it the "`✓ completed`-at-merge backstop" and relied on it
+  to settle a takeover race ("first to post wins, other tears down"). Too late: in a takeover
+  window both workers could already have merged their Stage-2 implementation PRs, putting two
+  implementations of `#5` on `main`. The actual per-merge guard is the pre-mutation
+  earliest-live-claim recheck (S1). Its gap: the incumbent is alive but its pings failed to land
+  for > TTL, while the challenger's reads are healthy → each thinks it's the earliest live claim →
+  both merge. **Fix:**
+  1. **Wording:** the recheck is the per-merge guard; `✓ completed` only stops a finished ticket
+     being re-worked. Corrected in the reaper, CR-3, CR-6 and the read-consistency caveat.
+  2. **Per-stage marker:** immediately after merging a stage's PR, the worker appends
+     `⛙ merged #5 · <impl|integration|ui> · w2` to the plan ticket. The pre-merge recheck also reads
+     these; if the stage is already merged by anyone, the worker stands down and tears down its own
+     branch/PR. Narrows the window to seconds (between another worker's merge and its marker);
+     cannot close it — GitHub has no atomic check-and-merge.
+  3. **Honest residual:** worst case is **rarely a duplicate merge of one stage**, which CI/review
+     must catch — not "never a corrupted `main`" (CR-3's original claim, now corrected).
+  *Status: RESOLVED.*
 - **N4 — nit — refine citation drift + overstated payoff.** `## Dependency on` is at
   `refine-story-v5:321` (not :323) and the header is `## Dependency on {PREFIX}-{issue#}`. More
   substantively: that section is **optional** and **single-blocker-shaped**, so it can't express the
