@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved; S1–S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1 (2026-09-24); S2, S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -124,8 +124,10 @@ at all and the handshake below becomes the rare safety net, not the common path.
 5. **Pre-dispatch recheck (layer 3).** On a win, right before handing `#5` to `implement-ticket-v5`,
    **refresh my own liveness ping, then read**: "am I the *earliest* live claim for `#5`?" (Ping
    first so a live worker always counts itself live.) If an earlier live claim exists, the incumbent
-   is back — **I yield** (I'm the challenger). This same check gates every later mutating action
-   (push, open PR, `✓ completed`), and is what makes "incumbent-wins-if-alive" hold. Then move
+   is back — **I yield** (I'm the challenger). If the read fails or is rate-limited, **I neither
+   proceed nor yield — I back off and retry until I get a definite answer** (S1). This same check
+   gates every later mutating action (push, open PR, `✓ completed`), and is what makes
+   "incumbent-wins-if-alive" hold. Then move
    `#5` to In Progress and run the pipeline.
 
 **Why the delay (layer 2).** The winner is fixed by server-assigned comment ID, *not* by who reads
@@ -203,7 +205,8 @@ token = the claim's comment ID**, recorded as `Current ticket: #5 @token <id>`:
 - **Before resuming and before any mutating action** (push, open PR, `✓ completed`), a worker
   **refreshes its own liveness ping, then re-reads**: "am I the earliest live claim?" If an earlier
   live claim exists, the incumbent is back → the challenger **yields** (abandons `#5`, returns to
-  the pool). A resurrected incumbent, being the earliest live claim, reclaims its own work; the
+  the pool). An unreadable answer (failed/throttled read) is never treated as "clear" — pause and
+  retry until definite (S1). A resurrected incumbent, being the earliest live claim, reclaims its own work; the
   challenger stands down. (Ping-first so a live worker always counts itself live.)
 - **Why "alive" is trustworthy:** the liveness ping is the **loop's**, not the work session's — so a
   worker stuck in a long or wedged stage still counts alive (the loop keeps pinging and will
@@ -635,7 +638,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 + S4 RESOLVED; the rest OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S4 RESOLVED; the rest OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -712,18 +715,27 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 + 
     plan ticket closed and re-plans.
   - **Legacy mode (no `--worker`):** unchanged — injectors keep appending to `Scope:` (CR-2).
   *Status: RESOLVED.*
-- **S1 — should-fix — the double-run backstop check isn't throttle-aware.** CR-4 makes the *reaper*
-  fail-safe under throttle, but double-run safety actually rests on the pre-dispatch/pre-merge "am I
-  the earliest live claim?" recheck, which reads peer liveness and is *not* throttle-aware. Under a
-  throttle episode both the reaper and its backstop are impaired at once. Specify **fail-closed**
-  (yield/abort on unreadable liveness), matching the reaper. *Status: OPEN.*
+- **S1 — RESOLVED (2026-09-24) — the recheck pauses and retries; it never acts on an unreadable
+  answer.** CR-4 made the *reaper* fail-safe under throttle, but double-run safety actually rests on
+  the pre-dispatch/pre-mutation "am I the earliest live claim?" recheck, which reads peer liveness
+  and was not throttle-aware — a failed read could be mistaken for "no earlier live claim" and let a
+  challenger push/merge. Decision: **fail-closed by waiting, not by yielding.** If the recheck's
+  reads fail or are rate-limited, the worker **does not proceed and does not give up the ticket** —
+  it backs off (honoring `Retry-After`) and retries until it gets a *definite* answer, then acts on
+  that answer (proceed if earliest live, yield if an earlier live claim exists). Rejected: yield on
+  unreadable liveness — equally safe, but a transient rate-limit blip would discard a ticket's work.
+  No retry cap: throttle is self-clearing, and peers under the same throttle don't reap (CR-4), so
+  the worker's claim is not lost while it waits. **Constraint on S2:** time spent paused on an
+  unreadable recheck is not "no forward progress" (same exemption as `LIMIT_WAIT`). *Status:
+  RESOLVED.*
 - **S2 — should-fix — deadlock trip defeated by a live-but-wedged worker; "In Progress" contradicts
   CR-5.** STUCK fires only when "every live worker WAITING **and none In Progress**" — a worker
   wedged on a poison ticket (loop pinging, session relaunching without progress) holds its claim
   forever, so the trip never fires. And "In Progress" (board column) contradicts CR-5/CR-8. Fix:
   define the trip as **`held` empty**, and add a per-worker no-forward-progress bound so one stuck
-  holder can trip the run. **Constraint from U1:** the bound must exempt `LIMIT_WAIT` (a worker
-  waiting out the Claude usage limit is blocked, not wedged). *Status: OPEN.*
+  holder can trip the run. **Constraints from U1 and S1:** the bound must exempt `LIMIT_WAIT` (a
+  worker waiting out the Claude usage limit is blocked, not wedged) and time paused on an
+  unreadable ownership recheck. *Status: OPEN.*
 - **S3 — should-fix — worker-issue identity can collide with Step 0.5 dedupe.** If identity uses a
   "worker field" but keeps the base `orchestration-run` label, Step 0.5's COUNT≥2 dedupe
   (`SKILL.md:185`) has **every worker closing every other worker's tracking issue** each launch. And
