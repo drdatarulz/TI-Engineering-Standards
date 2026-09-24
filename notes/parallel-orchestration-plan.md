@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nits N4–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5, S6 and new finding M1 (2026-09-24); only nit N5 remains open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -389,10 +389,14 @@ how many you'll run — it produces the plan; you decide worker count at launch.
    Already-Refined check (`skills/refine-story-v5/SKILL.md:55` — body has all spec sections); if any
    ticket isn't refined, **halt and name it** — do not build the graph from content Stage 1 will
    rewrite. (Matches practice: refine first, then orchestrate.)
-1. Reads each refined ticket — the explicit **`## Dependency on {issue#}`** section
-   (`refine-story-v5:323`) for *declared* edges, and the body/AC to **infer** edges only where a
-   ticket is silent — building the dependency graph.
-2. **Shows you the proposed graph** and waits for a one-look confirm before committing (see below).
+1. **Analyzes the tickets together and decides the run order** — the same "what order should these
+   run in?" analysis the operator does by hand today. It reads every ticket in full (body, AC, any
+   `## Dependency on {PREFIX}-{issue#}` sections — `refine-story-v5:321`) and works out what must
+   come first: e.g. a new project's foundation tickets strictly one at a time, then the rest fanning
+   out in parallel. Most edges are **its judgment**, not declared data (N4) — the template's
+   dependency section is optional and single-blocker-shaped, so it's an input, not the source.
+2. **Shows you the proposed graph** — each edge with a one-line reason — and waits for a one-look
+   confirm before committing (see below).
 3. On confirm, writes the **plan ticket** (pool + graph) and prints example launch commands.
 
 **Output:** the plan ticket (open, labeled `orchestration-plan`) + a reminder that you launch
@@ -611,7 +615,8 @@ the record.
   the **planner validates every pool ticket is already refined** — reusing `refine-story-v5`'s own
   **Already-Refined Detection** (`skills/refine-story-v5/SKILL.md:55` — body contains all required
   spec sections) — and **halts naming any that aren't**. Two payoffs: (a) refined bodies carry an
-  explicit **`## Dependency on {issue#}`** section (`refine-story-v5:323`), so the planner reads
+  explicit **`## Dependency on {PREFIX}-{issue#}`** section (`refine-story-v5:321`; optional and
+  single-blocker-shaped — see N4, so this payoff is smaller than first claimed), so the planner reads
   *declared* edges and only *infers* where silent (propose-and-confirm covers the remainder);
   (b) since pool tickets are already refined, the pipeline's Stage 1 self-detects `AlreadyRefined`
   and **skips**, so nothing rewrites a ticket after the graph is frozen. **Injected-ticket residual:**
@@ -658,7 +663,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N3 RESOLVED; N4–N5 OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1–S6, N1–N4 RESOLVED; N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -898,12 +903,13 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   3. **Honest residual:** worst case is **rarely a duplicate merge of one stage**, which CI/review
      must catch — not "never a corrupted `main`" (CR-3's original claim, now corrected).
   *Status: RESOLVED.*
-- **N4 — nit — refine citation drift + overstated payoff.** `## Dependency on` is at
-  `refine-story-v5:321` (not :323) and the header is `## Dependency on {PREFIX}-{issue#}`. More
-  substantively: that section is **optional** and **single-blocker-shaped**, so it can't express the
-  many-to-many gate `#4 → #1,#2,#3` — CR-7's "declared edges" payoff (a) is **oversold**; the
-  planner leans on *inference* (ED-1 risk) more than CR-7 implies. Confirm gate still covers it.
-  *Status: OPEN.*
+- **N4 — RESOLVED (2026-09-24) — the planner decides the order by analysis; declared sections are
+  just an input.** Citation fixed (`refine-story-v5:321`, header `## Dependency on
+  {PREFIX}-{issue#}`). That section is optional and single-blocker-shaped, so CR-7's "reads declared
+  edges, infers only where silent" was oversold. Reframed to match practice: the planner **analyzes
+  the tickets as a set and proposes the run order** (serial foundation first, then fan-out, or
+  whatever the tickets call for), shows each edge with a one-line reason, and the human confirm is
+  the safeguard. No change to `refine-story-v5`. *Status: RESOLVED.*
 - **N5 — nit — re-planning closes the live plan ticket.** CR-9's newest-wins dedupe on
   `orchestration-plan` would close the *active* plan ticket if the planner is re-run mid-flight.
   Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
