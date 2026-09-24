@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1 and S2 (2026-09-24); S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S5 and new finding M1 (2026-09-24); S3, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -454,8 +454,10 @@ automatic load-balancing.
   stateless-relaunch design.
 - **Merge serialization between workers.** Because each worker is in its **own clone** (see
   Deployment topology), two workers touching the same files is exactly two human developers on
-  separate checkouts — git resolves it the same way (rebase / re-run CI). Not a new problem
-  parallelism introduces; nothing special to build. (This holds *only* because of the separate-clone
+  separate checkouts — resolved the same way (rebase / re-run CI). No merge queue or lock. *But*
+  the skill today halts on a merge conflict, so worker mode must actually do the rebase-and-retry
+  (**M1**), and post-merge CI breakage is shared fate that needs one repair owner and a merge hold
+  (**S5**) — those are built; a general merge serializer is not. (This holds *only* because of the separate-clone
   topology — under a shared working tree it would instead be repo corruption, which is why the
   topology is stated as a foundational requirement, not an assumption.)
 
@@ -642,7 +644,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S2, S4 RESOLVED; the rest OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S2, S4, S5 RESOLVED; the rest OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -775,12 +777,36 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   because cleanup may inject work; it stops only when the plan ticket closes (done) or the STUCK trip
   fires. All workers stop together at close. (Legacy mode keeps the bare-label stop, CR-2.)
   *Status: RESOLVED.*
-- **S5 — should-fix — post-merge CI breakage is shared-fate.** N workers merge to one main; A's
-  merge can break main for everyone → every worker's background ci-fix watcher (`SKILL.md:1067`)
-  fires on the same red main, multiple FIX agents race on `ci-fix/*` branches, multiple loops may
-  trip the "build fails on main" halt (`SKILL.md:1140`). The "two devs merging, git handles it"
-  bullet covers merge-tree conflicts, not post-merge CI shared-fate — which parallelism genuinely
-  introduces. Needs a single-owner CI-repair rule. *Status: OPEN.*
+- **S5 — RESOLVED (2026-09-24) — one elected CI-repair owner; everyone else holds merges until
+  `main` is green.** Today each merge spawns a background `ci-fix-v5` WATCH on *its own* merge SHA
+  (`SKILL.md:1067-1090`); red → a background FIX agent (`:1092-1106`); FIX `Blocked` → orchestrator
+  halt (`:1121-1127`, breaker list `:1135-1142`). Single-driver, the breaker is the fixer. In worker
+  mode, A's merge breaks `main`; B and C then merge on top of red, their watchers see red too, and
+  **three FIX agents race on the same breakage** with competing fixes, any of which can trip a halt
+  on a worker that didn't cause it — and every merge onto red muddies attribution. The "two devs
+  merging, git handles it" bullet covered merge-tree conflicts, not this post-merge shared fate.
+  **Fix:**
+  - **Elect one repair owner.** The first worker to observe red `main` appends `🔧 ci-repair <sha>`
+    to the plan ticket; earliest comment ID wins (same handshake as tickets and `🧹 cleanup-claim`).
+    Only the owner spawns `ci-fix-v5` FIX. A non-owner whose watcher reports red on a SHA covered by
+    an open repair claim **does not spawn a FIX and does not halt** — it logs and defers.
+  - **Merge hold.** While a `🔧 ci-repair` claim is open with no matching `✓ main green`, **no worker
+    merges** a PR. Workers keep implementing, testing and opening PRs; they wait (backoff re-check)
+    at the merge step only. The hold is part of the pre-mutation recheck (same read as S1 —
+    unreadable → pause, never merge blind).
+  - **Release.** When the owner's fix merges and CI on the new HEAD is green, the owner appends
+    `✓ main green <sha>`; merges resume. Waiting workers rebase onto the new `main` before merging
+    (M1).
+  - **Owner death.** A repair claim is ownership like any other: a dead owner (stale liveness) drops
+    out and the next worker to observe red becomes the earliest *live* claimant and takes it over.
+  - **Repair fails** (FIX `Blocked`): the owner posts `⚠ halted — main red, needs human` to the plan
+    ticket, and **all** workers stop relaunching (same park mechanism as STUCK) — a red `main` blocks
+    everyone, so halting one worker would be meaningless. Plan ticket stays open.
+  - **Waiting time is exempt** from the S2 no-progress bound (held at merge ≠ wedged).
+  - **C5 interaction:** the elected cleanup owner's DS-112 deploy bar still queries `deploy.yml`
+    authoritatively; an open `🔧 ci-repair` claim means not-at-fixpoint.
+  - **Legacy mode:** unchanged (CR-2).
+  *Status: RESOLVED.*
 - **S6 — should-fix — scan reads are ~O(N²), unbudgeted.** Each worker's scan reads the plan ticket
   + all N worker issues + a board-status read (expensive `gh project item-list --limit 1000`,
   `SKILL.md:293`); N workers relaunching → ~N² reads. CR-4 budgeted only writes. Self-heals to
@@ -804,6 +830,23 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
 
 ### Added findings (post-round-2)
+
+- **M1 — RESOLVED (2026-09-24) — in worker mode a merge conflict means rebase-and-retry, not halt.**
+  Found while grounding S5: the circuit-breaker list (`SKILL.md:1138`) halts the orchestrator
+  entirely on **"A PR merge conflict occurs."** Single-driver, conflicts are rare. With N workers
+  merging into the same codebase they become routine, so each would halt a worker — contradicting
+  §What-we-do-NOT-build's "git resolves it the same way (rebase / re-run CI)," which the skill does
+  not actually do. **Fix (worker mode):**
+  - PR not mergeable because `main` moved → **rebase the worker's branch onto `main`**, push
+    (it's the worker's own worker-scoped branch — B1 — so force-push is safe), **re-run CI**, retry
+    the merge (behind the S1/S5 recheck).
+  - Rebase has **textual conflicts** → do **not** halt the worker: **park the ticket** (Waiting/
+    Blocked + comment naming the conflicting files and the `main` commits involved), release it,
+    and move on — same park path as S2. A human (or a later refined fix ticket) resolves it.
+  - **Cap:** 3 rebase-and-retry cycles per merge (main keeps moving under a busy run) → then park.
+  - Rebase/CI wait time is exempt from the S2 no-progress bound.
+  - **Legacy mode:** keeps the halt (CR-2).
+  *Status: RESOLVED.*
 
 - **U1 — RESOLVED-IN-DESIGN (2026-09-24) — usage-limit wait.** Raised by the operator: a Claude
   usage-limit hit makes the loop relaunch instantly into the same failure until `MAX_ITER` trips
