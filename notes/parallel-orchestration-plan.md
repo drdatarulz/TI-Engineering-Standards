@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1 (2026-09-24); S2, S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1 and S2 (2026-09-24); S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -314,8 +314,11 @@ Reuse the existing `AWAITING_HUMAN` pattern (`orchestrate-v5/SKILL.md:341`): a t
 flag that changes how the loop relaunches. A worker with no ready ticket writes `Run state:
 WAITING`; the loop, on seeing it, **sleeps a backoff then relaunches** — versus `AWAITING_HUMAN`,
 where it stops entirely (`orchestrate-loop.sh:237`). The **deadlock trip** (decision #5): when
-*every live worker is WAITING and none is In Progress*, sustained 2–3 cycles, set `Run state: STUCK`
-and stop relaunching rather than spin to `--max-iter`. A lone waiter is normal and never trips it.
+*every live worker is dependency-WAITING and no worker holds a ticket* (`held` empty — S2),
+sustained 2–3 cycles, set `Run state: STUCK` and stop relaunching rather than spin to `--max-iter`.
+A lone waiter is normal and never trips it. A worker wedged on a poison ticket can't hold the run
+hostage: the **no-progress bound** (S2) parks that ticket after 3 relaunches on the same stage,
+which empties `held` and lets the trip fire.
 The "thrash" is fine — it's the same fresh-relaunch the loop already does; the backoff just paces it.
 
 ### 4. Aggregate status
@@ -492,7 +495,8 @@ than a rewrite, and is the safety net for every existing single-driver run.
    transient API blips). See the reaper's Liveness part.
 5. **Wait bound (deadlock trip)** — **RESOLVED (2026-08-08):** measured **run-wide, not per-worker**
    — a lone waiter is normal (it's waiting on a peer's blocker). Trip only when **every live worker
-   is `WAITING` and none is In Progress** (nobody can make progress → nothing will complete →
+   is dependency-`WAITING` and no worker holds a ticket** (`held` empty — S2; not the board's In
+   Progress column, per CR-5) (nobody can make progress → nothing will complete →
    nothing will unblock), sustained **2–3 backoff cycles** to rule out a transient (a claim
    handshake in flight, a completion marker still propagating). On trip: set `Run state: STUCK`,
    **stop relaunching** (park like the milestone `AWAITING_HUMAN` gate — don't spin to `MAX_ITER`),
@@ -638,7 +642,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S4 RESOLVED; the rest OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S2, S4 RESOLVED; the rest OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -728,14 +732,36 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   the worker's claim is not lost while it waits. **Constraint on S2:** time spent paused on an
   unreadable recheck is not "no forward progress" (same exemption as `LIMIT_WAIT`). *Status:
   RESOLVED.*
-- **S2 — should-fix — deadlock trip defeated by a live-but-wedged worker; "In Progress" contradicts
-  CR-5.** STUCK fires only when "every live worker WAITING **and none In Progress**" — a worker
-  wedged on a poison ticket (loop pinging, session relaunching without progress) holds its claim
-  forever, so the trip never fires. And "In Progress" (board column) contradicts CR-5/CR-8. Fix:
-  define the trip as **`held` empty**, and add a per-worker no-forward-progress bound so one stuck
-  holder can trip the run. **Constraints from U1 and S1:** the bound must exempt `LIMIT_WAIT` (a
-  worker waiting out the Claude usage limit is blocked, not wedged) and time paused on an
-  unreadable ownership recheck. *Status: OPEN.*
+- **S2 — RESOLVED (2026-09-24) — trip on `held` empty + a per-ticket no-progress bound (3
+  relaunches on the same stage → park).** Two problems. **(a) Wording:** the trip said "none In
+  Progress" — a board column, which CR-5/CR-8 say not to trust for ownership. Now: **no worker holds
+  a ticket (`held` empty).** **(b) Poison ticket:** a ticket whose sessions keep crashing or timing
+  out *without* cleanly reporting Blocked (a clean Blocked already parks it — `SKILL.md:550`) keeps
+  its worker alive and holding forever, so the trip never fires. Worse, it **cascades**: the
+  worker's own loop eventually hits `MAX_ITER` and exits → its ping goes stale → the reaper hands the
+  ticket to the next worker → which wedges the same way → one bad ticket consumes every worker in
+  turn, hours each, before a human hears about it.
+  **Fix — the no-progress bound:**
+  - The worker's tracking issue records an attempt count beside ownership:
+    `Current ticket: #7 @ stage n @token <id> · attempts k`. It's in the issue, so it survives
+    relaunch.
+  - On self-recovery (CR-5), a session resuming the **same ticket at the same stage** increments
+    `k`; **advancing a stage resets `k` to 0.**
+  - At **`k = 3`** (≈4.5h of 90-min timeouts with zero stage progress): **park** the ticket —
+    move it to board **Waiting/Blocked**, comment the reason on the work ticket (`parked: no
+    stage-n progress after 3 attempts by <worker>`), clear `Current ticket`, and return to the
+    pool. Waiting/Blocked drops it out of `ready` (CR-8), so **no other worker picks it up** — the
+    cascade is cut at the first worker.
+  - The parked ticket and its dependents then appear in the STUCK report (`#7 parked: no progress
+    at stage n`), so once everything else is done the run trips and names the culprit instead of
+    burning workers. A human unparks by moving it back to Up Next.
+  - **Exemptions (U1, S1):** a session that ended in `LIMIT_WAIT` or while paused on an unreadable
+    ownership recheck does **not** increment `k` — the loop/session records that end-reason in the
+    tracking issue and the resuming session skips the increment. Blocked-by-environment is not
+    wedged.
+  - **Scope:** worker mode only. Legacy single-driver keeps today's behavior (`MAX_ITER` stops the
+    loop), per CR-2.
+  *Status: RESOLVED.*
 - **S3 — should-fix — worker-issue identity can collide with Step 0.5 dedupe.** If identity uses a
   "worker field" but keeps the base `orchestration-run` label, Step 0.5's COUNT≥2 dedupe
   (`SKILL.md:185`) has **every worker closing every other worker's tracking issue** each launch. And
