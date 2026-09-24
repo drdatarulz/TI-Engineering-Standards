@@ -6,13 +6,13 @@
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
 > **Created:** 2026-08-05. **Last updated:** 2026-09-24.
-> **Status:** DESIGN COMPLETE (2026-09-24). Scope is **model A (full shared pool)**. All findings
-> resolved: round-1 cold read CR-1…CR-12 (2026-08-08); round-2 cold read B1–B3, S1–S6, N1–N5
-> (2026-08-08 → 2026-09-24); added findings **U1** (usage-limit wait, runtime piece #5 — built in
-> this plan, not separately) and **M1** (rebase-and-retry on merge conflict). **One open item:**
-> capture the real Claude usage-limit message before writing U1's detection pattern (ED-3).
-> DS-112 (PR #18, deploy-pipeline hard bar on C5) is merged; the elected CLEANUP runner (B2)
-> inherits it. `SKILL.md` citations re-grounded against `main` @ `96ead7a`.
+> **Status:** DRAFT — **not buildable.** Round-1 (CR-1…CR-12) and round-2 (B1–B3, S1–S6, N1–N5)
+> findings all resolved, plus added U1 and M1 (2026-09-24). A **round-3 cold read (2026-09-24)**
+> then found **6 blockers (R3-B1…B6), 4 should-fixes (R3-S1…S4), 3 nits** — mostly interactions
+> between the 2026-09-24 mechanisms and stale older text. All **OPEN**; see **Third cold-read
+> findings**. Next up: R3-B5 and R3-B6 (they define what build step 1 is). Also open: capture the
+> real Claude usage-limit message for U1 (ED-3). DS-112 (PR #18) is merged; `SKILL.md` citations
+> grounded against `main` @ `96ead7a`.
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
 > coordination machinery is **inert without a plan ticket** — a plain `./scripts/orchestrate.sh`
 > run behaves exactly as it does today.
@@ -946,6 +946,90 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: all RESOLV
   inside it: capture the real limit message before writing the detection pattern (ED-3).
   Constrains S2 and the deadlock trip (both must exempt `LIMIT_WAIT`). Built as part of this plan
   (build-order step 1), not as a separate change. *Status: RESOLVED-IN-DESIGN.*
+
+---
+
+## Third cold-read findings (2026-09-24, round 3) — work one at a time
+
+A fresh reviewer read the plan after the 2026-09-24 resolutions. Key claims were re-verified
+against source before recording (plan-line refs are to the plan as of commit `6eada4b`). Most
+severe first. Status: all **OPEN**.
+
+- **R3-B1 — BLOCKER — no resume rule for a reclaimed/unparked ticket → livelock.** B1 says a dead
+  or parked worker's ticket is "redone from scratch"; N3 says a worker that sees `⛙ merged #5 ·
+  <stage>` stands down. If W1 merged impl then died/parked, every later claimant redoes #5, hits
+  the marker at impl, stands down, returns #5 — forever (a resurrected incumbent too). Also: death
+  between merge and marker leaves the stage unguarded. **Suggested:** merged stages are *resume
+  state* — the new owner skips any stage already merged (ground truth: merged PRs with head
+  `story/{ID}-*`; marker as a hint); stand down only for an earlier *live owner*.
+- **R3-B2 — BLOCKER — "live claim" undefined; stale losing claims can wedge a ticket.** Ownership
+  says claims are inert, but acquisition/recheck/`held` resolve "earliest live claim" from claim
+  comments filtered only by claimer liveness. W2's long-ago losing claim on #3 is still earliest
+  and W2 is alive → a later reclaimer yields → nobody works #3. Same for an S2/M1 parker's `taken`
+  claim after a human unparks. **Suggested:** a live claim = the claim ID a live worker has recorded
+  as its `@token` for that ticket, or an unrecorded claim by a live worker within the handshake
+  window.
+- **R3-B3 — BLOCKER — role claims (🧹 / 🔧 / ⚠ halted) have no episode scoping.** First-ever `🧹`
+  claimer wins every later election (no "fresh owner" re-election); `🔧 ci-repair <sha>` claims on
+  different red SHAs don't collide (two owners) and `✓ main green <sha>` never matches the red SHA
+  (hold never lifts); `⚠ halted` never clears. **Suggested:** each role counts only claims posted
+  after its latest closing marker (`✓ main green`, a cleanup-result marker, a `▶ resume` marker);
+  release by comment order, not SHA.
+- **R3-B4 — BLOCKER — CI-repair owner's FIX agent dies with its session.** The FIX agent is a
+  background agent of the session (`SKILL.md:1097-1111`); the session exits per ticket, but the
+  loop's ping keeps the owner "alive" → nobody takes over → merge hold forever. And ci-fix merges
+  its own fix PR (`skills/ci-fix-v5/SKILL.md:237`), which S5's "no worker merges" would block.
+  **Suggested:** record the repair role in the worker issue body and resume it on relaunch;
+  explicitly exempt the owner's fix PR from the hold.
+- **R3-B5 — BLOCKER — contradiction on omitted `--worker`.** Concepts, plumbing ("If `--worker` is
+  omitted, the loop auto-generates…") and decision #3 say omitted → auto-id; CR-2 and Backward
+  compatibility say omitted → legacy, byte-for-byte. `--worker` with no value doesn't parse with
+  the loop's `"$2"; shift 2` pattern (`orchestrate-loop.sh:84-92`); `--worker` with no open plan
+  ticket is unspecified. **Suggested:** CR-2 is canonical — fix the three stale spots; specify flag
+  parsing; `--worker` without an open plan ticket refuses to start.
+- **R3-B6 — BLOCKER — build step 1 isn't independently safe.** Step 1 claims N hand-launched
+  workers with disjoint `--tickets` "coexist," but without step-2+ pieces: legacy Step 0.6
+  (`SKILL.md:229`) resets peers' In-Progress tickets (CR-5 scoping applies only "under a plan
+  ticket"); CLEANUP C1–C5 runs N-way (no B2 election); the merge-conflict breaker
+  (`SKILL.md:1139`) halts (no M1); N FIX agents race (no S5); no stop condition (S4 keys on the
+  plan ticket; worker-issue titles need a plan number). **Suggested:** shrink step 1 to U1 +
+  lock/log keying, or pull Step 0.6 scoping, a stop condition and a CLEANUP rule into it.
+- **R3-S1 — should-fix — S2 exemptions fail on session timeout.** S1 pause (no cap), S5 merge hold
+  and M1 rebase/CI waits happen inside the session; >90 min → rc=124 → nothing recorded → resume
+  increments `k` → a healthy ticket gets parked. **Suggested:** write a `Run state` wait marker
+  before any wait and have the loop carry it as the end-reason on rc=124, or do these waits by
+  exiting the session (like WAITING).
+- **R3-S2 — should-fix — loop-level gaps.** WAITING relaunches count toward `MAX_ITER` (only
+  `LIMIT_WAIT` is exempt) → idle workers trip the breaker on a long run. The heartbeat runs only
+  during a session (`orchestrate-loop.sh:197,207`), so the ping must run through backoff and
+  `LIMIT_WAIT` sleeps or a waiting worker gets reaped (contradicts U1's reaper claim). The `❤`
+  comment is "created at loop startup," but the session creates the tracking issue — doesn't exist
+  yet on first launch.
+- **R3-S3 — should-fix — circuit breakers and milestone gates not adapted to worker mode.** "Build
+  fails on main" breaker (`SKILL.md:1140`) contradicts S5's non-owners-don't-halt; per-worker
+  counters (`:1138`, `:1141`) would count M1/S2 parks; halt behavior (`:1144`) relies on
+  `MAX_ITER`. A milestone ticket sets `AWAITING_HUMAN` (`SKILL.md:341`), which worker-mode stop
+  rules ignore → spin, or stop → ping dies → reaper hands the milestone on → workers stop one by
+  one. **Suggested:** planner turns milestones into graph gates; state each breaker's worker-mode
+  behavior.
+- **R3-S4 — should-fix — end-of-run cleanup section stale after B2/B3.** Still says *every* worker
+  sweeps at `pool − done` empty and "no acquisition is mid-handshake"; CLEANUP injections and
+  operator `➕` create new handshakes → an in-flight untaken claim can be deleted; unclear whether
+  `🧹`/`🔧` claims are swept. **Suggested:** only the C5 owner sweeps, after deciding to close,
+  `🔒` claims only.
+- **R3-N1 — nit — citation drift.** M1 cites `SKILL.md:1138` for the merge-conflict breaker;
+  actual `:1139`. S5's FIX-mode range `1092-1106` is actually `1097-1111`.
+- **R3-N2 — nit — two unverified GitHub assumptions (hypotheses).** Re-editing a comment with an
+  identical body may not bump `updatedAt` → put a timestamp in the `❤` body. "Comment IDs are
+  monotonic" isn't documented by GitHub → verify or accept as an observed property.
+- **R3-N3 — nit — missing build items.** `monitor-v5` goes blind in worker mode (no
+  `orchestration-run` issue) and no build step covers it; `SKILL.md:166` ("the dumb bash loop never
+  touches it") and the loop header must be rewritten now that the loop writes the ping and
+  `LIMIT_WAIT`.
+
+**Reviewer's sequencing:** before step 1 — R3-B5, R3-B6, R3-S2; before step 2 (pool/claims/reaper)
+— R3-B1, R3-B2; before worker-mode CLEANUP / CI-repair — R3-B3, R3-B4; alongside — R3-S1, R3-S3,
+R3-S4.
 
 ---
 
