@@ -11,7 +11,8 @@
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
 > S4 are resolved; S1–S3, S5, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
-> one at a time. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
+> one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
+> build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
 > merged to `main`; the elected CLEANUP runner (B2) inherits that bar. `SKILL.md` citations below
 > were re-grounded against `main` @ `96ead7a`.
 > **Principle:** compose N of the existing single-driver loops; don't multi-thread one. The
@@ -318,6 +319,44 @@ The "thrash" is fine — it's the same fresh-relaunch the loop already does; the
 
 Teach `orchestrate-status.sh` (or a sibling) to read the plan ticket + all worker tracking issues
 and print one view: `w1: #4 @ stage 4 · w2: WAITING · pool 6/9 done`.
+
+### 5. Usage-limit wait (`LIMIT_WAIT`) — U1
+
+**The gap (grounded, exists today even single-driver):** the loop has no pause between
+relaunches. When a session hits the Claude usage limit, `claude -p` exits fast with an error; the
+loop classifies that as a crash and relaunches **immediately** (`orchestrate-loop.sh:251-258`).
+Every relaunch fails the same way, so the loop burns all `MAX_ITER` (50) iterations in minutes and
+exits on the circuit breaker (`:261-264`) — an overnight run dies instead of waiting out the
+limit. Parallel makes it worse: N workers on one Claude account drain the allowance ~N× faster and
+hit the wall together.
+
+**Fix — lives in the loop, not the skill** (the session is already dead; only the bash loop can
+react):
+- **Detect:** after each session exits, match the captured session output (`$logfile`) for the
+  usage-limit message. **ED-3 — the exact text `claude -p` emits is not yet known; capture a real
+  one before writing the pattern** (don't guess a regex). Detection keys on that output, not on
+  `rc` alone (a limit exit and a crash may share an exit code).
+- **Wait:** if the message carries a reset time, sleep until it (+ small jitter so N workers
+  don't stampede the reset). If not, probe **hourly** with a minimal `claude -p` call and resume
+  on the first success. Limit-wait iterations **do not count toward `MAX_ITER`** — they are not
+  failures.
+- **Surface:** write `Run state: LIMIT_WAIT (retry ~HH:MM)` to the tracking issue (worker mode:
+  the worker's own run-state issue) so `orchestrate-status.sh` / `monitor-v5` show *why* the run
+  is quiet; clear it on resume. Local heartbeat keeps logging the wait.
+- **Resume:** the session died mid-stage, so the next relaunch recovers through the existing path
+  — legacy Step 0.6, or worker-mode self-recovery of its own `Current ticket` (CR-5). Nothing new.
+
+**Interactions with the coordination machinery:**
+- **Reaper:** a worker in `LIMIT_WAIT` keeps its **loop** liveness ping, so it stays *alive* and
+  keeps its ticket. Correct by design — every worker on the account is blocked anyway, so reaping
+  would move work to another equally-blocked worker and gain nothing.
+- **S2's per-worker no-forward-progress bound** must **exempt `LIMIT_WAIT`** (and not count wait
+  time toward the bound), or a limit wait would trip STUCK.
+- **Deadlock trip (decision #5):** "every live worker WAITING" must mean dependency-`WAITING`
+  only; workers in `LIMIT_WAIT` are **not** evidence of a graph deadlock and never trip STUCK.
+- **Legacy mode:** gets the same fix — this is one of the few changes that alters the no-flag path,
+  deliberately (it fixes a real bug there). Behavior when *no* limit is hit is byte-for-byte
+  unchanged, so CR-2's spirit holds.
 
 ---
 
@@ -683,7 +722,8 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 + 
   wedged on a poison ticket (loop pinging, session relaunching without progress) holds its claim
   forever, so the trip never fires. And "In Progress" (board column) contradicts CR-5/CR-8. Fix:
   define the trip as **`held` empty**, and add a per-worker no-forward-progress bound so one stuck
-  holder can trip the run. *Status: OPEN.*
+  holder can trip the run. **Constraint from U1:** the bound must exempt `LIMIT_WAIT` (a worker
+  waiting out the Claude usage limit is blocked, not wedged). *Status: OPEN.*
 - **S3 — should-fix — worker-issue identity can collide with Step 0.5 dedupe.** If identity uses a
   "worker field" but keeps the base `orchestration-run` label, Step 0.5's COUNT≥2 dedupe
   (`SKILL.md:185`) has **every worker closing every other worker's tracking issue** each launch. And
@@ -725,15 +765,28 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 + 
   `orchestration-plan` would close the *active* plan ticket if the planner is re-run mid-flight.
   Guard: never dedupe-close a plan ticket that has live claims. *Status: OPEN.*
 
+### Added findings (post-round-2)
+
+- **U1 — RESOLVED-IN-DESIGN (2026-09-24) — usage-limit wait.** Raised by the operator: a Claude
+  usage-limit hit makes the loop relaunch instantly into the same failure until `MAX_ITER` trips
+  (`orchestrate-loop.sh:251-264`) — a real bug today, amplified by N workers on one account. Fix:
+  loop-level detection → `LIMIT_WAIT` → sleep to reset / hourly probe → resume via existing
+  recovery; waits don't count toward `MAX_ITER`. Full spec in **Runtime piece #5**. Open item
+  inside it: capture the real limit message before writing the detection pattern (ED-3).
+  Constrains S2 and the deadlock trip (both must exempt `LIMIT_WAIT`). Built as part of this plan
+  (build-order step 1), not as a separate change. *Status: RESOLVED-IN-DESIGN.*
+
 ---
 
 ## Suggested build order
 
 Each step is independently useful.
 
-1. **Worker-aware plumbing** (lock + tracking-issue identity + log/status keys). After this, N
-   hand-launched workers with **manually disjoint `--tickets` scopes** coexist — parallelism with
-   no coordination yet (the "just tell one to run `#1,#3` and another `#2`" case).
+1. **Worker-aware plumbing** (lock + tracking-issue identity + log/status keys) **+ usage-limit
+   wait (U1)** — both are loop-level changes to `orchestrate-loop.sh`, so they land together. After
+   this, N hand-launched workers with **manually disjoint `--tickets` scopes** coexist — parallelism
+   with no coordination yet (the "just tell one to run `#1,#3` and another `#2`" case) — and none
+   of them dies on a usage limit.
 2. **Shared pool + claim handshake + reaper.** Workers now self-select from one pool safely — no
    manual scoping, no double-runs.
 3. **Dependency graph + `WAITING` gate.** Workers respect blockers; ordering is enforced.
@@ -755,7 +808,7 @@ Parallel orchestration changes **none** of that. The test model, TR, ED discipli
 pipeline/authoring skills are **untouched**. The blast radius is exactly:
 
 - `orchestrate-v5/SKILL.md` — patched (pool/claim/reaper + dep-gate), backward-compatible.
-- `orchestrate-loop.sh` / `orchestrate-status.sh` — patched.
+- `orchestrate-loop.sh` / `orchestrate-status.sh` — patched (incl. U1 `LIMIT_WAIT`).
 - `orchestrate-plan-v5` — one new skill, joins the v5 family.
 
 Cutting a v6 would force re-versioning and re-syncing all thirteen skills for zero contract change —
