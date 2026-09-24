@@ -9,7 +9,7 @@
 > **Status:** DRAFT — happy-path design done; **all three blockers now resolved** (B1, B2 on
 > 2026-08-08; B3 on 2026-09-24). Round-1 cold read (CR-1…CR-12) all resolved. The **round-2 cold
 > read (2026-08-08)** found 3 blockers (B1–B3) + 6 should-fixes (S1–S6) + 5 nits (N1–N5); **B1–B3 and
-> S4 are resolved, plus S1, S2, S5 and new finding M1 (2026-09-24); S3, S6 and N1–N5 remain open.** See **Second cold-read findings** below.
+> S4 are resolved, plus S1, S2, S3, S5 and new finding M1 (2026-09-24); S6 and N1–N5 remain open.** See **Second cold-read findings** below.
 > The core ownership model held; scope is **model A (full shared pool)**. Working the remaining S/N
 > one at a time. **Added 2026-09-24:** usage-limit wait (U1, runtime piece #5) — in scope for this
 > build, not a separate change. **Rebase note (2026-09-24):** DS-112 (PR #18, deploy-pipeline hard bar on C5) is now
@@ -177,8 +177,8 @@ GitHub's secondary rate limit bites on content writes:
   a fixed number, so the margin holds if the TTL is ever retuned. Still frugal: at a 20-min TTL
   that's one write every 5 min/worker (~1/min total across five workers) — ~6× *lighter* than a
   45s ping.
-- **Write mechanism:** the ping is an **in-place edit of a single per-worker `❤ wK alive` comment**
-  (created once at loop startup, re-stamped each TTL/4). Not a fresh comment each time (thread
+- **Write mechanism:** the ping is an **in-place edit of a single `❤ wK alive` comment on the
+  worker's own tracking issue** (S3) (created once at loop startup, re-stamped each TTL/4). Not a fresh comment each time (thread
   spam), and **not** a body edit (that would collide with the session's stage/operator-slot writes
   to the body and risk clobbering them). The reaper reads that one comment's `updatedAt`.
 - Because the ping is stage-independent, the TTL no longer has to clear a 40-min stage — it only
@@ -290,11 +290,14 @@ Two assumptions today enforce single-driver-per-repo and must become worker-scop
   wrong breaks everything:** an id generated fresh inside each session would make every relaunch
   look like a new worker — new tracking issue, blind to its own in-flight claim, resuming nothing.
 - **The run-state tracking issue.** Everything queries `--label orchestration-run --state open --jq
-  '.[0]'` (loop stop-check `orchestrate-loop.sh:218`, heartbeat `:157`, status
-  `orchestrate-status.sh:19`, find-or-create `orchestrate-v5/SKILL.md:178`). Each worker needs its
-  **own** tracking-issue identity — label `orchestration-run-<worker>` or a worker field the
-  queries filter on. Threading a worker id through those ~8 query sites + the loop + status is the
-  bulk of the mechanical work. (Net: **one shared plan ticket + N per-worker run-state issues.**)
+  '.[0]'` (loop `orchestrate-loop.sh:157/194/218/237`, status `orchestrate-status.sh:19`,
+  `monitor-v5/SKILL.md:30`, find-or-create `orchestrate-v5/SKILL.md:178`). In worker mode each
+  worker gets its **own** tracking issue, identified per **S3**: shared label
+  `orchestration-worker`, worker id in the title (`Worker w2 — plan #40`), found by listing the
+  label and matching the title. Worker issues **never** carry `orchestration-run`, so legacy
+  queries never see them. Threading worker mode through those query sites + the loop + status is
+  the bulk of the mechanical work. (Net: **one shared plan ticket + N per-worker run-state
+  issues.**)
 - **Log / status filenames** (`orchestrate-loop.sh:139`) — key on `project + worker`.
 
 ### 2. The pool, the claim handshake, and the reaper
@@ -644,7 +647,7 @@ the record.
 A second fresh reviewer read the *revised* plan against the repo (citations verified; two minor
 drifts noted in N4). It confirmed the core ownership model holds (CR-1/2, CR-3 livelock kill, CR-9)
 but found the **recovery / injection / close-out machinery** under-specified — the paths a real
-multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S1, S2, S4, S5 RESOLVED; the rest OPEN.
+multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3 and S1–S5 RESOLVED; S6 and N1–N5 OPEN.
 
 - **B1 — RESOLVED — worker-scoped branch names.** Branch names are per-**ticket** today:
   `story/{STORY_ID}-…` (`SKILL.md:433`), `-integration-tests` (`:615`), `-ui-tests` (`:737`), so two
@@ -764,12 +767,37 @@ multi-hour, 15-ticket run *will* exercise. Most severe first. Status: B1–B3, S
   - **Scope:** worker mode only. Legacy single-driver keeps today's behavior (`MAX_ITER` stops the
     loop), per CR-2.
   *Status: RESOLVED.*
-- **S3 — should-fix — worker-issue identity can collide with Step 0.5 dedupe.** If identity uses a
-  "worker field" but keeps the base `orchestration-run` label, Step 0.5's COUNT≥2 dedupe
-  (`SKILL.md:185`) has **every worker closing every other worker's tracking issue** each launch. And
-  there's no `gh issue list` filter for an arbitrary field. Resolve: per-worker **label**
-  (`orchestration-run-<worker>`) + a **worker-scoped** dedupe (never touch other workers' issues).
-  *Status: OPEN.*
+- **S3 — RESOLVED (2026-09-24) — one issue per worker: shared `orchestration-worker` label, worker
+  id in the title, dedupe scoped to its own name.** Problem: if worker issues kept the bare
+  `orchestration-run` label, Step 0.5's COUNT≥2 dedupe (`SKILL.md:171-194` — "newest wins, close
+  the rest") would have **every worker closing every other worker's live tracking issue** on each
+  launch; and every other `orchestration-run` reader (`orchestrate-loop.sh:157/194/218/237`,
+  `orchestrate-status.sh:19`, `monitor-v5/SKILL.md:30`) would see a mix. **Fix:**
+  - **One issue per worker**, labelled **`orchestration-worker`** (shared by all workers), titled
+    with the worker id and plan ticket: `Worker w2 — plan #40`. **Never** labelled
+    `orchestration-run`.
+  - **Body = the worker's scratch pad:** `Current ticket: #5 @ stage n @token <id> · attempts k`,
+    `Run state:` (WORKING / WAITING / `LIMIT_WAIT` / …), last end-reason (for S2's exemptions), and
+    a running **Tickets worked** list — the per-worker history.
+  - **Find-or-create:** list open `orchestration-worker` issues (live REST list via label filter,
+    `--limit 100`) and match the title on the worker id client-side (jq). Deliberately **not**
+    `gh search` / title search — the search index lags, so a just-created issue could be missed and
+    duplicated.
+  - **Dedupe scoped to self:** Step 0.5's newest-wins rule applies only among open issues whose
+    title carries **this** worker's id. A worker never closes another worker's issue.
+  - **Liveness:** the loop's `❤ wK alive` comment lives on the worker's **own** issue, edited in
+    place every TTL/4 — a comment, not the body, so the loop's pings never clobber the session's
+    body writes.
+  - **Enumeration:** reaper, deadlock trip, and aggregate status list `orchestration-worker` to see
+    all workers, then filter to this plan's (title `plan #N`) — stale issues from another plan are
+    ignored.
+  - **Close-out:** when the plan ticket closes (C5), the cleanup owner closes all of that plan's
+    worker issues; they stay as the run's history. Stale auto-id issues from loop restarts (CR-10)
+    are closed then too.
+  - **Rejected:** per-worker labels (`orchestration-run-<worker>`) — one new repo label per auto-id
+    worker per run, which piles up; and a free-form "worker field" — no live filter for it.
+  - **Legacy mode:** keeps `orchestration-run` and Step 0.5 byte-for-byte (CR-2).
+  *Status: RESOLVED.*
 - **S4 — RESOLVED (with B2) — worker-loop stops on the plan ticket closing.** In worker mode the
   loop's stop condition becomes **"the plan ticket is closed" (`RUN_COMPLETE`)**, not the
   `--label orchestration-run --state open` query (`:194/:218/:237`) — which is per-worker and would
