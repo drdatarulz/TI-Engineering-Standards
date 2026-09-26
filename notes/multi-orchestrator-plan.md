@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below, D6–D7 under Versioning.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 and D8 below, D6–D7 under Versioning.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -149,22 +149,52 @@ Can ship separately and first; it doesn't depend on anything above.
 
 ---
 
-## Planning the split (no skill)
+## Planning the split: `plan-batches-v6` skill (decided 2026-09-26)
 
-Deciding which tickets go to which machine is a conversation, not a skill: *"I have tickets #1–#15
-and three orchestrators. Split them."* The output is N `--tickets` lines you review before launching.
+A small, **read-only** v6 skill that is essentially a saved prompt: *"here are my tickets and how
+many orchestrators I'll run — give me the batches."* It exists so the batching rules below are
+applied the same way every time instead of being re-remembered in an ad hoc prompt. Name is a
+working title.
 
-**The one hard rule: a dependency must never cross runs.** Nothing orders work between machines, so
-if #8 needs #7, both go in the **same** list with #7 first. Dependencies come from declared
-`## Dependency on {PREFIX}-{issue#}` sections (`refine-story-v5:321`) plus whatever reading the
-tickets turns up. Two cases to watch:
+**It carries the rules itself.** It does not read `orchestrate-v6/SKILL.md` to work out how the
+orchestrator behaves (1,200+ lines, almost all pipeline mechanics); the few rules that matter for
+batching are written into the skill.
+
+**Inputs:**
+- A ticket list (required).
+- Number of orchestrators — **defaults to 2**. Asking for batches implies more than one; override
+  with any N ≥ 2.
+
+**What it does:**
+1. Reads every ticket in full. Dependencies come from what the tickets declare plus its own
+   reading of them (see D8 for where declared dependencies actually live today). **Declared
+   dependencies are always honored**; it may add ones it infers, never drop a declared one.
+2. **Unrefined tickets → warning, not a halt.** Flag them in the output and batch them anyway (you
+   may want a rough split before refining).
+3. Builds batches under the rules below and balances them by **rough size, not ticket count**.
+4. Checks open `orchestration-run` issues and refuses to put a ticket that's already in a running
+   run's `Scope:` into a batch (names the run instead).
+5. **Self-checks the split before printing (ED-2):** no dependency crosses batches, every ticket
+   appears exactly once, each milestone comes after its stories.
+
+**The batching rules:**
+- **A dependency must never cross batches.** Nothing orders work between machines, so if #8 needs
+  #7, both go in the **same** batch with #7 first. Order within a batch is the processing order
+  (the orchestrator works `Scope:` left to right, `SKILL.md:313`).
 - **Milestone tickets.** A milestone gate (`SKILL.md:329-346`) fires when its run reaches it. If the
-  milestone's stories are spread across runs, it fires before the others finish. Put the milestone
-  in a list after all its stories, or hold it back and run it on its own once the others are done.
-- **Shared-file hot spots.** Tickets that will clearly touch the same files belong in one list, to
+  milestone's stories are spread across batches, it fires before the others finish. Put it last in
+  a batch that contains all its stories, or hold it out as its own follow-up run and say so.
+- **Shared-file hot spots.** Tickets that will clearly touch the same files go in one batch, to
   avoid merge conflicts (see D4).
+- **If the tickets can't be parallelized** (one long chain), say so plainly: the honest answer may
+  be fewer batches than asked for.
 
-If the same prompt keeps coming up, promote it to a small skill later.
+**Output:** one paste-ready `./scripts/orchestrate.sh --tickets "..."` line per batch, each with a
+one-line reason for its grouping and order, then any warnings (unrefined tickets, hot spots,
+lopsided split, milestone held out).
+
+**Does not:** create run issues, launch anything, or write to GitHub. The loop creates a run when
+you launch a batch. You reviewing the batches is the confirm step.
 
 ---
 
@@ -191,6 +221,23 @@ If the same prompt keeps coming up, promote it to a small skill later.
   with the other run's full UI suite, that timer could trip falsely. *Hypothesis (ED-3):* depends
   on how many runners exist and how long a full UI suite takes; check both before deciding.
 
+- **D8 — Dependencies aren't recorded consistently.** Grounded 2026-09-26:
+  - `prd-to-backlog-v5` records **no** dependencies; it only orders stories within a milestone
+    (`prd-to-backlog-v5/SKILL.md:120`, `standards/story-writing-standards.md:121`). Milestone
+    membership is recorded as sub-issue links (`standards/project-tracking.md:59-78`).
+  - `add-story-v5` asks for dependencies and shows them in its preview (`**Dependencies:**`,
+    `add-story-v5/SKILL.md:116`), but the issue body it creates has **no dependencies section**
+    (`:156-200`), so what the human confirmed is dropped when the ticket is saved.
+  - `refine-story-v5` asks about cross-story dependencies (question K, `:176`) and writes an
+    optional `## Dependency on {PREFIX}-{issue#}` section (`:321-323`), free-text and shaped for a
+    single blocker.
+
+  So today the batching skill mostly **infers** dependencies. Open: whether to make them a
+  consistent, machine-readable record in v6 (e.g. one `## Dependencies` section format written by
+  prd-to-backlog, add-story and refine), and/or use GitHub's native "blocked by" issue
+  relationships. *Hypothesis (ED-3): the native feature exists and is reachable via the API; not
+  yet verified.*
+
 ---
 
 ## Suggested build order
@@ -205,6 +252,8 @@ If the same prompt keeps coming up, promote it to a small skill later.
    to run two-up while 0.6 still sweeps the whole board.
 3. **Scope-overlap guard** (§1).
 4. **Observability** (§3) and **docs** (§4).
+4a. **`plan-batches-v6`** skill. Independent of the runtime changes, so it can be built any time
+    after step 0.
 5. **D3 / D5 guards**, once decided.
 
 Single-machine use after step 2 is the same as today except that the operator must pass `--tickets`
@@ -221,7 +270,8 @@ keeps running unchanged on existing projects while v6 is built and proven.
 **What "full generation" means:**
 - **All 14 v5 skills get a `-v6` copy** (`skills/*-v5/` → `skills/*-v6/`), including the ones this
   plan doesn't otherwise change. Inside the copies, every cross-reference to a `-v5` skill is
-  renamed to `-v6`, so a v6 run never calls into v5.
+  renamed to `-v6`, so a v6 run never calls into v5. v6 also adds one new skill,
+  `plan-batches-v6`, for 15 in all.
 - **The plan's changes land only in v6.** The file:line references in "Changes to build" point at
   the v5 source they're copied from; apply them to the v6 copies. v5 is frozen apart from bug fixes.
 - **The loop and scripts must be versioned too, not just the skills.** The project wrapper
