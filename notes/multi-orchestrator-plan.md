@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D3–D5 below, D6–D7 under Versioning. D1, D2 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D4–D5 below, D6–D7 under Versioning. D1–D3 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -222,12 +222,34 @@ you launch a batch. You reviewing the batches is the confirm step.
     on one machine plus an interactive `--run` on another, or `--run 123` launched twice); both
     would work the same tickets. A guard would need a "who's driving" liveness signal, which is
     the machinery this plan dropped, so this is a documented rule, not a check.
-- **D3 — Red `main` is shared.** Both runs' background CI watchers see the same red `main`
-  (`SKILL.md:1069-1111`), both start a ci-fix FIX agent, and both may trip "Build fails on main"
-  (`:1140`). CLEANUP's "if you see it, you own it" hard bar (`:935`) and the C5 deploy bar
-  (`:986-997`) make both runs' CLEANUP try to fix the same red test or deploy. Cheapest guard:
-  before opening a fix, ci-fix FIX (and CLEANUP's own-it path) checks for an existing open ci-fix
-  PR for that failure and waits on it instead of racing.
+- **D3 — Red `main` is shared. RESOLVED (2026-09-26): one fixer at a time; everyone else waits.**
+  The problem: when run A breaks `main`, run B works on top of it and (1) B's watcher also sees red
+  and starts a second ci-fix FIX for the same breakage (`SKILL.md:1097-1111`; FIX branches
+  `fix/ci-{description}`, opens and merges its own PR, `ci-fix-v5/SKILL.md:161-168`, `:237`);
+  (2) B's own PR inherits the red and the merge gate sends it to FIX (`SKILL.md:58`), so B may
+  patch A's bug inside B's ticket; (3) both runs' CLEANUP inject a fix ticket for the same red UI
+  test (C1/C4, `:951`, `:978-980`).
+  - **Who's fixing = an open `fix/ci-*` PR.** No registry, no claims: the open PR on GitHub *is*
+    the signal, visible to every orchestrator. ci-fix FIX checks for one at start and again right
+    before `gh pr create`. If one exists, it waits for that PR to merge or close, then re-checks
+    `main`: green → done; still red → it takes its turn. If two PRs still appear within seconds,
+    the **lower PR number wins** and the other closes itself before merging.
+  - **Abandoned fix.** Normally the fixer finishes: the orchestrator drains its FIX agents before
+    closing a ticket (`SKILL.md:1129-1131`). But a crashed or timed-out session can leave a fix PR
+    open with nobody behind it. Rule: a fix PR with **no activity for ~30 min** (no new commits,
+    comments or check runs) counts as abandoned; the waiter comments on it, closes it, and takes
+    its turn. Closing an automated fix PR is reversible. *The 30-min figure is a starting guess.*
+  - **Merge gate checks `main` first.** A PR that's red while `main` is also red isn't at fault: wait
+    for `main` to go green, then re-run the PR's checks. Only a PR that's red on a green `main` goes
+    to FIX.
+  - **One halt condition.** "Build fails on main" (`:1140`) stops being a halt on its own; red
+    `main` routes to the single fixer. The halt stays on "CI fix reports Blocked" (`:1142`).
+  - **CLEANUP dedupes by test name.** Injected fix tickets name the failing test in the title.
+    Before injecting, CLEANUP looks for an open ticket for that test; if one exists (another run's),
+    it doesn't create another, stays open (not at fixpoint), and re-checks next CLEANUP pass. "If you
+    see it, you own it" still holds: owning means not closing until it's green.
+  - **Accepted cost:** a run waiting on another run's fix keeps relaunching CLEANUP, re-running the
+    full UI suite each pass. If that bites, add a WAITING-style backoff.
 - **D4 — Merge conflicts.** The circuit breaker halts on any merge conflict (`SKILL.md:1139`). Two
   runs merging to `main` makes that more likely. *Leaning: keep the halt* (human resolves, then
   `--run` resumes) and rely on a good split; revisit if it happens often.
