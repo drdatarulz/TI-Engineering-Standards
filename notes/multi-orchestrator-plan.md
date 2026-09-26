@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 and D8 below, D6–D7 under Versioning.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below, D6–D7 under Versioning. D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -232,11 +232,30 @@ you launch a batch. You reviewing the batches is the confirm step.
     optional `## Dependency on {PREFIX}-{issue#}` section (`:321-323`), free-text and shaped for a
     single blocker.
 
-  So today the batching skill mostly **infers** dependencies. Open: whether to make them a
-  consistent, machine-readable record in v6 (e.g. one `## Dependencies` section format written by
-  prd-to-backlog, add-story and refine), and/or use GitHub's native "blocked by" issue
-  relationships. *Hypothesis (ED-3): the native feature exists and is reachable via the API; not
-  yet verified.*
+  So today the batching skill mostly **infers** dependencies.
+
+  **RESOLVED (2026-09-26): one `## Dependencies` section, same format everywhere, in v6.**
+  - **Format** (in the issue body):
+    ```markdown
+    ## Dependencies
+    - #7 — needs the Orders table and repository from #7
+    - #9 — reuses the checkout screen #9 adds
+    ```
+    or `None` when there are none. One line per blocker: issue number, then a short reason. The
+    section is always present, so "no dependencies" is stated rather than implied by absence.
+  - **Writers:**
+    - `prd-to-backlog-v6` writes it for every story it creates, from the same analysis it uses to
+      order stories within a milestone.
+    - `add-story-v6` writes the dependencies it already asks for and shows in its preview (the fix
+      for today's drop). `reconcile-backlog-v6` creates stories through add-story, so it inherits
+      this.
+    - `refine-story-v6` replaces the free-text `## Dependency on {PREFIX}-{issue#}` section with
+      this one, keeps it up to date from question K, and adds anything it finds.
+  - **Reader:** `plan-batches-v6` treats listed dependencies as binding and still infers extra
+    ones. Tickets without the section (anything created before v6) fall back to inference.
+  - **Not doing now:** GitHub's native "blocked by" issue relationships. Could be added later as a
+    second, UI-visible copy. *Hypothesis (ED-3): the feature exists and is reachable via the API;
+    not verified.*
 
 ---
 
@@ -254,6 +273,8 @@ you launch a batch. You reviewing the batches is the confirm step.
 4. **Observability** (§3) and **docs** (§4).
 4a. **`plan-batches-v6`** skill. Independent of the runtime changes, so it can be built any time
     after step 0.
+4b. **`## Dependencies` section** (D8) in `prd-to-backlog-v6`, `add-story-v6` and
+    `refine-story-v6`. Independent too; makes 4a more reliable but 4a works without it.
 5. **D3 / D5 guards**, once decided.
 
 Single-machine use after step 2 is the same as today except that the operator must pass `--tickets`
