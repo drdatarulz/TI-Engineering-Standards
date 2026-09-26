@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D5 below, D6–D7 under Versioning. D1–D4 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D6–D7 under Versioning. D1–D5 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -262,10 +262,23 @@ you launch a batch. You reviewing the batches is the confirm step.
   - **Halt the run, don't skip the ticket.** A batch is an ordered chain; later tickets may depend
     on the stuck one, so skipping ahead is unsafe.
   - A good batch split (shared-file hot spots in one batch) still keeps conflicts rare.
-- **D5 — Self-hosted runner contention.** Two runs share the runner(s). C1 treats a dispatched UI run
-  still `queued` after ~15 min as "runner down" and halts (`SKILL.md:941`). If one runner is busy
-  with the other run's full UI suite, that timer could trip falsely. *Hypothesis (ED-3):* depends
-  on how many runners exist and how long a full UI suite takes; check both before deciding.
+- **D5 — Self-hosted runner contention. RESOLVED (2026-09-26): waiting in line is not "runner
+  down".** The standard setup is one self-hosted runner per repo
+  (`developer-tools/self-hosted-runner-setup.md:7`, `:132-133`); a runner does one job at a time, so
+  two runs' jobs take turns. Safe, just slower. The problem is waits that give up too early while
+  queued behind the other run:
+  - **C1 runner-down halt** (`SKILL.md:941`): a UI run still queued after ~15 min is treated as
+    "runner down" → halt. Change: halt only if queued ~15 min **and no other job is running on the
+    self-hosted runner** (checked via the repo's in-progress runs). Busy → keep waiting.
+  - **ci-fix F7** (`ci-fix-v5/SKILL.md:226-233`): polls the fix PR's checks for at most 10 min, and
+    a still-pending result is not handled. Change: wait until the checks are terminal, the same way
+    the merge gate does (`gh pr checks --watch`, `SKILL.md:52`).
+  - **ci-fix WATCH timeout** (`ci-fix-v5/SKILL.md:76`, 15 min → `STATUS: Timeout`): unchanged; it's
+    informational only (`SKILL.md:1113-1115`).
+  - **Warning (document in the runner setup guide):** don't add a second runner **on the same
+    machine**. The UI tier starts the app on fixed ports (`templates/workflows/README.md:31`, 5001 /
+    5002), so two UI jobs at once on one host would collide. A second runner on a **different**
+    machine is fine and is an optional speed-up for parallel runs.
 
 - **D8 — Dependencies aren't recorded consistently.** Grounded 2026-09-26:
   - `prd-to-backlog-v5` records **no** dependencies; it only orders stories within a milestone
