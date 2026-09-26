@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D2–D5 below, D6–D7 under Versioning. D1 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D3–D5 below, D6–D7 under Versioning. D1, D2 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -211,9 +211,17 @@ you launch a batch. You reviewing the batches is the confirm step.
     every session as read-modify-write (Step 0.55).
   - **Interactive runs** (skill launched directly, no loop) create the issue themselves, full
     body, exactly as today.
-- **D2 — How does an interactive session name an existing run?** Today a bare number in the
-  arguments is always a ticket (`SKILL.md:71`), so `orchestrate-v5 supervised 123` can't mean
-  "continue run #123". Needs a keyword, e.g. `orchestrate-v5 supervised run=#123`.
+- **D2 — How does an interactive session name an existing run? RESOLVED (2026-09-26): same words
+  as the loop.** Only affects interactive runs; looped runs get the number from `ORCHESTRATE_RUN`
+  (D1). Today a bare number is always a ticket (`SKILL.md:71`), and that stays true.
+  - `orchestrate-v6 supervised --run 123` → continue run #123.
+  - `orchestrate-v6 supervised #7,#8,#9` → new run, as today; `--tickets "#7,#8,#9"` also accepted.
+  - Neither / both → the same refusals as the loop.
+  - `ORCHESTRATE_RUN` set (the loop is driving) → arguments are not used to pick the run.
+  - **Operator rule: one driver per run.** Nothing stops two drivers working the same run (a loop
+    on one machine plus an interactive `--run` on another, or `--run 123` launched twice); both
+    would work the same tickets. A guard would need a "who's driving" liveness signal, which is
+    the machinery this plan dropped, so this is a documented rule, not a check.
 - **D3 — Red `main` is shared.** Both runs' background CI watchers see the same red `main`
   (`SKILL.md:1069-1111`), both start a ci-fix FIX agent, and both may trip "Build fails on main"
   (`:1140`). CLEANUP's "if you see it, you own it" hard bar (`:935`) and the C5 deploy bar
