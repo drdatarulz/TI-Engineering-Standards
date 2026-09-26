@@ -5,8 +5,13 @@
 > **planner skill** turns a ticket list into a dependency graph + a shared ticket pool; you then
 > launch as many orchestrators ("workers") as you like against it. The workers coordinate
 > peer-to-peer through **one shared plan ticket** — no central dispatcher.
-> **Created:** 2026-08-05. **Last updated:** 2026-09-24.
-> **Status:** DRAFT — **not buildable.** Round-1 (CR-1…CR-12) and round-2 (B1–B3, S1–S6, N1–N5)
+> **Created:** 2026-08-05. **Last updated:** 2026-09-26.
+> **⏸ SUSPENDED (2026-09-26).** Work on this plan has stopped. The operator pivoted to the much
+> simpler **one run per orchestrator, bound by an explicit run id** model in
+> [multi-orchestrator-plan.md](multi-orchestrator-plan.md). Kept for reference only; the round-3
+> findings below stay **OPEN and are not being worked**. Its U1 (usage-limit wait) design is carried
+> over into the new plan.
+> **Status (at suspension):** DRAFT — **not buildable.** Round-1 (CR-1…CR-12) and round-2 (B1–B3, S1–S6, N1–N5)
 > findings all resolved, plus added U1 and M1 (2026-09-24). A **round-3 cold read (2026-09-24)**
 > then found **6 blockers (R3-B1…B6), 4 should-fixes (R3-S1…S4), 3 nits** — mostly interactions
 > between the 2026-09-24 mechanisms and stale older text. All **OPEN**; see **Third cold-read
