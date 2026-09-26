@@ -251,6 +251,12 @@ you launch a batch. You reviewing the batches is the confirm step.
       this.
     - `refine-story-v6` replaces the free-text `## Dependency on {PREFIX}-{issue#}` section with
       this one, keeps it up to date from question K, and adds anything it finds.
+    - `triage-v6` writes it too. It creates its bug tickets directly with `gh issue create`
+      (`triage-v5/SKILL.md:178-239`), not through add-story, so it doesn't inherit the fix.
+    - Tickets created mid-pipeline also get it, usually listing their parent:
+      `implement-ticket-v6` scope-deferral follow-ups (`implement-ticket-v5/SKILL.md:71-76`),
+      `orchestrate-v6` Stage 2d UI follow-ups (`orchestrate-v5/SKILL.md:463-478`) and CLEANUP C4
+      fix tickets (`:978-980`, often `None`).
   - **Reader:** `plan-batches-v6` treats listed dependencies as binding and still infers extra
     ones. Tickets without the section (anything created before v6) fall back to inference.
   - **Not doing now:** GitHub's native "blocked by" issue relationships. Could be added later as a
@@ -273,8 +279,8 @@ you launch a batch. You reviewing the batches is the confirm step.
 4. **Observability** (§3) and **docs** (§4).
 4a. **`plan-batches-v6`** skill. Independent of the runtime changes, so it can be built any time
     after step 0.
-4b. **`## Dependencies` section** (D8) in `prd-to-backlog-v6`, `add-story-v6` and
-    `refine-story-v6`. Independent too; makes 4a more reliable but 4a works without it.
+4b. **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets
+    (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). Independent too; makes 4a more reliable but 4a works without it.
 5. **D3 / D5 guards**, once decided.
 
 Single-machine use after step 2 is the same as today except that the operator must pass `--tickets`
