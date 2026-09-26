@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. All decisions D1–D8 resolved. Next: cold read.
+> **Status:** DRAFT. Not yet cold-read. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F12 OPEN, working F1 first.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -321,6 +321,65 @@ you launch a batch. You reviewing the batches is the confirm step.
   - **Not doing now:** GitHub's native "blocked by" issue relationships. Could be added later as a
     second, UI-visible copy. *Hypothesis (ED-3): the feature exists and is reachable via the API;
     not verified.*
+
+---
+
+## Cold-read findings (round 1, 2026-09-26) — work one at a time
+
+A fresh subagent read the plan against the repo (ED-5). ~55 citations checked; one drifted (F12).
+Each finding below was re-checked against source before recording. Status: all **OPEN**.
+
+- **F1 — BLOCKER — no "`main` is red" signal; PRs merge on stale green.** The test workflows run
+  only on `pull_request` (`templates/workflows/fast-tests.yml:15-17`, `integration-tests.yml:11-13`);
+  nothing runs tests on a push to `main`. `integration-tests.yml:4-6` assumes strict branch
+  protection (PR must be up to date with `main`) via `developer-tools/setup-branch-protection.sh`,
+  which doesn't exist; `CLAUDE.md` step 6 says no branch protection is needed. So run A's PR goes
+  green against an older `main`, run B merges, A merges, and the combination breaks with no test
+  catching it. D3's "is `main` red?" has nothing to read: ci-fix WATCH looks for runs on the merge
+  SHA (`ci-fix-v5/SKILL.md:48-63`) and finds none (only `deploy.yml`, if a project has one).
+  Pre-existing in v5; two runs make it much more likely.
+- **F2 — BLOCKER — v5 and v6 on one repo wreck each other.** Both use the `orchestration-run`
+  label. A v5 session closes older open run issues (`orchestrate-v5/SKILL.md:185`) and resets every
+  In Progress ticket on the board (`:229`). The v5 lock is keyed on folder name
+  (`orchestrate-loop.sh:108`) and v6 on full path, so both can run together. D7's "switching back is
+  equally easy" invites mixing.
+- **F3 — SHOULD-FIX — build order stale.** Step 5 says "D3 / D5 guards, once decided" (both now
+  resolved); D4 is in no step; the order doesn't say when running two at once becomes safe (needs
+  run binding, 0.6 scoping, overlap guard, D3, D4, D5).
+- **F4 — SHOULD-FIX — scope can grow without the overlap guard.** The guard runs only in the loop
+  at creation. Bypasses: operator slot "add #12,#13" appends to `Scope:` (`SKILL.md:220`);
+  interactive runs create their own issue (D1); Stage 2d follow-ups (`:470-476`); two launches
+  racing (check-then-create).
+- **F5 — SHOULD-FIX — D5's "runner busy?" check is blind to shared runners.** "The repo's
+  in-progress runs" can't see an org-level runner or one busy with another repo's job
+  (`SKILL.md:941`; `self-hosted-runner-setup.md:132-133`).
+- **F6 — SHOULD-FIX — a run waiting on another run's fix burns `MAX_ITER`.** D3's CLEANUP dedupe
+  re-checks each pass, and each pass is a relaunch counted toward `MAX_ITER=50`
+  (`orchestrate-loop.sh:73`, `:261-264`) → circuit breaker. If the owning run is parked or halted,
+  the waiter can never finish. Needs a waiting state that doesn't count (like `LIMIT_WAIT`) and a
+  clear halt when the owner isn't progressing.
+- **F7 — SHOULD-FIX — the 30-min abandoned-fix rule can close a live fix.** A fix PR whose checks
+  are queued behind the other run's UI suite shows no commits/new check runs for 30+ min (D3 + D5).
+  Count queued / in-progress checks as activity.
+- **F8 — SHOULD-FIX — C1 run-id fix needs a template change.** A run-name input means editing
+  `templates/workflows/ui-tests.yml` (no `run-name` today, `:14-33`); existing projects keep their
+  local copies (sync is skip-if-exists, `CLAUDE.md` step 6). Matching on dispatch time is weak when
+  both runs dispatch unfiltered on `main`. Add to §4 plus migration notes.
+- **F9 — SHOULD-FIX — loop-created issue details.** The label may not exist yet (skill creates it
+  today, `SKILL.md:175`); the minimal body must use the exact operator-slot markers Step 0.55
+  parses (`:216`); `Scope:` may hold Story IDs (`SF-7`, `:70`), so normalize to issue numbers for
+  the overlap check; a `gh` error on "is #N closed?" must not read as closed (today's `*)` case,
+  `orchestrate-loop.sh:247-248`).
+- **F10 — SHOULD-FIX — more docs to update.** `standards/project-tracking.md:57` (queue = Up Next;
+  crash recovery resets In Progress) and `:88-90` (session start picks up any In Progress item —
+  the other machine's ticket); `SKILL.md:166,171` ("loop never touches it", "never a run ID the loop
+  would have to hold"); the v6 loop's `--status` must exec the v6 status script
+  (`orchestrate-loop.sh:100`).
+- **F11 — NIT — C5 deploy check with two runs.** `gh run list --workflow deploy.yml -L1` against a
+  `main` the other run keeps moving (`SKILL.md:990-993`) is a moving target, and both runs may
+  "re-run once" the same red deploy (`:997`). Extend D3's single-fixer rule to the deploy re-run.
+- **F12 — NIT — citation drift.** Plan cites `SKILL.md:302` for full-board wording; it's at `:298`
+  and `:76`.
 
 ---
 
