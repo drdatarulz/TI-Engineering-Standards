@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decision D7 under Versioning. D1–D6 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. All decisions D1–D8 resolved. Next: cold read.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -365,7 +365,7 @@ keeps running unchanged on existing projects while v6 is built and proven.
   (`templates/scripts/orchestrate.sh:25-27`), and the loop's prompt hard-codes
   `.claude/skills/orchestrate-v5/SKILL.md` (`orchestrate-loop.sh:129`). Editing the loop in place
   would change every v5 project on its next run. So v6 gets its own loop, status script and wrapper
-  template (naming TBD, e.g. `orchestrate-loop-v6.sh`); the v5 loop stays as is. A project moves to
+  template (`orchestrate-loop-v6.sh` etc., D7); the v5 loop stays as is. A project moves to
   v6 by switching its wrapper.
 - **Retiring v5** follows the v4 → v5 pattern: once v6 is proven on a pilot, move the v5 skills to
   `skills/archive/` and update `CLAUDE.md`, the standards, and the workflow docs to point at v6.
@@ -388,6 +388,14 @@ keeps running unchanged on existing projects while v6 is built and proven.
     `/tmp/orchestrate-loop-*.log` contain no usage-limit text. Also, the loop truncates its log at
     every start (`orchestrate-loop.sh:140`), so evidence from an earlier limit hit is gone. Capture
     the message the next time a limit is hit (e.g. keep a copy of the log before relaunching).
-- **D7 — v6 script naming and location** (suffixed files in `developer-tools/` vs a
-  `developer-tools/v6/` folder), and whether the vendored wrapper becomes `scripts/orchestrate-v6.sh`
-  or stays `scripts/orchestrate.sh` with v6 contents.
+- **D7 — v6 script naming and location. RESOLVED (2026-09-26): `-v6` suffix, same as the skills.**
+  - `developer-tools/orchestrate-loop-v6.sh`, `developer-tools/orchestrate-status-v6.sh`.
+  - `templates/scripts/orchestrate-v6.sh`, vendored into projects as `scripts/orchestrate-v6.sh` by
+    the existing sync step (`CLAUDE.md` step 7, skip-if-exists).
+  - The v5 files stay where they are, untouched apart from the D6 fix. Existing projects
+    `scripts/orchestrate.sh` keeps running v5.
+  - A project moves to v6 by running `./scripts/orchestrate-v6.sh`; no file edits, and switching
+    back is equally easy. At v5 retirement the v5 scripts move to an archive folder.
+  - Rejected: a `developer-tools/v6/` folder (inconsistent with how skills are versioned).
+  - Side effect (accepted, same as skills): both wrappers sync into every project while both
+    generations are live.
