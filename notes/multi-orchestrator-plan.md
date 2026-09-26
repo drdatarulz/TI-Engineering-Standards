@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F12 OPEN, working F1 first.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F12 OPEN, working F1 first.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
