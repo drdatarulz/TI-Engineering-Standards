@@ -4,7 +4,8 @@
 > computer**, each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below, D6–D7 under Versioning.
+> Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
 > (three cold-read rounds). This plan drops the coordination layer entirely.
@@ -178,8 +179,11 @@ If the same prompt keeps coming up, promote it to a small skill later.
 
 ## Suggested build order
 
+0. **Create the v6 generation** (see Versioning): copy all 14 skills to `-v6` with cross-references
+   renamed, plus the v6 loop, status script and wrapper. No behavior change yet; v6 at this point is
+   a working clone of v5.
 1. **`LIMIT_WAIT`** (§5) — independent, fixes a live bug, unblocked once a real limit message is
-   captured.
+   captured. (Whether it's also backported to v5 is D6.)
 2. **Run binding** (§1 loop + §2 skill Step 0.5 / Parse Arguments / full-board removal) plus the
    **Step 0.6 scoping** and **C1 dispatch-id** fixes. These land together: binding alone is not safe
    to run two-up while 0.6 still sweeps the whole board.
@@ -192,8 +196,40 @@ or `--run`.
 
 ---
 
-## Versioning
+## Versioning: a v6 generation (decided 2026-09-26)
 
-In-place v5 upgrade, same reasoning as the old plan: no change to the test model or pipeline
-contract. Touches `orchestrate-v5`, `monitor-v5`, the loop and status scripts, the wrapper template,
-and `project-tracking.md`.
+**Decision (operator):** this ships as a **full v6 generation**, not an in-place v5 upgrade. This
+reverses the old plan's "upgrade v5, don't cut a v6" recommendation. The goal is separation: v5
+keeps running unchanged on existing projects while v6 is built and proven.
+
+**What "full generation" means:**
+- **All 14 v5 skills get a `-v6` copy** (`skills/*-v5/` → `skills/*-v6/`), including the ones this
+  plan doesn't otherwise change. Inside the copies, every cross-reference to a `-v5` skill is
+  renamed to `-v6`, so a v6 run never calls into v5.
+- **The plan's changes land only in v6.** The file:line references in "Changes to build" point at
+  the v5 source they're copied from; apply them to the v6 copies. v5 is frozen apart from bug fixes.
+- **The loop and scripts must be versioned too, not just the skills.** The project wrapper
+  self-updates from the standards repo and execs the shared loop
+  (`templates/scripts/orchestrate.sh:25-27`), and the loop's prompt hard-codes
+  `.claude/skills/orchestrate-v5/SKILL.md` (`orchestrate-loop.sh:129`). Editing the loop in place
+  would change every v5 project on its next run. So v6 gets its own loop, status script and wrapper
+  template (naming TBD, e.g. `orchestrate-loop-v6.sh`); the v5 loop stays as is. A project moves to
+  v6 by switching its wrapper.
+- **Retiring v5** follows the v4 → v5 pattern: once v6 is proven on a pilot, move the v5 skills to
+  `skills/archive/` and update `CLAUDE.md`, the standards, and the workflow docs to point at v6.
+
+**Costs we're accepting:**
+- While both generations are live, the sync protocol (`CLAUDE.md` step 5) copies **both** sets into
+  every project, since it syncs everything outside `archive/`. The names don't collide, so this is
+  clutter, not breakage.
+- A fix to a skill that's identical in v5 and v6 has to land in both until v5 is archived.
+- Standards, workflow docs and `CLAUDE.md` refer to v5 skills by name (~113 lines outside
+  `skills/`). These are left alone until v5 retires, then updated in one pass.
+
+**Open:**
+- **D6 — Does `LIMIT_WAIT` (§5) also go into v5?** It fixes a live bug that v5 projects hit today.
+  Under the v6-only rule it would only reach v6. A backport to the v5 loop is small, and it doesn't
+  change behavior when no limit is hit.
+- **D7 — v6 script naming and location** (suffixed files in `developer-tools/` vs a
+  `developer-tools/v6/` folder), and whether the vendored wrapper becomes `scripts/orchestrate-v6.sh`
+  or stays `scripts/orchestrate.sh` with v6 contents.
