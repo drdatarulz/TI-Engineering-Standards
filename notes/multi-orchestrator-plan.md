@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below, D6–D7 under Versioning. D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D2–D5 below, D6–D7 under Versioning. D1 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -200,10 +200,17 @@ you launch a batch. You reviewing the batches is the confirm step.
 
 ## Open decisions
 
-- **D1 — Who writes the run issue body on creation?** The loop now creates the issue, but the body
-  schema lives in the skill (`SKILL.md:1010-1051`). Options: (a) the loop writes a minimal body
-  (`Scope:`, `Run state: WORKING`, empty operator slot) and the first session fills in the full
-  schema; (b) move the schema to a template file both read. *Leaning (a).*
+- **D1 — Who creates the run issue, and who writes its body? RESOLVED (2026-09-26).**
+  - **Looped runs: the loop creates the issue** before the first session. Why: the loop has to
+    know the exact number to relaunch into the same run. If a session created it and passed the
+    number back, a first session that crashed after creating the issue but before handing the
+    number over would leave the loop relaunching with `--tickets` again → a second, duplicate run.
+  - **The loop writes a minimal body:** `Scope:`, `Run state: WORKING`, and the operator slot set
+    to `none`. The first session fills in the full schema (`SKILL.md:1010-1051`). That keeps the
+    schema in one place (the skill) and is barely a change: the skill already rewrites the body
+    every session as read-modify-write (Step 0.55).
+  - **Interactive runs** (skill launched directly, no loop) create the issue themselves, full
+    body, exactly as today.
 - **D2 — How does an interactive session name an existing run?** Today a bare number in the
   arguments is always a ticket (`SKILL.md:71`), so `orchestrate-v5 supervised 123` can't mean
   "continue run #123". Needs a keyword, e.g. `orchestrate-v5 supervised run=#123`.
