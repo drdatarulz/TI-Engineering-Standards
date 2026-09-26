@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D6–D7 under Versioning. D1–D5 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decision D7 under Versioning. D1–D6 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -330,7 +330,7 @@ you launch a batch. You reviewing the batches is the confirm step.
    renamed, plus the v6 loop, status script and wrapper. No behavior change yet; v6 at this point is
    a working clone of v5.
 1. **`LIMIT_WAIT`** (§5) — independent, fixes a live bug, unblocked once a real limit message is
-   captured. (Whether it's also backported to v5 is D6.)
+   captured. Goes into both v5 and v6 (D6).
 2. **Run binding** (§1 loop + §2 skill Step 0.5 / Parse Arguments / full-board removal) plus the
    **Step 0.6 scoping** and **C1 dispatch-id** fixes. These land together: binding alone is not safe
    to run two-up while 0.6 still sweeps the whole board.
@@ -379,9 +379,15 @@ keeps running unchanged on existing projects while v6 is built and proven.
   `skills/`). These are left alone until v5 retires, then updated in one pass.
 
 **Open:**
-- **D6 — Does `LIMIT_WAIT` (§5) also go into v5?** It fixes a live bug that v5 projects hit today.
-  Under the v6-only rule it would only reach v6. A backport to the v5 loop is small, and it doesn't
-  change behavior when no limit is hit.
+- **D6 — Does `LIMIT_WAIT` (§5) also go into v5? RESOLVED (2026-09-26): yes.** It's a bug fix
+  for a live bug (overnight runs die on the usage limit), which the v5-frozen rule allows. Small,
+  loop-only, and no behavior change when no limit is hit.
+  - **Caution:** every v5 project picks up the loop change on its next run (the wrapper
+    self-updates, `templates/scripts/orchestrate.sh:25-27`), so test it carefully before pushing.
+  - **Still blocked on the real message (ED-3).** Checked 2026-09-26: the four local run logs in
+    `/tmp/orchestrate-loop-*.log` contain no usage-limit text. Also, the loop truncates its log at
+    every start (`orchestrate-loop.sh:140`), so evidence from an earlier limit hit is gone. Capture
+    the message the next time a limit is hit (e.g. keep a copy of the log before relaunching).
 - **D7 — v6 script naming and location** (suffixed files in `developer-tools/` vs a
   `developer-tools/v6/` folder), and whether the vendored wrapper becomes `scripts/orchestrate-v6.sh`
   or stays `scripts/orchestrate.sh` with v6 contents.
