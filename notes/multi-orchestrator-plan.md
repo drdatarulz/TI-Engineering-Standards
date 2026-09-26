@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. Not yet cold-read. Open decisions D4–D5 below, D6–D7 under Versioning. D1–D3 and D8 resolved.
+> **Status:** DRAFT. Not yet cold-read. Open decisions D5 below, D6–D7 under Versioning. D1–D4 and D8 resolved.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -250,9 +250,18 @@ you launch a batch. You reviewing the batches is the confirm step.
     see it, you own it" still holds: owning means not closing until it's green.
   - **Accepted cost:** a run waiting on another run's fix keeps relaunching CLEANUP, re-running the
     full UI suite each pass. If that bites, add a WAITING-style backoff.
-- **D4 — Merge conflicts.** The circuit breaker halts on any merge conflict (`SKILL.md:1139`). Two
-  runs merging to `main` makes that more likely. *Leaning: keep the halt* (human resolves, then
-  `--run` resumes) and rely on a good split; revisit if it happens often.
+- **D4 — Merge conflicts. RESOLVED (2026-09-26): one automatic attempt, then halt.** Today any
+  merge conflict halts the whole run (`SKILL.md:1139`); nothing in the skills rebases or resolves
+  (grounded: no other conflict/rebase handling in orchestrate, implement, integration-test or
+  ui-test). Two runs merging to `main` makes conflicts more likely.
+  - **On a conflict:** the agent rebases its branch onto the latest `main`, resolves the conflicts,
+    re-runs build and tests, pushes, and sends the PR back through the normal merge gate (checks
+    must pass again). One attempt per merge.
+  - **If it can't resolve cleanly, or tests fail after resolving:** halt the run as today. You
+    resolve, then resume with `--run`.
+  - **Halt the run, don't skip the ticket.** A batch is an ordered chain; later tickets may depend
+    on the stuck one, so skipping ahead is unsafe.
+  - A good batch split (shared-file hot spots in one batch) still keeps conflicts rare.
 - **D5 — Self-hosted runner contention.** Two runs share the runner(s). C1 treats a dispatched UI run
   still `queued` after ~15 min as "runner down" and halts (`SKILL.md:941`). If one runner is busy
   with the other run's full UI suite, that timer could trip falsely. *Hypothesis (ED-3):* depends
