@@ -1,7 +1,7 @@
 # Multi-Orchestrator Plan
 
-> **Purpose:** let **several orchestrators run at the same time against one repo, each on its own
-> computer**, each driving its own independent run. No shared pool, no claims, no coordination
+> **Purpose:** let **several orchestrators run at the same time against one repo, each in its own
+> clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
 > **Status:** DRAFT. Not yet cold-read. Open decisions D1–D5 below, D6–D7 under Versioning.
@@ -28,11 +28,25 @@ the tickets.
 
 ## Deployment topology
 
-**One orchestrator per computer.** Each runs in its own clone, on its own machine. What they share
-is the **remote repo, the GitHub Project board, the issues, the self-hosted CI runner(s), and
-`main`**. Running two orchestrators in two folders on the **same** computer is out of scope (the
-loop's lock and log file are keyed on the project folder name, `orchestrate-loop.sh:108,139`, so two
-same-named clones on one machine would collide).
+**One orchestrator per clone.** The unit is a checked-out copy of a repo, not a computer. Running
+several orchestrators on one computer or in one container is normal and stays supported: today the
+operator runs orchestrators for **different repos** side by side in the same container. Nothing in
+this plan may assume there is a single place per machine to run orchestration or its tooling.
+
+For **one repo**, parallel runs each use their own clone. The expected setup is one clone per
+computer, but two clones of the same repo on one computer are not a problem in principle: separate
+folders and separate processes, sharing only what separate machines would share anyway.
+
+What parallel runs of the same repo share: the **remote repo, the GitHub Project board, the issues,
+the self-hosted CI runner(s), and `main`**.
+
+**One current snag, to fix in the v6 loop:** the loop's lock file and log file are named after the
+project **folder name** only (`orchestrate-loop.sh:108,139`, both
+`${TMPDIR:-/tmp}/orchestrate-loop-$(basename "$PROJECT_DIR")`). Two clones of the same repo with the
+same folder name on one machine (e.g. `/a/heycapto` and `/b/heycapto`) share one lock, so the second
+refuses to start (exit 4). Nothing is damaged, but it blocks. Different folder names already work.
+Fix: key the lock and log on the full project path (or a hash of it) instead of the folder name.
+This is also safe for different-repo runs in one container, which have distinct paths.
 
 ---
 
@@ -63,6 +77,8 @@ Rules:
 ### 1. Loop: flags, run creation, run binding (`developer-tools/orchestrate-loop.sh`)
 
 - Add `--run N`. Enforce the four-way rule above after argument parsing (`:82-94`).
+- Key the lock file and run log on the full project path, not its folder name (`:108`, `:139`;
+  see Deployment topology).
 - **`--tickets`:** the loop creates the run issue itself, before the first session, so the number is
   known from the start (see D1 for the body). Then `export ORCHESTRATE_RUN=<number>`, same mechanism
   as `ORCHESTRATE_N` (`:135`).
