@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F2 resolved; F3–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F3 resolved; F4–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -369,6 +369,8 @@ Each finding below was re-checked against source before recording. Status: all *
 - **F3 — SHOULD-FIX — build order stale.** Step 5 says "D3 / D5 guards, once decided" (both now
   resolved); D4 is in no step; the order doesn't say when running two at once becomes safe (needs
   run binding, 0.6 scoping, overlap guard, D3, D4, D5).
+  **RESOLVED (2026-09-27):** build order rewritten as a table grouped by what each step makes safe;
+  everything needed for two-at-once is in step 3, with an explicit "don't run two before step 3".
 - **F4 — SHOULD-FIX — scope can grow without the overlap guard.** The guard runs only in the loop
   at creation. Bypasses: operator slot "add #12,#13" appends to `Scope:` (`SKILL.md:220`);
   interactive runs create their own issue (D1); Stage 2d follow-ups (`:470-476`); two launches
@@ -408,24 +410,21 @@ Each finding below was re-checked against source before recording. Status: all *
 
 ## Suggested build order
 
-0. **Create the v6 generation** (see Versioning): copy all 14 skills to `-v6` with cross-references
-   renamed, plus the v6 loop, status script and wrapper. No behavior change yet; v6 at this point is
-   a working clone of v5.
-1. **`LIMIT_WAIT`** (§5) — independent, fixes a live bug, unblocked once a real limit message is
-   captured. Goes into both v5 and v6 (D6).
-2. **Run binding** (§1 loop + §2 skill Step 0.5 / Parse Arguments / full-board removal) plus the
-   **Step 0.6 scoping** and **C1 dispatch-id** fixes. These land together: binding alone is not safe
-   to run two-up while 0.6 still sweeps the whole board.
-3. **Scope-overlap guard** (§1).
-4. **Observability** (§3) and **docs** (§4).
-4a. **`plan-batches-v6`** skill. Independent of the runtime changes, so it can be built any time
-    after step 0.
-4b. **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets
-    (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). Independent too; makes 4a more reliable but 4a works without it.
-5. **D3 / D5 guards**, once decided.
+(Reorganized 2026-09-27 per F3: grouped by what each step makes safe.)
 
-Single-machine use after step 2 is the same as today except that the operator must pass `--tickets`
-or `--run`.
+> **Do not run two orchestrators on one repo until step 3 is complete.** No single piece of step 3
+> is safe on its own.
+
+| Step | What | Safe after this step |
+|---|---|---|
+| 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
+| 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). Blocked until a real limit message is captured. | Runs survive the usage limit |
+| 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9); interactive `--run` (D2); full-board removal; Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10). | v6 works for **one run at a time** under the new launch rules |
+| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4); re-test before merge + tests on push to `main` (F1); one CI fixer at a time (D3, F6, F7, F11); automatic conflict resolve (D4); queue-aware runner waits (D5, F5); C1 identifies its own UI run (F8). | **Two or more orchestrators on one repo** |
+| 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
+
+Existing projects also need the **v6 migration checklist** (see Versioning) before their first v6
+run.
 
 ---
 
