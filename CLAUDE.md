@@ -113,6 +113,13 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [skills/triage-v5](skills/triage-v5/SKILL.md) | Interactive investigation and bug triage — evidence-first runtime diagnosis (pull the real exception before theorizing), never writes code, output is always a ticket |
 | [skills/conformance-v5](skills/conformance-v5/SKILL.md) | Audit a project against TI Engineering Standards incl. the v5 four-tier test model — informational only, produces a gap report |
 
+> **v6 (available 2026-09-27, not yet the default).** A full `-v6` copy of every skill above, plus
+> `plan-batches-v6`, lets **several orchestrators run against one repo at once**, each in its own
+> clone, each bound to an explicit run (`./scripts/orchestrate-v6.sh --tickets "#7,#8"` starts one;
+> `--run N` continues one). v5 is unchanged and remains the default. Moving a repo to v6 is a
+> **one-way cutover** — never run v5 and v6 on the same repo. Design, decisions and the per-project
+> migration checklist: [notes/multi-orchestrator-plan.md](notes/multi-orchestrator-plan.md).
+>
 > **Note:** v1–v4 skills remain in `skills/archive/` for historical reference but are no longer actively maintained or synced (the auto-sync protocol skips `archive/`).
 >
 > **v4 → v5 transition — COMPLETE (2026-06-27).** v5 is proven on the pilot; all thirteen v4 skills have been moved to `skills/archive/`. v5 is the only synced generation. The round-out (the six authoring/audit skills plus the ED-discipline patches to `refine-story-v5` / `implement-ticket-v5` / `engineering-review-v5`) is tracked in [notes/v5-round-out-plan.md](notes/v5-round-out-plan.md); the full build is in [notes/v5-implementation-plan.md](notes/v5-implementation-plan.md).
@@ -126,6 +133,7 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 | [templates/CLAUDE-project.md](templates/CLAUDE-project.md) | Template CLAUDE.md for new projects — copy and fill in project-specific sections |
 | [templates/workflows/](templates/workflows/) | CI workflow templates (fast / integration / ui tests) — copied into each project's `.github/workflows/` |
 | [templates/scripts/orchestrate.sh](templates/scripts/orchestrate.sh) | Thin orchestration entrypoint wrapper projects vendor as `scripts/orchestrate.sh` |
+| [templates/scripts/orchestrate-v6.sh](templates/scripts/orchestrate-v6.sh) | v6 entrypoint (`--tickets` / `--run`), vendored as `scripts/orchestrate-v6.sh` |
 
 ---
 
