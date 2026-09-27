@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9 resolved; F10–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved; F11–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -126,9 +126,20 @@ Rules:
 
 ### 4. Docs and templates
 
-- `templates/scripts/orchestrate.sh:9-15` usage lines (no-arg "full board" example goes away).
+- `templates/scripts/orchestrate-v6.sh` (new, D7) usage lines: no no-arg "full board" example
+  (the v5 wrapper's `:9-15` stays as is).
 - `standards/project-tracking.md:50-55` ("One active run = one open issue…", find-or-create by
   label) rewritten for many open runs, each bound by number.
+- `standards/project-tracking.md:57` (queue = all of Up Next; crash recovery resets every In
+  Progress) reworded for scoped runs (F10).
+- `standards/project-tracking.md:88-90` session-start protocol ("pick up In Progress items"):
+  an In Progress ticket in an open run's scope belongs to that run — don't pick it up (F10).
+- `orchestrate-v6/SKILL.md` copies of `:166` and `:171` ("the loop never touches it", "never a run
+  ID the loop would have to hold") rewritten; both are false in v6 (F10).
+- v6 loop's `--status` execs `orchestrate-status-v6.sh`, not the v5 script (`orchestrate-loop.sh:100`,
+  F10).
+- `templates/workflows/integration-tests.yml:4-6` header: drop the nonexistent
+  `setup-branch-protection.sh` reference; describe F1-A instead.
 - `workflow/agentic-development-workflow.md` / `workflow/README.md`: check for "one active run" and
   full-board wording. (Not yet checked — ED-3.)
 
@@ -429,6 +440,7 @@ Each finding below was re-checked against source before recording. Status: all *
   the other machine's ticket); `SKILL.md:166,171` ("loop never touches it", "never a run ID the loop
   would have to hold"); the v6 loop's `--status` must exec the v6 status script
   (`orchestrate-loop.sh:100`).
+  **RESOLVED (2026-09-27):** all four added to §4.
 - **F11 — NIT — C5 deploy check with two runs.** `gh run list --workflow deploy.yml -L1` against a
   `main` the other run keeps moving (`SKILL.md:990-993`) is a moving target, and both runs may
   "re-run once" the same red deploy (`:997`). Extend D3's single-fixer rule to the deploy re-run.
