@@ -39,7 +39,9 @@ Several orchestration runs (one per clone) can work this repo at once and share 
 
 ```bash
 latest_main_run() {  # $1 = workflow file, e.g. fast-tests.yml
-  gh run list --repo {REPO_OWNER}/{REPO_NAME} --workflow "$1" --branch main --event push --limit 20 \
+  # No --event filter: the test workflows run on push, but a deploy/cd workflow may be
+  # triggered by workflow_run — filtering on push would never find it.
+  gh run list --repo {REPO_OWNER}/{REPO_NAME} --workflow "$1" --branch main --limit 20 \
     --json databaseId,status,conclusion,headSha,createdAt,workflowName \
     --jq '[.[] | select(.conclusion != "cancelled")][0] // empty'
 }
@@ -172,7 +174,7 @@ PENDING_RUNS:
 
 Run **Open fix PRs** (Shared helpers).
 
-**If none is open:** it's your turn. Record `FIX_STARTED_AT` (current UTC time) — the pre-merge check in F7 is measured from here — and continue to F1.
+**If none is open:** it's your turn. Record `FIX_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)` (UTC, the same ISO-8601 form `gh` returns, so the text comparison in F7 is valid) — the pre-merge check in F7 is measured from here — and continue to F1.
 
 **If one is open, don't start another fix.** Wait for it, polling every ~60s until it is merged or closed. Then run **Is `main` red?** (wait while unknown):
 - **Green** → report `STATUS: FixedByOther` (F8) and stop. Nothing left to fix.

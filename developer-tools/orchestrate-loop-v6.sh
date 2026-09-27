@@ -40,7 +40,8 @@
 #   ./orchestrate-loop-v6.sh --status [RUN] [--project-dir DIR]   # snapshot, then exit
 # Defaults: --project-dir "$(pwd)"  --n 1  --timeout 5400  --max-iter 50
 # Env: HEARTBEAT_INTERVAL (45), LIMIT_WAIT_SECS (3600), LIMIT_MAX_WAITS (48), LIMIT_MAX_SLEEP (21600),
-#      LIMIT_PATTERN (extended regex matched against the last lines of session output).
+#      LIMIT_PATTERN / LIMIT_PATTERN_LOOSE (extended regexes matched against the last lines of
+#      session output; the loose one only on a non-zero exit).
 set -uo pipefail
 
 PROJECT_DIR="$(pwd)"
@@ -55,25 +56,28 @@ STATUS_RUN=""
 LIMIT_WAIT_SECS="${LIMIT_WAIT_SECS:-3600}"
 LIMIT_MAX_WAITS="${LIMIT_MAX_WAITS:-48}"
 LIMIT_MAX_SLEEP="${LIMIT_MAX_SLEEP:-21600}"   # cap on one parsed-reset sleep (6h)
-# Claude usage/rate-limit exit. Matched case-insensitively against the TAIL of the session output
-# only (the error is the last thing printed), so a session that merely *talks about* rate limits
-# mid-run doesn't trip it. Extend when a new wording is seen.
-LIMIT_PATTERN="${LIMIT_PATTERN:-rate_limit_error|usage limit|limit reached|\\b429\\b}"
+# Claude usage/rate-limit exit, matched case-insensitively against the TAIL of the session output
+# only (the error is the last thing printed). LIMIT_PATTERN is specific enough to trust on any exit;
+# LIMIT_PATTERN_LOOSE (a bare 429 or "rate limit", which a normal summary could mention — e.g. issue
+# #429) only counts when the session exited non-zero. Extend when a new wording is seen.
+LIMIT_PATTERN="${LIMIT_PATTERN:-rate_limit_error|usage limit|limit reached}"
+LIMIT_PATTERN_LOOSE="${LIMIT_PATTERN_LOOSE:-\\b429\\b|rate limit}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LABEL="orchestration-run"
 
-usage() { sed -n '2,46p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,/^set -uo pipefail/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
+need()  { [[ $# -ge 2 && -n "$2" ]] || { echo "orchestrate-loop-v6: $1 needs a value" >&2; exit 2; }; }
 die()   { echo "orchestrate-loop-v6: $*" >&2; exit 2; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project-dir) PROJECT_DIR="$2"; shift 2;;
-    --n)           N="$2"; shift 2;;
-    --tickets)     TICKETS="$2"; shift 2;;
-    --run)         RUN="$2"; shift 2;;
-    --timeout)     TIMEOUT="$2"; shift 2;;
-    --max-iter)    MAX_ITER="$2"; shift 2;;
-    --prompt)      PROMPT="$2"; shift 2;;
+    --project-dir) need "$@"; PROJECT_DIR="$2"; shift 2;;
+    --n)           need "$@"; N="$2"; shift 2;;
+    --tickets)     need "$@"; TICKETS="$2"; shift 2;;
+    --run)         need "$@"; RUN="$2"; shift 2;;
+    --timeout)     need "$@"; TIMEOUT="$2"; shift 2;;
+    --max-iter)    need "$@"; MAX_ITER="$2"; shift 2;;
+    --prompt)      need "$@"; PROMPT="$2"; shift 2;;
     --status)      DO_STATUS=1; shift
                    if [[ $# -gt 0 && "$1" != --* ]]; then STATUS_RUN="$1"; shift; fi;;
     -h|--help)     usage; exit 0;;
@@ -232,7 +236,8 @@ start_heartbeat() {
   HB_PID=$!
 }
 stop_heartbeat() { [[ -n "$HB_PID" ]] && kill "$HB_PID" 2>/dev/null; HB_PID=""; }
-trap 'stop_heartbeat' EXIT
+on_exit() { local rc=$?; stop_heartbeat; (( rc != 0 )) && echo "orchestrate-loop-v6: run #$RUN stopped — resume with: --run $RUN" >&2; }
+trap on_exit EXIT
 
 echo "orchestrate-loop-v6: project=$PROJECT_DIR run=#$RUN N=$N timeout=${TIMEOUT}s max-iter=$MAX_ITER"
 echo "orchestrate-loop-v6: log=$RUNLOG | heartbeat=${HEARTBEAT_INTERVAL}s"
@@ -254,7 +259,8 @@ while (( iter < MAX_ITER )); do
   stop_heartbeat
 
   limit_hit=0
-  if tail -n 15 "$logfile" | grep -Eiq "$LIMIT_PATTERN"; then limit_hit=1; fi
+  if tail -n 15 "$logfile" | grep -Eiq "$LIMIT_PATTERN"; then limit_hit=1
+  elif (( rc != 0 )) && tail -n 15 "$logfile" | grep -Eiq "$LIMIT_PATTERN_LOOSE"; then limit_hit=1; fi
   reset_line=$(tail -n 15 "$logfile" | grep -Eio 'reset[s]?( at)? [0-9]{1,2}(:[0-9]{2})? ?([ap]m)?' | tail -1)
   reset_tz=$(tail -n 15 "$logfile" | grep -Eo '\([A-Za-z_]+/[A-Za-z_]+\)' | tail -1 | tr -d '()')
   rm -f "$logfile"

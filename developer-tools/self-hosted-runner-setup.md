@@ -131,6 +131,10 @@ A long-lived runner accumulates state; budget for it:
   `sudo ./svc.sh stop && ./config.sh remove --token <TOKEN>` then re-register with a fresh token.
 - **One runner, multiple repos** — register a separate runner per repo (separate `actions-runner`
   dirs), or use a runner group. Don't share one `_work` dir across repos.
+- **More runners for one repo (e.g. several v6 orchestrators at once)** — add them on **other
+  machines**, not the same one. The UI tier starts the app on fixed ports
+  (`templates/workflows/README.md`, e.g. 5001/5002), so two UI jobs at once on one host collide.
+  One runner per repo is fine: parallel runs' jobs just take turns.
 
 ## Troubleshooting
 

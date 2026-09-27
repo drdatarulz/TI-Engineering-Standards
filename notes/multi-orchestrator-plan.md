@@ -171,8 +171,9 @@ A real bug today, independent of parallelism: when a session hits the Claude usa
 `claude -p` exits fast, the loop treats it as a crash and relaunches immediately
 (`orchestrate-loop.sh:251-258`), and burns all `MAX_ITER` relaunches in minutes (`:261-264`). Two
 machines on **one Claude account** hit the limit sooner and together. Fix, in the loop:
-- **Detect** from the session output: a case-insensitive text match on `429`,
-  `rate_limit_error`, or "usage limit" / "rate limit" (operator-supplied, 2026-09-27). The match
+- **Detect** from the last lines of session output (as built): `rate_limit_error`, "usage limit"
+  or "limit reached" on any exit; a bare `429` or "rate limit" only on a non-zero exit, so a normal
+  summary that mentions issue #429 doesn't trip it (operator-supplied shape, 2026-09-27). The match
   lives in bash because the session is already dead when this happens, and asking Claude to
   classify the error would hit the same limit. Don't key on exit code alone. A message that
   doesn't match just falls through to today's crash-relaunch behavior; add new wording to the
@@ -642,6 +643,23 @@ Existing projects also need the **v6 migration checklist** (see Versioning) befo
 run.
 
 ---
+
+## Build notes (2026-09-27)
+
+Built on branch `feat/v6-generation`, reviewed by a fresh subagent against this plan, and merged.
+Settled while building:
+- `reconcile-backlog-v6` gets `## Dependencies` through add-story (which writes any dependencies it
+  finds while grounding); no reconcile-specific change.
+- Workflow docs (`workflow/*.md`) are deferred to v5 retirement with the other shared docs (§4).
+- Stage 2d follow-ups are inserted into `Scope:` **right after their parent** (processing order),
+  not appended at the end. C4 fix tickets are appended at the end.
+- `orchestrate-v6`'s merge gate always spawns a ci-fix FIX on red `main` unless this session already
+  has one pending; ci-fix's F0 step does the waiting, including the abandoned-PR takeover.
+- ci-fix reports a new `STATUS: FixedByOther` (another fixer got `main` green); the orchestrator
+  treats it like `Fixed`.
+- The loop's limit wait honors a timezone printed with the reset time and never sleeps more than
+  6 h in one go.
+- `self-hosted-runner-setup.md` got the "extra runners on other machines" note (D5).
 
 ## Versioning: a v6 generation (decided 2026-09-26)
 
