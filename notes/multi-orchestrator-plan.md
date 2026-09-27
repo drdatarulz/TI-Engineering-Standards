@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-27.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. Round 3 (2026-09-27): H1–H9 resolved (fixes folded
+> **Status:** BUILDING (2026-09-27). All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. Round 3 (2026-09-27): H1–H9 resolved (fixes folded
 > in).
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
@@ -144,20 +144,26 @@ Rules:
 
 - `templates/scripts/orchestrate-v6.sh` (new, D7) usage lines: no no-arg "full board" example
   (the v5 wrapper's `:9-15` stays as is).
-- `standards/project-tracking.md:50-55` ("One active run = one open issue…", find-or-create by
-  label) rewritten for many open runs, each bound by number.
-- `standards/project-tracking.md:57` (queue = all of Up Next; crash recovery resets every In
-  Progress) reworded for scoped runs (F10).
-- `standards/project-tracking.md:89-91` session-start protocol ("pick up In Progress items"):
-  an In Progress ticket in an open run's scope belongs to that run — don't pick it up (F10).
+- **Deferred to v5 retirement (2026-09-27):** shared standards keep their v5 wording so v5
+  sessions read exactly what they read today; the v6 rules live inside the v6 skills. At cutover:
+  - `standards/project-tracking.md:50-55` ("One active run = one open issue…", find-or-create by
+    label) rewritten for many open runs, each bound by number.
+  - `standards/project-tracking.md:57` (queue = all of Up Next; crash recovery resets every In
+    Progress) reworded for scoped runs (F10).
+  - `standards/project-tracking.md:89-91` session-start protocol ("pick up In Progress items"):
+    an In Progress ticket in an open run's scope belongs to that run — don't pick it up (F10).
 - `orchestrate-v6/SKILL.md` copies of `:166` and `:171` ("the loop never touches it", "never a run
   ID the loop would have to hold") rewritten; both are false in v6 (F10).
 - v6 loop's `--status` execs `orchestrate-status-v6.sh`, not the v5 script (`orchestrate-loop.sh:100`,
   F10).
 - `templates/workflows/integration-tests.yml:4-6` header: drop the nonexistent
   `setup-branch-protection.sh` reference; describe F1-A instead.
-- `workflow/agentic-development-workflow.md` / `workflow/README.md`: check for "one active run" and
-  full-board wording. (Not yet checked — ED-3.)
+  - `workflow/agentic-development-workflow.md` / `workflow/README.md`: "one active run" and
+    full-board wording.
+- **Shared workflow templates** (`templates/workflows/`) do change now (F1-B push trigger, header
+  rewrite). Only projects created after this pick them up (sync is skip-if-exists); for a v5
+  project that just means tests also run on `main` after a merge, which v5's CI watcher already
+  expects (`ci-fix-v5/SKILL.md:63`).
 
 ### 5. Usage-limit wait (`LIMIT_WAIT`), carried over from the old plan's U1
 
@@ -176,7 +182,7 @@ machines on **one Claude account** hit the limit sooner and together. Fix, in th
 - **Surface** `Run state: LIMIT_WAIT (retry ~HH:MM)` in the run issue; clear it on resume.
 - **Resume** through the normal Step 0.6 recovery.
 
-Can ship separately and first; it doesn't depend on anything above.
+**v6 loop only** (D6 reversed 2026-09-27); the v5 loop is not changed.
 
 ---
 
@@ -617,20 +623,20 @@ round-2 CI-fix rules (G1, G5, G6).
 
 ---
 
-## Suggested build order
+## Build order
 
-(Reorganized 2026-09-27 per F3: grouped by what each step makes safe.)
+**Built in one pass (operator decision, 2026-09-27)**, then used; adjust from real use rather than
+more paper review. The earlier staged order existed only so a half-built v6 couldn't run two
+orchestrators at once; building everything before first use removes that risk. Checklist:
 
-> **Do not run two orchestrators on one repo until step 3 is complete.** No single piece of step 3
-> is safe on its own.
-
-| Step | What | Safe after this step |
-|---|---|---|
-| 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
-| 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). | Runs survive the usage limit |
-| 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9, G4); interactive `--run` (D2); full-board removal + 2d follow-ups into `Scope:` (G5); Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10), except the `integration-tests.yml` header rewrite (step 3). | v6 works for **one run at a time** under the new launch rules |
-| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4, G9); re-test before merge + tests on push to `main` + `integration-tests.yml` header rewrite (F1); one CI fixer at a time, incl. merge gate starting the fix, cancelled-run handling and ci-fix pre-merge re-check (D3, F7, G1, G2, G3, G6, H1, H2, H5, H6, H7); overlap check on existing 2d follow-ups (H3); automatic conflict resolve by merging `main` in (D4, G7); queue-aware runner waits (D5). | **Two or more orchestrators on one repo** |
-| 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
+- 15 v6 skills: the 14 v5 skills copied to `-v6` with skill cross-references renamed, plus
+  `plan-batches-v6`.
+- v6 loop, status script and wrapper (D7), incl. `LIMIT_WAIT` (§5), run binding, issue creation
+  (D1, F9, G4), overlap guard (F4, G9), lock/log by full path.
+- `orchestrate-v6`: §2 changes, D2–D4, D8, F1-A, G1–G5, H1–H3, H8.
+- `ci-fix-v6`: D3, D5, F7, G3, G6, H5–H7. `monitor-v6`: §3.
+- D8 `## Dependencies` in prd-to-backlog, add-story, refine-story, triage, implement-ticket.
+- Workflow templates: F1-B push trigger + `integration-tests.yml` header.
 
 Existing projects also need the **v6 migration checklist** (see Versioning) before their first v6
 run.
@@ -649,7 +655,7 @@ keeps running unchanged on existing projects while v6 is built and proven.
   renamed to `-v6`, so a v6 run never calls into v5. v6 also adds one new skill,
   `plan-batches-v6`, for 15 in all.
 - **The plan's changes land only in v6.** The file:line references in "Changes to build" point at
-  the v5 source they're copied from; apply them to the v6 copies. v5 is frozen apart from bug fixes.
+  the v5 source they're copied from; apply them to the v6 copies. v5 is not changed.
 - **The loop and scripts must be versioned too, not just the skills.** The project wrapper
   self-updates from the standards repo and execs the shared loop
   (`templates/scripts/orchestrate.sh:25-27`), and the loop's prompt hard-codes
@@ -676,18 +682,15 @@ files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these b
   `skills/`). These are left alone until v5 retires, then updated in one pass.
 
 **Open:**
-- **D6 — Does `LIMIT_WAIT` (§5) also go into v5? RESOLVED (2026-09-26): yes.** It's a bug fix
-  for a live bug (overnight runs die on the usage limit), which the v5-frozen rule allows. Small,
-  loop-only, and no behavior change when no limit is hit.
-  - **Caution:** every v5 project picks up the loop change on its next run (the wrapper
-    self-updates, `templates/scripts/orchestrate.sh:25-27`), so test it carefully before pushing.
-  - **No longer blocked (2026-09-27).** The operator supplied the error shape (`429 -
-    rate_limit_error`); detection is a plain text match (§5). No need to capture a sample first.
+- **D6 — Does `LIMIT_WAIT` (§5) also go into v5? REVERSED (2026-09-27): no — v6 only.** Operator:
+  the usage limit has never been a problem across long v5 use, so v5 stays completely untouched.
+  (Originally resolved yes on 2026-09-26.) Detection is a plain text match on the operator-supplied
+  error shape (`429 - rate_limit_error`, §5); revisit once a real limit hit is seen.
 - **D7 — v6 script naming and location. RESOLVED (2026-09-26): `-v6` suffix, same as the skills.**
   - `developer-tools/orchestrate-loop-v6.sh`, `developer-tools/orchestrate-status-v6.sh`.
   - `templates/scripts/orchestrate-v6.sh`, vendored into projects as `scripts/orchestrate-v6.sh` by
     the existing sync step (`CLAUDE.md` step 7, skip-if-exists).
-  - The v5 files stay where they are, untouched apart from the D6 fix. Existing projects'
+  - The v5 files stay where they are, untouched (D6 reversed). Existing projects'
     `scripts/orchestrate.sh` keeps running v5.
   - A project moves to v6 by running `./scripts/orchestrate-v6.sh`; no file edits. The move is a
     **one-way cutover** between runs (F2): once a repo is on v6 it stays there. At v5 retirement the
