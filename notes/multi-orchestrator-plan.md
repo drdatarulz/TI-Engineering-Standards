@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F12 OPEN, working F1 first.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1 resolved; F2–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -338,6 +338,23 @@ Each finding below was re-checked against source before recording. Status: all *
   catching it. D3's "is `main` red?" has nothing to read: ci-fix WATCH looks for runs on the merge
   SHA (`ci-fix-v5/SKILL.md:48-63`) and finds none (only `deploy.yml`, if a project has one).
   Pre-existing in v5; two runs make it much more likely.
+  **RESOLVED (2026-09-27): both parts.**
+  - **A — re-test before merging if `main` moved.** In the merge gate (`SKILL.md:47-61`), right
+    before `gh pr merge`: if `main` has moved since the PR's checks ran, bring the PR branch up to
+    date with `main`, push, and wait for `fast-tests` / `integration-tests` to pass again, then merge.
+    A conflict while updating → D4 path (one automatic resolve attempt, then halt). Done by the
+    orchestrator, not GitHub branch protection, so `CLAUDE.md` step 6's "no branch protection
+    needed" stays true. *To verify at build time (ED-3): `gh pr update-branch` exists and does a
+    merge-from-`main` without force-push.*
+  - **B — run the tests on `main` after every merge.** Add `push: branches: [main]` to
+    `templates/workflows/fast-tests.yml` and `integration-tests.yml`. This is D3's "`main` is red"
+    signal and gives ci-fix WATCH runs to watch. It catches the leftover race (two merges seconds
+    apart) that A can't close.
+  - **Costs:** more runner time (a run per merge plus occasional pre-merge re-tests), so more
+    queueing on a one-runner repo. Existing projects don't get B automatically (workflows are
+    skip-if-exists), so it goes on the **v6 migration checklist** (see Versioning), with F8.
+  - The stale `setup-branch-protection.sh` reference in `integration-tests.yml:4-6` gets rewritten
+    to describe A.
 - **F2 — BLOCKER — v5 and v6 on one repo wreck each other.** Both use the `orchestration-run`
   label. A v5 session closes older open run issues (`orchestrate-v5/SKILL.md:185`) and resets every
   In Progress ticket on the board (`:229`). The v5 lock is keyed on folder name
@@ -428,6 +445,13 @@ keeps running unchanged on existing projects while v6 is built and proven.
   v6 by switching its wrapper.
 - **Retiring v5** follows the v4 → v5 pattern: once v6 is proven on a pilot, move the v5 skills to
   `skills/archive/` and update `CLAUDE.md`, the standards, and the workflow docs to point at v6.
+
+**v6 migration checklist (per existing project).** Sync never overwrites a project's existing
+files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these by hand:
+- Re-copy or patch `.github/workflows/fast-tests.yml` and `integration-tests.yml` to add the
+  push-to-`main` trigger (F1-B).
+- Patch `.github/workflows/ui-tests.yml` for the C1 run-identification change (F8, once resolved).
+- Launch with `./scripts/orchestrate-v6.sh` (D7).
 
 **Costs we're accepting:**
 - While both generations are live, the sync protocol (`CLAUDE.md` step 5) copies **both** sets into
