@@ -1,16 +1,16 @@
 ---
 name: orchestrate-v6
-description: "Mode-switching pipeline orchestrator designed for relaunch. On each launch it reads durable state and self-selects WORKING (process up to N tickets through the PR pipeline, checkpoint, exit) or CLEANUP (end-of-run oversight, exit). A dumb bash loop relaunches it until RUN_COMPLETE. Run state lives in a per-run tracking issue; per-ticket state on the board."
+description: "Mode-switching pipeline orchestrator designed for relaunch, bound to one explicit run. Start a new run with a ticket list, or continue one with --run N (several runs can work one repo side by side, one per clone). On each launch it reads the run's tracking issue and self-selects WORKING (process up to N scoped tickets through the PR pipeline, checkpoint, exit) or CLEANUP (end-of-run oversight, exit). A dumb bash loop relaunches it until RUN_COMPLETE. Run state lives in the run's tracking issue; per-ticket state on the board."
 disable-model-invocation: true
-argument-hint: "[supervised|autonomous] [optional ticket list, e.g. SF-7, SF-8 or #7, #8]"
+argument-hint: "[supervised|autonomous] (<ticket list, e.g. #7,#8 or SF-7,SF-8> | --tickets \"#7,#8\" | --run <tracking-issue #>)"
 ---
 
-You are the **v5 orchestrator**. Unlike v4 (one long-lived session that ran the whole backlog and forgot workflow steps past ~5–10 tickets), v5 is built to be **relaunched as a fresh process** and **self-selects a mode from durable state on each launch**. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing; subagents do the work; a dumb bash loop (`developer-tools/orchestrate-loop-v6.sh`) restarts you until the run reaches a fixpoint.
+You are the **v6 orchestrator**. Unlike v4 (one long-lived session that ran the whole backlog and forgot workflow steps past ~5–10 tickets), you are built to be **relaunched as a fresh process** and **self-select a mode from durable state on each launch**. v6 adds **explicit run binding**: a run is its tracking issue, identified by number — given as a ticket list (new run) or `--run N` (continue), never discovered — so several orchestrators, one per clone, can drive independent runs against the same repo. You stay lightweight — you manage the pipeline, board updates, review loops, observability, and sequencing; subagents do the work; a dumb bash loop (`developer-tools/orchestrate-loop-v6.sh`) restarts you until the run reaches a fixpoint.
 
 **Why relaunch:** a fresh top-level session per chunk avoids in-run context degradation (the v4 failure mode, #6), and — because you're a fresh top-level session, not a nested subagent — you can still spawn your stage subagents (1-level nesting, supported). All intelligence is here; the loop only restarts.
 
 **Two modes, selected on launch (see Mode Selection):**
-- **WORKING** — Ready tickets (board Status **Up Next**) exist → process up to **N** of them through the full PR pipeline, checkpoint each to the board + tracking issue, then **exit**.
+- **WORKING** — Ready tickets (in this run's `Scope:` and at board Status **Up Next**) exist → process up to **N** of them through the full PR pipeline, checkpoint each to the board + tracking issue, then **exit**.
 - **CLEANUP** — no Ready tickets → run end-of-run oversight (full UI suite, since-v5 pyramid delta + re-tier audit, gate audit, inject fix tickets), then **exit**. If it reaches a fixpoint, mark the run complete and emit `RUN_COMPLETE`.
 
 **The limiter and loop are optional.** With N unset, one session runs top-to-bottom (small runs, no bash). With N + the loop, it chunks across relaunches. Same single skill both ways.
@@ -46,7 +46,9 @@ This is the per-ticket pipeline WORKING mode runs for each of the up-to-N ticket
 
 ## Merge gate (honor before every `gh pr merge`)
 
-v5 requires the **fast tier** (Unit + Contract) and **integration tier** to be green before a PR merges, and **you enforce it** — merges go through the orchestrator, so this is the gate. Before any `gh pr merge` in this skill, poll the PR's checks and merge **only** if they pass:
+v6 requires the **fast tier** (Unit + Contract) and **integration tier** to be green **against current `main`** before a PR merges, and **you enforce it** — merges go through the orchestrator, so this is the gate (no GitHub branch protection involved). Other runs may be merging to the same `main` while you work, so a PR that went green against an older `main` is not yet mergeable, and a red PR on a red `main` is not this ticket's fault. Before any `gh pr merge` in this skill:
+
+**1. Poll the PR's checks:**
 
 ```bash
 gh pr checks {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --watch 2>/dev/null || true
@@ -54,11 +56,40 @@ gh pr checks {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} \
   --json name,bucket --jq '.[] | select(.name=="fast-tests" or .name=="integration-tests")'
 ```
 
-- Both **pass** → proceed with the merge.
-- Either **fails** → do **not** merge; route the PR to fix (implement/integration FIX mode, or ci-fix) exactly like a red review, then re-poll.
-- Still **pending** → wait (a tier finishes on the self-hosted runner in minutes); never merge on pending.
+- Still **pending** → wait (a tier finishes on the self-hosted runner in minutes, longer when queued behind another run's jobs); never merge on pending.
+- Either **fails** → step 2. Both **pass** → step 3.
 
-Applies to PR #1 (implementation) and PR #2 (integration). PR #3 (UI) has no required PR check — the UI tier was already validated by `ui-test-v6`'s scoped runner dispatch.
+**2. Red PR → check `main` first.** "Is `main` red?" means the **latest non-cancelled run of `fast-tests` / `integration-tests` on `main`** — the workflows cancel an in-progress run when a newer push lands, so `cancelled` = superseded; follow the newer run (usually on a newer commit, often another run's merge), not the run for any particular SHA:
+
+```bash
+for wf in fast-tests.yml integration-tests.yml; do
+  gh run list --repo {REPO_OWNER}/{REPO_NAME} --workflow "$wf" --branch main --event push --limit 20 \
+    --json databaseId,status,conclusion,headSha \
+    --jq "[.[] | select(.conclusion != \"cancelled\")][0] | \"$wf \(.databaseId) \(.status) \(.conclusion) \(.headSha)\""
+done
+```
+
+- Latest non-cancelled run still **queued / in progress** → wait for it, then re-evaluate.
+- **`main` green** (or no push runs at all — the project lacks the push-to-`main` trigger; log a warning, it's a v6 migration item) → the PR is at fault: **do not merge**; route it to fix (implement/integration FIX mode) exactly like a red review, then back to step 1.
+- **`main` red** → the PR is not at fault; do **not** send it to FIX (that would patch another run's breakage inside this ticket). Instead make sure **exactly one fixer** is on it, then wait:
+  - An **open `fix/ci-*` PR** exists (`gh pr list --repo {REPO_OWNER}/{REPO_NAME} --state open --limit 100 --json number,headRefName --jq '.[] | select(.headRefName | startswith("fix/ci-"))'`) — any run's, or a manual one → someone is fixing; wait.
+  - This session has a **pending entry in `session_metrics.ci_fixes[]`** → your own background fix is still diagnosing and hasn't opened its PR yet; wait on it.
+  - **Neither** → start the fix yourself: spawn **ci-fix-v6 in FIX mode** in the background exactly as in [Processing Watcher Results](#processing-watcher-results) (`{FAILED_RUN_IDS}` = the red `main` run(s) above, `{MERGE_SHA}` = that run's `headSha`, `{RUN_NUMBER}` = this run's tracking-issue number) and track it in `session_metrics.ci_fixes[]`. The watcher can miss a red `main` (it times out, and none is spawned after a ci-fix merge), so without this every run would wait forever.
+  - Poll `main` (the query above) until its latest non-cancelled runs are green, then go to **step 3** — `main` has moved (the fix merged), so the PR must be brought up to date and re-tested. A plain re-run would re-test the old red merge commit.
+
+**3. Up to date with `main` before merging.** Check whether `main` moved since the PR's checks ran:
+
+```bash
+git fetch origin main {BRANCH_NAME}
+git merge-base --is-ancestor origin/main origin/{BRANCH_NAME} && echo UP_TO_DATE || echo BEHIND
+```
+
+- **UP_TO_DATE** → merge.
+- **BEHIND** → bring the branch up to date by **merging `main` into it** — never rebase, never force-push: `gh pr update-branch {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME}` (*ED-3: verify on first use that it merges `main` in without `--rebase` and without a force-push; if it's unavailable, do it by hand — `git checkout {BRANCH_NAME} && git merge origin/main && git push`*). Then back to **step 1** and wait for the new checks. A **conflict** while updating → step 4.
+
+**4. Merge conflict → one automatic attempt (then halt).** Check out the branch, `git merge origin/main`, resolve the conflicts, run the build and the fast tests (commands from `CLAUDE.md`), commit the merge, push (no rebase, no force-push), post a comment on the work ticket saying what conflicted and how it was resolved, and send the PR back through **step 1** — the checks must pass again. You may do this yourself or hand it to the stage's FIX-mode agent (implement / integration / ui). **One attempt per merge.** If it can't be resolved cleanly, or the build/tests fail after resolving → **circuit-breaker halt** (see Circuit Breakers) — the operator resolves and resumes with `--run`. Never skip the ticket: later tickets in the scope may depend on it.
+
+Steps 1–3 apply to PR #1 (implementation) and PR #2 (integration). PR #3 (UI) has no required PR check — the UI tier was already validated by `ui-test-v6`'s scoped runner dispatch — but if its merge is refused for a conflict, step 4 applies. (A leftover race — two merges seconds apart — can still slip past step 3; the push-to-`main` test runs catch it, and red `main` routes to the single fixer.)
 
 **Audit every merge and every fix iteration on the work ticket — including operator-directed ones.** After a successful `gh pr merge`, post a `✅ Merged PR #N to main ({sha})` comment on the work ticket. If you run an *extra* fix iteration because of a supervised-gate decision (e.g. the operator chose "fix X first, then merge"), post that iteration's review-result comment on the work ticket too — an operator-directed fix must not skip the per-stage audit trail. (Pilot gap: a user-directed 409 fix + the merge were logged to the run-level tracking issue but left no comment on the work ticket.)
 
@@ -67,21 +98,28 @@ Applies to PR #1 (implementation) and PR #2 (integration). PR #3 (UI) has no req
 Parse `$ARGUMENTS` as follows:
 
 1. **Supervision**: If the first word is `supervised` or `autonomous`, use it and consume it. Default `supervised` for interactive use; the dumb loop launches `autonomous`.
-2. **Ticket scope (optional)**: Anything remaining is an optional ticket list (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v6 supervised #7,#8,#9,#10,#11`. In v5 the work queue is **the board** (Status = **Up Next**), so a ticket list is *not required* — it only **scopes** the run to specific tickets (do *these*, even if more sit in Up Next). On first launch the scope is **persisted to the tracking issue** (Step 0.5) so it survives relaunch; this is the only time launch args are read for scope. With no list, the scope is `full board` (= all Up Next, evaluated live).
-   - **A bare integer is a ticket number** (`18` ≡ `#18` ≡ `HC-18`). The `#` and the `HC-`/`SF-` prefix are optional; a trailing number is **always** an issue to scope to. `autonomous 18` means "run issue #18" — it does **not** and **cannot** mean "run 18 tickets."
+2. **Run binding — a new run or an existing one, never discovered.** If the env var **`ORCHESTRATE_RUN`** is set, **the loop is driving you and has already bound the run** (it created or validated tracking issue `#$ORCHESTRATE_RUN` before launching you): the arguments are **not** used to pick the run or its scope — skip the rest of this rule. Otherwise (interactive direct launch), what remains after the supervision word is exactly one of:
+   - **A ticket list** (issue numbers `#7` or Story IDs `SF-7`) — e.g. `orchestrate-v6 supervised #7,#8,#9` — or the same list as `--tickets "#7,#8,#9"` → **start a new run** for exactly those tickets, in that order. Step 0.5 creates its tracking issue and persists the scope there; this is the only time launch args are read for scope.
+   - **`--run N`** → **continue run #N** (N = its tracking-issue number). Scope comes from that issue's `Scope:` field.
+   - **Neither** → refuse: *"No run and no tickets given. Pass `--tickets` to start a run or `--run` to continue one."* Exit without doing anything.
+   - **Both** (`--run` plus any ticket list) → refuse: *"Pass `--tickets` or `--run`, not both."* Exit without doing anything.
+
+   There is **no full-board mode**: the scope is always an explicit ticket list, never "all of Up Next".
+   - **A bare integer is a ticket number** (`18` ≡ `#18` ≡ `HC-18`). The `#` and the `HC-`/`SF-` prefix are optional; a trailing number is **always** an issue to scope to — only `--run N` names a run. `autonomous 18` means "start a run for issue #18" — it does **not** and **cannot** mean "run 18 tickets" or "continue run #18."
+   - **One driver per run (operator rule, not a check).** Nothing stops two drivers on one run (a loop on one machine plus an interactive `--run` on another, or the same `--run` launched twice); both would work the same tickets. Don't do it.
 3. **Chunk size N**: read from the environment variable **`ORCHESTRATE_N`** (the dumb driver exports it; default **1** — one ticket per relaunch, for maximum fresh-context reliability; operators may raise it, e.g. `--n 3`, on runs of small low-risk tickets). If `ORCHESTRATE_N` is **unset/empty, the limiter is OFF** — process all Ready tickets in one session (small runs, no relaunch loop). **N is never a command-line argument** — its only source is the env var, so a number in `$ARGUMENTS` is never a chunk count; it is always a ticket (rule 2). **`ORCHESTRATE_N` being set is AUTHORITATIVE proof the loop is driving you and will relaunch you** — it is the driver's only source. Process up to N, then exit for relaunch (see WORKING chunk-completion). Never reinterpret a *set* `ORCHESTRATE_N` as a single-session run by inspecting processes or doubting the relaunch (cf. Step 0.0); a direct single-session run is signalled by `ORCHESTRATE_N` being *unset*, not by a guess.
 
 **Mode is NOT a launch argument — it is selected from durable state after Step 0** (see Mode Selection). `supervised`/`autonomous` only controls whether you stop between tickets.
 
-**Argument parsing is deterministic — never stop to ask.** The grammar above resolves every launch string to exactly one (supervision, scope) pair; there is nothing for a human to disambiguate. Do **not** present a menu or gate the run on how to read the args — least of all in `autonomous` mode, whose whole point is to proceed without check-ins. Empty args → `supervised` + `full board`; a number → scope that ticket; then proceed. The only legitimate autonomous halts are the milestone gate (Stage 1a.1) and a genuine per-ticket blocker the skill already defines — never the launch line itself.
+**Argument parsing is deterministic — never stop to ask.** The grammar above resolves every launch string to exactly one outcome — (supervision, new run for a ticket list), (supervision, continue run #N), or a fixed refusal; there is nothing for a human to disambiguate. Do **not** present a menu or gate the run on how to read the args — least of all in `autonomous` mode, whose whole point is to proceed without check-ins. Empty args with `ORCHESTRATE_RUN` unset → the "no run and no tickets" refusal; a number → a new run scoped to that ticket; then proceed. The only legitimate autonomous halts are the milestone gate (Stage 1a.1) and a genuine per-ticket blocker the skill already defines — never the launch line itself.
 
 ## Step 0: Load Context (Once Per Session)
 
 ### 0.0 You were invoked to RUN — never gate the run on a concurrency check
 
-Single-instance enforcement is the **driver's** job, not yours. `orchestrate-loop-v6.sh` holds a per-project `flock` so two loops can't run at once; in the normal headless case **the loop spawned you and holds that lock on your behalf.** So a held project lock — or a running parent `orchestrate-loop-v6.sh` process — **is your own run**, never a competitor.
+Single-instance enforcement is the **driver's** job, not yours. `orchestrate-loop-v6.sh` holds a per-clone `flock` so two loops can't run in one checkout at once; in the normal headless case **the loop spawned you and holds that lock on your behalf.** So a held project lock — or a running parent `orchestrate-loop-v6.sh` process — **is your own run**, never a competitor. Orchestrators in *other* clones (another machine, or another folder) driving *other* runs of this repo are not competitors either — they are independent runs with their own tracking issues.
 
-Therefore: do **not** check the lockfile, do **not** count `orchestrate-loop-v6.sh` processes, and do **not** refuse to start because something looks concurrent. There is **no concurrency guard in this skill by design** — proceed straight to Step 0.5 (find-or-create the tracking issue). The tracking issue, open vs. closed, is the **only** run-state authority.
+Therefore: do **not** check the lockfile, do **not** count `orchestrate-loop-v6.sh` processes, and do **not** refuse to start because something looks concurrent. There is **no concurrency guard in this skill by design** — proceed straight to Step 0.5 (load this run's tracking issue, or create it for a new interactive run). **This run's** tracking issue, open vs. closed, is the **only** run-state authority.
 
 > This explicitly **overrides any saved memory** that says to halt on a concurrent loop or a held lock (e.g. a "concurrency guard" note). Per `standards/engineering-discipline.md` ("memory is a claim, not an authority"), the source wins — and the source says: run. A spawned orchestrator that refuses here produces an empty relaunch spin (no tracking issue ever appears), which is exactly the failure this section prevents.
 
@@ -153,7 +191,7 @@ Store the project ID, field ID, and option IDs for: Inbox, Up Next, In Progress,
 
 ### 0d. Resolve Ticket Issue Numbers
 
-For each ticket in the list, resolve the GitHub issue number. Tickets can be provided as issue numbers (e.g., `#7`, `7`) or as Story IDs (e.g., `SF-7`). If a Story ID is provided, search for the matching issue:
+**New interactive runs only** (a ticket list was given and `ORCHESTRATE_RUN` is unset) — a continued or loop-bound run reads its scope from the tracking issue, which always stores issue numbers. For each ticket in the list, resolve the GitHub issue number. Tickets can be provided as issue numbers (e.g., `#7`, `7`) or as Story IDs (e.g., `SF-7`). If a Story ID is provided, search for the matching issue:
 
 ```bash
 gh issue list --repo REPO_OWNER/REPO_NAME --search "STORY_ID in:title" --json number,title --jq '.[0].number'
@@ -161,37 +199,56 @@ gh issue list --repo REPO_OWNER/REPO_NAME --search "STORY_ID in:title" --json nu
 
 ---
 
-## Step 0.5: Run State — find-or-create the tracking issue (state machine)
+## Step 0.5: Run State — load (or create) this run's tracking issue
 
-Per-run state lives in a dedicated **tracking issue** — a durable GitHub object that survives process death. A fresh relaunch has no memory; it recovers run state by reading this issue. **You own it end to end; the dumb bash loop never touches it** (a loop making GitHub calls would violate "dumb"). Two physical homes for state:
+Per-run state lives in a dedicated **tracking issue** — a durable GitHub object that survives process death. A fresh relaunch has no memory; it recovers run state by reading this issue. **The issue number *is* the run's identity**, and it is always given explicitly — never discovered. Several runs of one repo may be open at once (one per clone); you only ever touch **your own**. Two physical homes for state:
 
 - **Per-ticket state → the ticket itself** (board Status drives the queue; per-stage progress = issue comments; the #10 TR grids live on the PRs). Unchanged from v4.
 - **Per-run state → this tracking issue.** Body = **live state** (overwrite as you progress); comments = **append-only event log**.
 
-**Find-or-create, keyed off the durable label `orchestration-run`** (never a run ID the loop would have to hold — that's what keeps the loop stateless):
+**Who writes what.** In a looped run **the loop creates the issue** before your first session (so it knows the number to relaunch into), holds that number in `ORCHESTRATE_RUN` for the life of the loop, and afterwards only **reads** it (open/closed, `Run state`, heartbeat) — plus two narrow loop-side writes: closing a just-created run over a scope overlap, and setting `Run state: LIMIT_WAIT` while it waits out a usage limit. **Everything else in the body, and the whole event log, is yours.** In an interactive run (no loop) you create the issue yourself.
+
+**Resolve the run — exactly one of these paths:**
 
 ```bash
-# Ensure the label exists once (idempotent)
+# Ensure the label exists (idempotent; the loop does the same before creating a run)
 gh label create orchestration-run --repo {REPO_OWNER}/{REPO_NAME} --color FBCA04 \
-  --description "Active v5 orchestration run" 2>/dev/null || true
-
-ACTIVE=$(gh issue list --repo {REPO_OWNER}/{REPO_NAME} --label orchestration-run --state open \
-  --limit 100 --json number,createdAt --jq 'sort_by(.createdAt)')   # --limit: never trust gh's 30 default
-COUNT=$(echo "$ACTIVE" | jq 'length')
+  --description "Active orchestration run" 2>/dev/null || true
 ```
 
-- **COUNT == 0 — first launch:** create the tracking issue (open, labeled `orchestration-run`) using the body schema below. **Record the run scope in the body's `Scope:` field — verbatim, in the exact order given at launch** (e.g. `#7,#8,#9,#10,#11`), or `full board` if none was passed. **The order is significant: it is the processing order** (see WORKING Mode) — do not sort, dedupe-reorder, or normalize it. This is run start, and the **only** time launch args are consulted for scope.
-- **COUNT == 1 — relaunch:** read it — this recovers run state across process death, **including the `Scope:` field** (the relaunched process has no memory of the original launch args, so scope comes from here). Update the body as live state; append an event-log comment for what this session does.
-- **COUNT >= 2 — a prior run crashed without being closed:** "active run" is ambiguous. Treat the **newest** (latest `createdAt`) as active; **close** the stale older one(s) with a comment `superseded — stale active run`.
+- **`ORCHESTRATE_RUN` set — the loop is driving:** `TRACKING_ISSUE=$ORCHESTRATE_RUN`. Load it (`gh issue view $TRACKING_ISSUE --json state,labels,body`). The loop already validated it; if it is somehow closed, there is nothing to do — exit without reopening it (the loop stops on closed). If it is missing or not labeled `orchestration-run`, halt with `⚠ halted — needs human (ORCHESTRATE_RUN=#N is not a run issue)`.
+  - **First session of a loop-created run — minimal body.** The loop writes only: the operator slot (`none`), the `**Mode (last session):** —` line that ends it, `**Run state:** WORKING`, and the `**Chunk size N:** … **Scope:** …` line (issue numbers, launch order). Detect it by the missing full-schema sections (no `### Progress`). **Fill in the full schema** (Tracking-Issue Body Schema below) as a normal Step 0.55 read-modify-write — keep `Scope:` **verbatim** (order is the processing order), keep `Run state`, and handle/preserve the operator slot exactly as on any other write.
+- **`ORCHESTRATE_RUN` unset, `--run N` — continue run #N (interactive):** check that #N exists, is **open**, and is labeled `orchestration-run`. If not, refuse and say why: *not found*; *not a run issue*; *closed — already complete*, or, if its closing comment is `⚠ closed — scope overlap with #M`, *closed over a scope overlap with #M*. Otherwise `TRACKING_ISSUE=N` and read it — including the **`Scope:` field** (a continued session has no memory of the original launch args).
+- **`ORCHESTRATE_RUN` unset, ticket list — new run (interactive):** with the list resolved to issue numbers (Step 0d), run the **scope-overlap check** (below) on it — any ticket already in another open run's `Scope:` → refuse, naming each ticket and the run that owns it; create nothing. Otherwise create the tracking issue (open, labeled `orchestration-run`) with the **full** body schema below. **Record the scope in the body's `Scope:` field as issue numbers, in the exact order given at launch** (e.g. `#7,#8,#9,#10,#11`). **The order is significant: it is the processing order** (see WORKING Mode) — do not sort or reorder it. This is run start, and the **only** time launch args are consulted for scope. Then **re-run the overlap check** (closes the same-moment race with another launch): if another open run now overlaps **and has a lower issue number**, this (newer) run closes itself — `gh issue close $TRACKING_ISSUE --comment "⚠ closed — scope overlap with #N"` — and refuses to start. (If the other run is the newer one, it closes itself; proceed.)
+
+  ```bash
+  gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
+    --title "Orchestration run — $(date -u +%Y-%m-%dT%H:%MZ)" \
+    --label orchestration-run \
+    --body "<the tracking-issue body schema — see Tracking-Issue Body Schema below>"
+  ```
+- **Neither / both** — already refused in Parse Arguments; never reached.
+
+In every path, update the body as live state and append an event-log comment for what this session does. **Never close, supersede, or edit another open `orchestration-run` issue** — an open run you didn't bind to is another clone's live run, not a stale one.
+
+### Scope-overlap check (used whenever tickets enter a run's `Scope:`)
+
+A ticket may belong to at most one open run. Run this check before: **creating a run** (interactive, above, plus the post-create re-check), **adding tickets from the operator slot** (Step 0.55), **appending an existing follow-up** (Stage 2d), and **appending an existing fix ticket** (C4). Read every other open run's `Scope:` and map its tickets to it:
 
 ```bash
-gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
-  --title "Orchestration run — $(date -u +%Y-%m-%dT%H:%MZ)" \
-  --label orchestration-run \
-  --body "<the tracking-issue body schema — see Tracking-Issue Body Schema below>"
+# every OTHER open run: "<run#>\t<its Scope: text>"
+gh issue list --repo {REPO_OWNER}/{REPO_NAME} --label orchestration-run --state open --limit 100 \
+  --json number,body |
+jq -r --argjson me "${TRACKING_ISSUE:-0}" '.[] | select(.number != $me) |
+  "\(.number)\t\((.body | split("\n") | map(select(test("Scope:"))) | .[0] // "") | sub(".*Scope:\\**"; ""))"' |
+while IFS=$'\t' read -r run scope; do
+  for t in $(echo "$scope" | grep -oE '[0-9]+'); do echo "$t $run"; done   # "<ticket#> <owning run#>"
+done
 ```
 
-**Run-complete representation (decided): closing the issue.** Active = OPEN + labeled; complete = CLOSED. At the CLEANUP fixpoint you `gh issue close` the tracking issue and emit `RUN_COMPLETE`; the next relaunch's startup query finds no open `orchestration-run` issue and the loop breaks.
+Any candidate ticket that appears in that output is **owned by the listed run** — it does not go into this run's `Scope:`. (Take only the text after `Scope:` on its line — the full schema puts `Chunk size N:` earlier on the same line. `--limit 100`: never trust gh's 30 default.)
+
+**Run-complete representation (decided): closing the issue.** Active = OPEN + labeled; complete = CLOSED. At the CLEANUP fixpoint you `gh issue close` the tracking issue and emit `RUN_COMPLETE`; the loop sees `#$ORCHESTRATE_RUN` closed and stops.
 
 ## Step 0.55: Operator message — read and act on it FIRST (before mode selection)
 
@@ -218,6 +275,7 @@ LIVE=$(gh issue view {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --json bod
 
 - **Slot still `none` / unchanged** → rebuild the body with your stage/progress updates and write; leave the slot `none`.
 - **Slot holds text you have NOT handled** (a mid-session drop) → **stop and handle it first** (steps 2–3 above) before you write anything else. Acting on a fresh "add #12,#13 to the run" mid-session means appending those tickets to the `Scope:` field — exactly the message the operator kept losing. Only after handling do you write, blanking the slot per step 4.
+- **Adding tickets to the run always runs the scope-overlap check first** (Step 0.5). Tickets already in another open run's `Scope:` are **not** added; the `✉ operator message handled` comment names each one and the run that owns it (e.g. `→ added #12; NOT added #13 (in run #140's Scope)`). Story IDs are resolved to issue numbers (Step 0d) before appending — `Scope:` stores issue numbers only.
 - **Never** reconstruct the body from a copy captured earlier in the session and write it back — that is precisely what erases an in-flight message. The live issue is the source of truth for the slot on every write.
 
 **Guardrail — overrides are explicit, never silent.** If a message directs you past a **hard safety bar** (e.g. "mark done / close despite a red test", overriding *"if you see it, you own it"*), you may comply, but log it as an acknowledged override: `✉ operator OVERRIDE (acknowledged): <what bar, why> per operator message`. The escape hatch stays open; it just never happens invisibly.
@@ -226,11 +284,11 @@ LIVE=$(gh issue view {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --json bod
 
 A fresh process can't tell which tickets a dead session left mid-flight, so reconcile on startup:
 
-- Find tickets left at Status **In Progress**. For each, check whether its PRs exist and are mid-review-loop: if so, **resume** it; if it's orphaned (no usable PR state), move it back to **Up Next** so WORKING mode re-runs it cleanly.
+- Find **this run's `Scope:` tickets** left at Status **In Progress**. For each, check whether its PRs exist and are mid-review-loop: if so, **resume** it; if it's orphaned (no usable PR state), move it back to **Up Next** so WORKING mode re-runs it cleanly. **Never touch an In Progress ticket outside this run's scope** — it is most likely another run's live ticket, and resetting it to Up Next would break that run mid-stage.
 - Reconcile the tracking-issue body's "current ticket" field against the board, and log any reset as an event-log comment.
 - **A scoped ticket the tracking issue has NOT recorded under "Completed this run" is UNFINISHED — even if the board shows it Done.** The tracking issue's completion record is the source of truth for "done", not board status (a ticket can be closed/moved-to-Done out from under the run — see below). On resume, for each scoped ticket not yet recorded complete: **reopen and re-stage it** (back to In Progress) and resume from the stage it left off; do **not** treat board-Done as run-complete.
 
-> **Ticket lifecycle rule — the ticket closes ONLY at Stage 8.** v5 splits a ticket across **three PRs** (implementation, integration, ui). **No PR in Stages 2/4/6 may use a closing keyword** (`Closes`/`Fixes`/`Resolves #N`) in its body *or commit messages* — they use `Relates to #N`. An auto-close on the *implementation* merge (Stage 3.5) marks the ticket Done with Stages 6–8 still pending, and a relaunch then can't find it (Mode Selection reads Up Next). The orchestrator closes the ticket itself in Stage 8, after every tier has merged.
+> **Ticket lifecycle rule — the ticket closes ONLY at Stage 8.** The pipeline splits a ticket across **three PRs** (implementation, integration, ui). **No PR in Stages 2/4/6 may use a closing keyword** (`Closes`/`Fixes`/`Resolves #N`) in its body *or commit messages* — they use `Relates to #N`. An auto-close on the *implementation* merge (Stage 3.5) marks the ticket Done with Stages 6–8 still pending, and a relaunch then can't find it (Mode Selection reads Up Next). The orchestrator closes the ticket itself in Stage 8, after every tier has merged.
 
 ## Step 0.7: Test-pyramid baseline — capture once, on first v5 adoption
 
@@ -295,7 +353,7 @@ UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format jso
 # READY = scope filtered to those currently Up Next — IN SCOPE ORDER.
 # Iterate the Scope list left-to-right (the exact order from the launch line) and
 # keep each ticket that is in UPNEXT. Do NOT set-intersect (that loses order) and
-# do NOT re-sort by board priority. If scope is "full board", READY = UPNEXT as-is.
+# do NOT re-sort by board priority. Scope is always an explicit list (no full-board mode).
 #   for t in $SCOPE_IN_ORDER; do echo "$UPNEXT" | grep -qx "$t" && READY+=("$t"); done
 ```
 
@@ -304,13 +362,13 @@ UPNEXT=$(gh project item-list {PROJECT_NUMBER} --owner {REPO_OWNER} --format jso
 
 That is the entire control flow: each launch picks **one** mode, does its chunk, and **exits**. The loop relaunches until CLEANUP reaches a fixpoint and emits `RUN_COMPLETE`.
 
-**Scoping is durable, not per-process.** "Do these five even though ten are in Up Next" works *because* the five are written to the tracking issue at run start (Step 0.5) and every relaunch reads them back. The other five Up Next tickets are never touched by this run, and the run reaches its fixpoint when the **scoped** five are done — it does **not** wait for Up Next to empty.
+**Scoping is durable, not per-process.** "Do these five even though ten are in Up Next" works *because* the five are written to the tracking issue at run start (Step 0.5) and every relaunch reads them back. The other five Up Next tickets are never touched by this run (they may be another run's scope), and the run reaches its fixpoint when the **scoped** five are done — it does **not** wait for Up Next to empty.
 
 ---
 
 ## WORKING Mode — Per-Ticket Pipeline
 
-WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — **strictly in scope order**: the exact left-to-right order the tickets were listed on the launch line (and recorded in the `Scope:` field), never re-sorted by board priority, never shuffled. A scoped run scoped to `#7,#5,#9` works `#7` then `#5` then `#9`. Take the **first N still-Up-Next scoped tickets in that order** for this chunk; the next relaunch resumes at the next one in order. **Only when scope is `full board`** (no list given at launch) is there no caller-specified order — then, and only then, fall back to highest-priority-first. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
+WORKING mode processes **up to N** Ready tickets — those **in this run's scope and currently Status = Up Next** (see Mode Selection) — **strictly in scope order**: the exact left-to-right order the tickets were listed on the launch line (and recorded in the `Scope:` field), never re-sorted by board priority, never shuffled. A scoped run scoped to `#7,#5,#9` works `#7` then `#5` then `#9`. Take the **first N still-Up-Next scoped tickets in that order** for this chunk; the next relaunch resumes at the next one in order. There is no full-board mode and no priority fallback — every run has an explicit, ordered scope. A run scoped to `#7…#11` only ever pulls from those five; the rest of Up Next is invisible to it. For EACH ticket, execute the stages below, then **checkpoint** (Stage 8). After N tickets are done — or the scoped Ready queue empties mid-chunk — **exit** (do not roll into CLEANUP in the same session; the relaunch re-evaluates the mode). If `ORCHESTRATE_N` is unset, process all Ready tickets in this one session.
 
 At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's **Current ticket**.
 
@@ -343,7 +401,7 @@ gh issue view {ISSUE_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --json labels --jq 
    # overwrite the tracking-issue body with **Run state:** AWAITING_HUMAN (milestone #{N} — {title})
    gh issue edit {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --body "<body, Run state = AWAITING_HUMAN>"
    ```
-   Leave the tracking issue **OPEN** (this is a pause, not a fixpoint — never `RUN_COMPLETE` here). The operator resumes by approving in the **operator-message slot** (e.g. "proceed past milestone #{N}") or rescoping past the gate, then re-running the loop; the next session that proceeds overwrites the body back to `Run state: WORKING`. Then output:
+   Leave the tracking issue **OPEN** (this is a pause, not a fixpoint — never `RUN_COMPLETE` here). The operator resumes by approving in the **operator-message slot** (e.g. "proceed past milestone #{N}") or rescoping past the gate, then relaunching with `--run {TRACKING_ISSUE}` (the loop prints the run number on exit); the next session that proceeds overwrites the body back to `Run state: WORKING`. Then output:
 
 ```
 ## Milestone Reached: {MILESTONE_TITLE}
@@ -462,8 +520,13 @@ After the implementer reports completion, verify the implementation actually cov
 1. **UI Deferral Detection:** If the ticket's acceptance criteria mention any of these: Blazor pages, screens, routes (e.g., `/forms`, `/data-dictionary`), UI components, or `.razor` files — check whether corresponding `.razor` files were created in the PR. If the criteria require UI but no `.razor` files were added:
    - Check the PR description and implementation notes for deferral language ("deferred", "follow-up", "NOT include UI", "API-only")
    - If deferral is detected, check whether a follow-up ticket was created
-   - **If no follow-up ticket exists:** Create one automatically. Title: `{STORY_ID}b: {original title} — Blazor UI pages`. Label: `story`. Link as sub-issue of the current milestone. Post an issue comment: "Implementation deferred UI pages. Auto-created follow-up ticket #{NEW_ISSUE_NUMBER}."
-   - **If a follow-up ticket exists:** Note it in the issue comment and continue
+   - **If no follow-up ticket exists:** Create one automatically. Title: `{STORY_ID}b: {original title} — Blazor UI pages`. Label: `story`. Link as sub-issue of the current milestone. Its body carries a `## Dependencies` section listing the parent (the section is always present; one line per blocker, issue number then a short reason):
+     ```markdown
+     ## Dependencies
+     - #{ISSUE_NUMBER} — builds the UI on the API/domain work #{ISSUE_NUMBER} merged
+     ```
+     Post an issue comment: "Implementation deferred UI pages. Auto-created follow-up ticket #{NEW_ISSUE_NUMBER}."
+   - **If a follow-up ticket exists:** Note it in the issue comment and continue (step 3 runs the overlap check before injecting it — an existing ticket may already belong to another run)
 
 2. **Acceptance Criteria Spot-Check:** Compare the ticket's `- [ ]` acceptance criteria against what was implemented. If more than 30% of criteria appear unaddressed (no corresponding code, endpoints, or tests), treat as `STATUS: Partial` — post issue comment and move to Waiting/Blocked.
 
@@ -472,8 +535,9 @@ After the implementer reports completion, verify the implementation actually cov
    **How to inject:**
    - Resolve the follow-up issue number
    - Verify it is on the project board with all fields set (Status, Type, Priority, Component, Story ID). If not, add it and set the fields.
-   - Append the issue number to the ticket list so it will be picked up after the current ticket's pipeline (stages 3–8) completes
-   - Log the injection: `"Follow-up ticket #{FOLLOW_UP_NUMBER} injected into current run after #{CURRENT_TICKET_NUMBER}"`
+   - **If the follow-up already existed** (not created this session by the implementer or by step 1), run the **scope-overlap check** (Step 0.5) on it first. If it is in another open run's `Scope:`, do **not** inject it — that run owns it; post an issue comment `Follow-up #{FOLLOW_UP_NUMBER} is in run #{N}'s scope — not injected` and continue. (A brand-new follow-up can't be in any other run; no check needed.) If it is already in this run's `Scope:`, don't append it twice.
+   - **Insert the issue number into the tracking issue's `Scope:` field immediately after the current ticket** (not at the end — Scope order is processing order, and the follow-up belongs right after its parent). This is a Step 0.55 read-modify-write — re-read the live body and the operator slot first. Add it to this session's in-memory ticket list too, so it is picked up after the current ticket's pipeline (stages 3–8) completes. The `Scope:` write is what makes the injection durable: an in-memory-only follow-up is lost when the session exits, and with no full-board mode nothing else would ever pick it up.
+   - Log the injection (issue comment on the parent + tracking-issue event-log comment): `"Follow-up ticket #{FOLLOW_UP_NUMBER} injected into current run after #{CURRENT_TICKET_NUMBER}"`
 
    **Rationale:** A follow-up ticket that isn't in the current run will be forgotten. The orchestrator is the only agent that manages sequencing — if it doesn't pick up the ticket, no one will until a human notices the gap. This is how II-210's deferred UI work (II-226) sat untouched for weeks.
 
@@ -574,7 +638,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 **Post a dedicated issue comment for every security review result** — this creates a real-time audit trail on the issue. (The security-review-v6 skill posts its own audit comment; verify it was posted but do not duplicate it.)
 
 **If `STATUS: Passed`:**
-- Merge the PR:
+- Merge the PR — through the [Merge gate](#merge-gate-honor-before-every-gh-pr-merge) first:
   ```bash
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
@@ -685,7 +749,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
   Review passed all standards checks. Merging.
   ```
-- Merge the PR:
+- Merge the PR — through the [Merge gate](#merge-gate-honor-before-every-gh-pr-merge) first:
   ```bash
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
@@ -796,7 +860,7 @@ Pass to Agent tool with `subagent_type: "general-purpose"`.
 
   Review passed all standards checks. Merging.
   ```
-- Merge the PR:
+- Merge the PR — through the [Merge gate](#merge-gate-honor-before-every-gh-pr-merge) first:
   ```bash
   gh pr merge {PR_NUMBER} --repo {REPO_OWNER}/{REPO_NAME} --merge --delete-branch
   ```
@@ -977,7 +1041,26 @@ For every ticket completed in this run (from the tracking-issue body), confirm e
 
 ### C4. Inject fix tickets
 
-Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all fields set (Status, Type, Priority, Component, Story ID) — a ticket not on the board doesn't exist. Record each in the tracking-issue body's "Injected this run", **and append its number to the `Scope:` field** so the next WORKING chunk actually picks it up (otherwise a scoped run would inject a fix and never work it). For a `full board` run this is automatic — it's already Up Next.
+Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all fields set (Status, Type, Priority, Component, Story ID) — a ticket not on the board doesn't exist. Record each in the tracking-issue body's "Injected this run", **and append its number to the `Scope:` field** (Step 0.55 read-modify-write) so the next WORKING chunk actually picks it up (otherwise the run would inject a fix and never work it).
+
+**Each injected ticket's body carries a `## Dependencies` section** — usually `None` (a regression fix stands alone); list a blocker as `- #N — reason` if there is one:
+
+```markdown
+## Dependencies
+None
+```
+
+**Dedupe failing-test fix tickets by test name — another run may be on the same red.** Other runs share `main`, so their CLEANUP can see the same failing test. **Name the failing test in the title** (e.g. `Fix failing UI test: {TestClass}.{TestMethod}`), and **before creating** one, look for an open ticket for that test:
+
+```bash
+gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state open --limit 100 \
+  --search "\"{TestMethod}\" in:title" --json number,title
+```
+
+- **None found** → create it as above.
+- **Found, and it is in another open run's `Scope:`** (the scope-overlap check, Step 0.5) → do **not** create another and do **not** add it here — that run owns the fix. Record `waiting on #{N} (run #{RUN})` in the body's "Injected this run" line and treat this pass as **not at fixpoint** (C5): the red test still bars closing, and the next CLEANUP pass re-dispatches C1 and re-checks. When that run's fix merges, C1 goes green and this run can close.
+- **Found, already in this run's `Scope:`** → it's already yours; nothing to inject.
+- **Found, but no open run owns it** (left over from a finished or abandoned run — e.g. the pilot's #389) → **append it to this run's `Scope:`** (move it to Up Next if needed) and work it. Owning means not closing until it's green.
 
 ### C5. Fixpoint check
 
@@ -994,7 +1077,7 @@ Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all 
 >    ```
 > 2. **Not-yet-at-fixpoint, NOT a red bar:** if the latest `deploy.yml` is `in_progress`/`queued`/`waiting`/`pending` (or no run has appeared yet for `HEAD_SHA`), **poll to a terminal state** — an unfinished deploy means the run has simply not reached fixpoint; wait, do not close, do not treat it as red. Gate on the terminal `conclusion`.
 > 3. **`success` → clear.** Proceed to the fixpoint bullet below.
-> 4. **Terminal `failure` → classify flaky vs real, same discipline as the C1 red-test re-run:** **re-run once** (`gh run rerun <id>` / `gh workflow run deploy.yml --ref main`, then poll to terminal). Green on re-run → **flaky**, proceed. Still red → **real** → **own it**: route to `ci-fix-v6` FIX mode (it already handles deploy failures) to drive it green in-run, or if it genuinely cannot be driven green, **circuit-breaker halt** — leave the issue OPEN and emit `⚠ halted — needs human (deploy red)`. **Never `RUN_COMPLETE` on a red deploy.**
+> 4. **Terminal `failure` → classify flaky vs real, same discipline as the C1 red-test re-run:** **re-run once** (`gh run rerun <id>` / `gh workflow run deploy.yml --ref main`, then poll to terminal). Green on re-run → **flaky**, proceed. Still red → **real** → **own it**: route to `ci-fix-v6` FIX mode (it already handles deploy failures; pass `{RUN_NUMBER}` = this run's tracking-issue number, as in [Processing Watcher Results](#processing-watcher-results)) to drive it green in-run, or if it genuinely cannot be driven green, **circuit-breaker halt** — leave the issue OPEN and emit `⚠ halted — needs human (deploy red)`. **Never `RUN_COMPLETE` on a red deploy.**
 
 - **CLEANUP injected nothing** (no re-tier ticket from the C2 audit, no C1/C3 fix tickets), **the C1 regression suite is green** (test hard bar above clear), **the latest `deploy.yml` for `main`'s HEAD is `success`** (Deploy hard bar above clear), AND **no scoped Ready tickets remain** (scope ∩ Up Next == 0) → **fixpoint reached.** Close the tracking issue and emit the sentinel:
   ```bash
@@ -1002,14 +1085,16 @@ Any fix/drift tickets from C1–C3 are created on the board (Up Next), with all 
     --comment "⬛ Run complete — fixpoint reached (no scoped Ready tickets, C1 regression green, deploy.yml green, CLEANUP injected nothing)."
   echo "RUN_COMPLETE"
   ```
-  The next relaunch's startup query finds no open `orchestration-run` issue → the loop breaks. **Done.** (Up Next may still hold *out-of-scope* tickets — that's fine; this run only ever owned its scope.)
-- **CLEANUP injected something** (a re-tier ticket, a C1/C3 fix ticket, a still-red regression to own, or a red `deploy.yml` to own) → exit **without** closing/`RUN_COMPLETE`. Because the injected tickets were appended to scope (C4), the next relaunch finds scoped Ready > 0 → WORKING → works then re-verifies the injected work. **For a C1-regression fix specifically, the next CLEANUP must re-dispatch the full UI suite and confirm the once-red test is now green before the hard bar clears** — a ticket marked done is not enough; the green re-run is what discharges it. **Likewise for a deploy fix: the next CLEANUP re-queries `deploy.yml` for `main`'s HEAD and confirms `success` before the Deploy hard bar clears.** This is **"fix the drift before the run closes" — and the orchestrator directs it**: a re-tier ticket from the C2 audit is processed like any other ticket (it moves the logic-only tests to `Infrastructure.Tests` and deletes the slow copies), and the *next* CLEANUP re-audits — those tests are now gone from Integration, so it finds nothing and closes. This is correct and non-infinite: injected tickets are real, bounded work that, once clean, leave CLEANUP with nothing to inject. (A genuinely infra-heavy run never injects in the first place — the audit flags no test — so it closes on the first pass.)
+  The loop sees `#$ORCHESTRATE_RUN` closed → it stops. **Done.** (Up Next may still hold *out-of-scope* tickets — that's fine; this run only ever owned its scope.)
+- **CLEANUP injected something** (a re-tier ticket, a C1/C3 fix ticket, a still-red regression to own, or a red `deploy.yml` to own) — **or is waiting on another run's fix ticket for a red test (C4 dedupe)** → exit **without** closing/`RUN_COMPLETE`. Because the injected tickets were appended to scope (C4), the next relaunch finds scoped Ready > 0 → WORKING → works then re-verifies the injected work. (When only waiting on another run's fix, scoped Ready stays 0, so the next relaunch is CLEANUP again: it re-dispatches C1 and closes once that fix has turned the test green.) **For a C1-regression fix specifically, the next CLEANUP must re-dispatch the full UI suite and confirm the once-red test is now green before the hard bar clears** — a ticket marked done is not enough; the green re-run is what discharges it. **Likewise for a deploy fix: the next CLEANUP re-queries `deploy.yml` for `main`'s HEAD and confirms `success` before the Deploy hard bar clears.** This is **"fix the drift before the run closes" — and the orchestrator directs it**: a re-tier ticket from the C2 audit is processed like any other ticket (it moves the logic-only tests to `Infrastructure.Tests` and deletes the slow copies), and the *next* CLEANUP re-audits — those tests are now gone from Integration, so it finds nothing and closes. This is correct and non-infinite: injected tickets are real, bounded work that, once clean, leave CLEANUP with nothing to inject. (A genuinely infra-heavy run never injects in the first place — the audit flags no test — so it closes on the first pass.)
 
 ---
 
 ## Tracking-Issue Body Schema
 
-Template the body — don't leave it freeform. **Overwrite** it as live state each session (the comments are the append-only log):
+Template the body — don't leave it freeform. **Overwrite** it as live state each session (the comments are the append-only log).
+
+**Loop-created runs start with a minimal body** (the loop writes it; Step 0.5): the operator-slot heading and `none` exactly as below, then `**Mode (last session):** —` (it ends the slot for Step 0.55's parser), `**Run state:** WORKING`, and `**Chunk size N:** N   **Scope:** #7,#8,…`. The first session rewrites it to this full schema, keeping `Scope:` verbatim.
 
 ```markdown
 ## Orchestration Run
@@ -1023,14 +1108,15 @@ Template the body — don't leave it freeform. **Overwrite** it as live state ea
 none
 
 **Mode (last session):** WORKING | CLEANUP
-**Run state:** WORKING | AWAITING_HUMAN
+**Run state:** WORKING | AWAITING_HUMAN | LIMIT_WAIT (retry ~HH:MM)
 <!-- WORKING normally. Set AWAITING_HUMAN ONLY when the run is parked at a human gate (a
      milestone, Stage 1a.1). The dumb loop STOPS relaunching when it sees AWAITING_HUMAN — a
      headless session can't clear a human gate, so re-launching would just re-hit it forever.
+     LIMIT_WAIT is written by the LOOP (never by you) while it waits out a Claude usage limit.
      Every normal session overwrites this back to WORKING, so it clears itself once the
-     operator approves and a session proceeds past the gate. -->
+     operator approves (or the limit resets) and a session proceeds. -->
 **Started:** <UTC>   **Last session:** <UTC>
-**Chunk size N:** 1   **Scope:** <ticket list | full board>
+**Chunk size N:** 1   **Scope:** <issue numbers in launch order, e.g. #7,#8,#9 — never Story IDs>
 
 ### Progress
 - **Current ticket:** {STORY_ID} @ Stage {n} | none
@@ -1048,7 +1134,7 @@ none
 - Ready (Up Next): N | CLEANUP injected this pass: {yes | no}
 ```
 
-Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `✉ operator message handled`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`.
+Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `✉ operator message handled`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`, `⚠ halted — needs human`, `⚠ closed — scope overlap with #N`.
 
 ---
 
@@ -1077,6 +1163,7 @@ Read `.claude/skills/ci-fix-v6/SKILL.md` and substitute:
 - `{MERGE_SHA}` → the merge commit SHA (captured after `git pull`)
 - `{PR_NUMBER}` → the PR that was just merged
 - `{STORY_ID}` → the current story ID
+- `{RUN_NUMBER}` → this run's tracking-issue number (`$TRACKING_ISSUE`)
 - `{REPO_OWNER}` / `{REPO_NAME}` → resolved repo identity
 
 Pass to Agent tool with `subagent_type: "general-purpose"` and **`run_in_background: true`**.
@@ -1102,12 +1189,14 @@ When a background watcher completes, check its status:
     - `{FAILED_RUN_IDS}` → from the watcher's report
     - `{MERGE_SHA}` → from the watcher's report
     - `{STORY_ID}` → from the watcher's report
+    - `{RUN_NUMBER}` → this run's tracking-issue number (`$TRACKING_ISSUE`) — ci-fix puts it in its branch name (`fix/ci-{run}-…`) so two runs' fixers never push the same ref
     - `{REPO_OWNER}` / `{REPO_NAME}` → resolved repo identity
   - Pass to Agent tool with `subagent_type: "general-purpose"` and **`run_in_background: true`**
   - Track in `session_metrics.ci_fixes[]`:
     ```
     { merge_sha, story_id, failed_run_ids, status: "pending" }
     ```
+- ci-fix-v6 itself enforces **one fixer at a time** across runs (it waits on any other open `fix/ci-*` PR before pushing its own), so a second run's watcher seeing the same red is safe.
 - Continue current work — do not block
 
 **If `STATUS: Timeout` or `STATUS: NoRuns`:**
@@ -1136,10 +1225,11 @@ Before posting the final observability metrics for a ticket, **drain all pending
 
 Even in autonomous mode, **STOP the entire loop** if:
 - **3 consecutive tickets are Blocked or Partial** — something systemic is wrong
-- **A PR merge conflict occurs** — needs human judgment
-- **Build fails on main after a merge** — main is corrupted
+- **A PR merge conflict D4 couldn't clear** — the Merge gate's one automatic attempt (step 4) failed to resolve cleanly, or build/tests failed after resolving — needs human judgment
 - **3 review iterations exhausted** on a single ticket — already handled per-ticket, but if this happens on 2 consecutive tickets, halt
 - **A CI/CD fix agent reports Blocked** — a pipeline failure that cannot be auto-fixed means main is broken and deployments are stuck
+
+**Red `main` on its own is not a halt.** Another run may have broken it; it routes to the single fixer (an open `fix/ci-*` PR, or one you start — see the Merge gate, step 2) and you wait. It becomes a halt only through the "CI/CD fix agent reports Blocked" breaker above.
 
 When halted, report the full session summary and explain why you stopped. **On a circuit-breaker halt, do NOT close the tracking issue and do NOT emit `RUN_COMPLETE`** — leave the run "active" with a `⚠ halted — needs human` event-log comment. The dumb loop will relaunch, hit the same wall, and its own **max-iterations circuit breaker** will stop the loop and flag a human (that backstop, not a fake completion, is the correct terminal state for an unrecoverable run).
 
@@ -1217,6 +1307,6 @@ _(If no PRD amendments, omit this section)_
 ```
 
 ---
-<!-- skill-version: 5.5 -->
-<!-- last-updated: 2026-07-08 -->
-<!-- pipeline: v5 -->
+<!-- skill-version: 6.0 -->
+<!-- last-updated: 2026-09-27 -->
+<!-- pipeline: v6 -->
