@@ -113,7 +113,7 @@ Present each story in preview format before creating issues:
 - [ ] {Criterion 2}
 - [ ] {Criterion 3}
 
-**Dependencies:** {None | list of story IDs that must be complete first}
+**Dependencies:** {None | one line per blocker: issue number (or "new: {sibling title}" for a story in this proposal) — short reason}
 
 ---
 
@@ -152,6 +152,8 @@ After user approves:
 
 ### 4a. Create Each Story Issue
 
+**Create stories in dependency order** (a story's blockers first), so every `## Dependencies` line can carry a real issue number — including a sibling from this same proposal. The `## Dependencies` section is **always present**: write exactly the dependencies confirmed in the Phase 3 preview — in non-interactive mode, those in the caller's spec plus any you find while grounding (ED-1) — (one line per blocker, `- #N — short reason`), or `None`. It is the shared v6 format that `plan-batches-v6` reads as binding.
+
 ```bash
 ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --title "{Title}" \
@@ -170,6 +172,11 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 - [ ] {Criterion 1}
 - [ ] {Criterion 2}
 - [ ] {Criterion 3}
+
+## Dependencies
+
+{None | one line per blocker, e.g.:}
+- #{N} — {short reason, e.g. needs the Orders table and repository from #N}
 
 ## Branch
 

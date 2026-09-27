@@ -210,6 +210,11 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 2. {Step to verify the fix works}
 3. {Edge case to check}
 
+## Dependencies
+
+{None | one line per open ticket this fix needs merged first:}
+- #{N} — {short reason}
+
 ## Branch
 
 `story/{PREFIX}-{ISSUE_NUM}-short-name`

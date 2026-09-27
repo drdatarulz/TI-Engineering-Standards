@@ -50,7 +50,7 @@ Parse the issue body for:
 - **Interface** — the domain interface being implemented
 - **Consumers** — workers/services that call the interface
 - **DI registration** — where the implementation is wired up
-- **Related stories** — dependencies or predecessors
+- **Related stories** — dependencies or predecessors, including any existing `## Dependencies` section (the shared v6 format — carry its lines forward, never drop one)
 
 ### 1b. Already-Refined Detection
 
@@ -173,7 +173,7 @@ Do not supplement spec data with guesses from training data. If the spec is ambi
 
 **J. Files Expected to Change** — Can we enumerate every file that will be created or modified?
 
-**K. Cross-Story Dependencies** — Does this story depend on another that isn't done yet? Will this story's output be consumed by a later story?
+**K. Cross-Story Dependencies** — Does this story depend on another that isn't done yet? Will this story's output be consumed by a later story? Start from the issue's existing `## Dependencies` lines (if any) and add every blocker you find while exploring (a table, repository, endpoint, or screen another open ticket introduces). The result is the `## Dependencies` section in Phase 4 — `plan-batches-v6` treats it as binding, so list real blockers only, each with its reason.
 
 **L. Risks / Watch-outs** — Large container size, slow processing, flaky external tools, licensing concerns?
 
@@ -223,7 +223,7 @@ Note the ED-5 cold read is a *separate* pass and does not run here — it reads 
 
 ### 4a. Compose the Refined Issue Body
 
-Use this template. **Omit sections that don't apply** to the story. Adapt section names to fit the story's domain. **Always include the `Story ID` line** — refine has `{STORY_ID}` resolved, so it fills it directly. This is the backstop: even if the creating skill missed it, refine (which runs next) guarantees the Story ID is in the description.
+Use this template. **Omit sections that don't apply** to the story — except `## Dependencies`, which is always present (`None` when there are none). Adapt section names to fit the story's domain. **Always include the `Story ID` line** — refine has `{STORY_ID}` resolved, so it fills it directly. This is the backstop: even if the creating skill missed it, refine (which runs next) guarantees the Story ID is in the description.
 
 ```markdown
 **Story ID:** {STORY_ID}
@@ -318,9 +318,12 @@ One row per **behavior** (≈ per acceptance criterion), keyed so a behavior **c
 | 3 | Order persists with FK + unique constraint | Integration | — | needs real SQL |
 | 4 | User completes checkout end-to-end | UI | ✓ | the money path |
 
-## Dependency on {PREFIX}-{issue#}
+## Dependencies
 
-[Only if a real dependency exists — describe what's needed and current status]
+- #7 — needs the Orders table and repository from #7
+- #9 — reuses the checkout screen #9 adds
+
+[Always present — write `None` when there are none. One line per blocker: issue number, then a short reason. Kept up to date from question K.]
 
 ## Risks / Watch-outs
 

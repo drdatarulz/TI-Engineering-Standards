@@ -70,7 +70,11 @@ All rules from the 12 standards files apply — you loaded them in the Context L
 - **NEVER check off an acceptance criterion that you did not implement.** A checked checkbox means the code exists in this PR. If you cannot implement a criterion, leave it unchecked.
 - **If you must defer scope**, create a follow-up ticket AND:
   1. Leave the deferred criteria **unchecked** on the original issue
-  2. Create the follow-up issue with `gh issue create`
+  2. Create the follow-up issue with `gh issue create`. Its body **must include a `## Dependencies` section** (the shared v6 format `plan-batches-v6` reads as binding) listing the parent, plus any other blocker you know of:
+     ```markdown
+     ## Dependencies
+     - #{ISSUE_NUMBER} — deferred from #{ISSUE_NUMBER}; builds on what that PR merges
+     ```
   3. **Add the follow-up to the project board immediately** — use `gh project item-add` with the project number from `CLAUDE.md`. Set Status, Type, Priority, Component, and Story ID fields. A ticket that isn't on the board doesn't exist.
   4. Link the follow-up as a sub-issue of the relevant milestone (if one exists)
   5. Note the deferral and follow-up ticket number in your PR description and issue comment

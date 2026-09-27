@@ -118,6 +118,7 @@ For each milestone, create vertical-slice stories per story-writing standards:
 - Split along capability boundaries, not CRUD operations
 - Each story should be completable by a single developer agent session
 - Order stories within a milestone so each builds on the previous logically
+- **Record the dependencies behind that order.** For each story, note which earlier stories (foundation or story) it actually needs and why — the same analysis you used to order it. A story that is merely *later* but doesn't need an earlier one gets no dependency on it. These become the story's `## Dependencies` section (Phase 3), which `plan-batches-v6` treats as binding.
 
 ### 1f. Nominate the Critical-Path Journeys (repo-wide budget)
 
@@ -141,8 +142,8 @@ The UI critical-path set is capped at **10 journeys repo-wide** (TR-6 ceiling; f
 2. [title] — [one-line description]
 
 ### Milestone 1: [Name] ({N} stories)
-3. [title] — [one-line description]
-4. [title] — [one-line description]
+3. [title] — [one-line description] — needs: [1] (why)
+4. [title] — [one-line description] — needs: [3] (why) | none
 → MILESTONE: [Name] — [What can be reviewed at this point]
 
 ### Milestone 2: [Name] ({N} stories)
@@ -178,6 +179,15 @@ The ED-5 cold read is a *separate* pass on the saved backlog and runs in Phase 4
 
 Only proceed after user approves the plan.
 
+**Every foundation and story issue gets a `## Dependencies` section** (always present), from the Phase 1e analysis as approved in Phase 2 — one line per blocker, issue number then a short reason, or `None`:
+
+```markdown
+## Dependencies
+- #7 — needs the Orders table and repository from #7
+```
+
+Create issues in plan order (foundation first, then each milestone's stories in order) so every blocker already has an issue number when its dependents are created — map plan numbers `[N]` to real `#issue` numbers as you go.
+
 ### 3a. Create Foundation Issues
 
 For each foundation story:
@@ -186,7 +196,7 @@ For each foundation story:
 ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
   --title "{Title}" \
   --label "foundation" \
-  --body "{issue body per story template}")
+  --body "{issue body per story template, including ## Dependencies}")
 ISSUE_NUM=$(echo "$ISSUE_URL" | grep -oP '\d+$')
 # Backfill the Story ID into the body (number didn't exist at create time; keep {ISSUE_NUM} literal in the body)
 gh issue view $ISSUE_NUM --repo {REPO_OWNER}/{REPO_NAME} --json body -q .body \
@@ -219,6 +229,11 @@ ISSUE_URL=$(gh issue create --repo {REPO_OWNER}/{REPO_NAME} \
 - [ ] {Criterion 1 — specific and testable}
 - [ ] {Criterion 2}
 - [ ] {Criterion 3}
+
+## Dependencies
+
+{None | one line per blocker:}
+- #{N} — {short reason}
 
 ## Branch
 
