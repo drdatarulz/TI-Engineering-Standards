@@ -4,8 +4,8 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-27.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. **Round 3 (2026-09-27): H1–H9 OPEN — awaiting
-> operator decisions** (see Cold-read findings, round 3).
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. Round 3 (2026-09-27): H1–H9 resolved (fixes folded
+> in).
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -121,6 +121,18 @@ Rules:
 - **C5 close (`:1005`):** reword "the next relaunch finds no open `orchestration-run` issue" to "the
   loop sees `#$ORCHESTRATE_RUN` closed".
 - **Tracking-issue body schema (`:1033`):** `Scope:` loses the `full board` option.
+- **Merge gate (`:47-61`):** before `gh pr merge`, bring the branch up to date and re-test if
+  `main` moved (F1-A); check `main` first — red `main` → wait, then update-and-re-test (D3, G2);
+  red `main` with no fixer → start ci-fix FIX (G1, H1); merge conflict while updating → D4 (H8).
+- **Circuit breakers (`:1135-1144`):** "merge conflict" (`:1139`) halts only after D4's one
+  automatic attempt fails; "build fails on main" (`:1140`) is no longer a halt on its own (D3). (H8)
+- **Stage 2d existing follow-ups (`:464-466`):** overlap check before appending to `Scope:` (H3).
+- **CLEANUP C4 (`:978-980`):** dedupe fix tickets by test name, wait only on another open run's
+  ticket (D3, H2).
+- **`ci-fix-v6/SKILL.md`** (H8): run-number input and `fix/ci-{run}-…` / `fix/ci-manual-…` branch
+  names (G6, H6); open-fix-PR check at start and before push (D3, G6); pre-merge re-check (H5);
+  WATCH follows the latest non-cancelled run on `main` (G3, H7); F7 waits for checks to finish, no
+  10-min cap (D5); abandoned-fix rule (D3, F7).
 
 ### 3. Observability (`developer-tools/orchestrate-status.sh`, `skills/monitor-v5/SKILL.md`)
 
@@ -204,7 +216,8 @@ batching are written into the skill.
 - **If the tickets can't be parallelized** (one long chain), say so plainly: the honest answer may
   be fewer batches than asked for.
 
-**Output:** one paste-ready `./scripts/orchestrate.sh --tickets "..."` line per batch, each with a
+**Output:** one paste-ready `./scripts/orchestrate-v6.sh --tickets "..."` line per batch (v6
+wrapper, D7 — H4), each with a
 one-line reason for its grouping and order, then any warnings (unrefined tickets, hot spots,
 lopsided split, milestone held out).
 
@@ -247,10 +260,17 @@ you launch a batch. You reviewing the batches is the confirm step.
   test (C1/C4, `:951`, `:978-980`).
   - **Who's fixing = an open `fix/ci-*` PR.** No registry, no claims: the open PR on GitHub *is*
     the signal, visible to every orchestrator. ci-fix FIX checks for one at start and again right
-    before pushing its branch (G6). Fix branches carry the run number
-    (`fix/ci-{run}-{description}`), so two fixers never push the same ref (G6). If one exists, it waits for that PR to merge or close, then re-checks
-    `main`: green → done; still red → it takes its turn. If two PRs still appear within seconds,
-    the **lower PR number wins** and the other closes itself before merging.
+    before pushing its branch (G6). If one exists, it waits for that PR to merge or close, then
+    re-checks `main`: green → done; still red → it takes its turn.
+  - **Fix branch names carry the run number** (`fix/ci-{run}-{description}`), so two fixers never
+    push the same ref (G6). The orchestrator passes its run number when it starts a fix (watcher
+    spawn `SKILL.md:1099-1105` and the merge-gate spawn); standalone ci-fix, which has no run, uses
+    `fix/ci-manual-{description}` (H6).
+  - **Before merging its own PR, ci-fix re-checks (H5).** ci-fix merges directly
+    (`ci-fix-v5/SKILL.md:237`), outside the orchestrator's merge gate. So before merging: if any
+    other `fix/ci-*` PR was opened **or merged** since this fix started, close this PR and re-check
+    `main` instead (covers "the lower one already merged"); otherwise apply F1-A's
+    bring-up-to-date-then-re-test step, then merge.
   - **Abandoned fix.** Normally the fixer finishes: the orchestrator drains its FIX agents before
     closing a ticket (`SKILL.md:1129-1131`). But a crashed or timed-out session can leave a fix PR
     open with nobody behind it. Rule: a fix PR with **no activity for ~30 min** (no new commits,
@@ -264,17 +284,24 @@ you launch a batch. You reviewing the batches is the confirm step.
     `fix/ci-*` PR, it starts ci-fix FIX itself rather than just waiting. The watcher can miss a red
     `main` (15-min timeout, `ci-fix-v5/SKILL.md:76`; no watcher after a ci-fix merge,
     `SKILL.md:1071`), and without this every run would wait forever. The open-PR check keeps it to
-    one fixer.
+    one fixer. **It also checks this session's own pending fixes** (`session_metrics.ci_fixes[]`)
+    and waits on one if it exists: a background fix spends a while diagnosing and testing before it
+    opens a PR (`ci-fix-v5/SKILL.md:130-197`), and in that window there's no PR to see (H1).
   - **"Is `main` red?" means the latest non-cancelled run on `main` (G3).** The workflows cancel an
     in-progress run when a newer push arrives (`fast-tests.yml:18-20`, `integration-tests.yml:15-17`),
-    so a merge's run can end `cancelled`. Treat `cancelled` as superseded and read the newer run;
-    ci-fix WATCH does the same (its result step handles only success/failure,
-    `ci-fix-v5/SKILL.md:82-105`).
+    so a merge's run can end `cancelled`. Treat `cancelled` as superseded and follow the **latest
+    non-cancelled run of that workflow on `main`** (not a run on the same commit — the newer run is
+    on a newer commit, often the other run's merge). If that run is still queued or running: wait.
+    ci-fix WATCH does the same; today it looks runs up by merge commit and handles only
+    success/failure (`ci-fix-v5/SKILL.md:50`, `:71`, `:82-105`) (G3, H7).
   - **One halt condition.** "Build fails on main" (`:1140`) stops being a halt on its own; red
     `main` routes to the single fixer. The halt stays on "CI fix reports Blocked" (`:1142`).
   - **CLEANUP dedupes by test name.** Injected fix tickets name the failing test in the title.
-    Before injecting, CLEANUP looks for an open ticket for that test; if one exists (another run's),
-    it doesn't create another, stays open (not at fixpoint), and re-checks next CLEANUP pass. "If you
+    Before injecting, CLEANUP looks for an open ticket for that test. If one exists **and is in
+    another open run's `Scope:`**, it doesn't create another, stays open (not at fixpoint), and
+    re-checks next CLEANUP pass. If one exists but **no open run owns it** (e.g. left over from a
+    finished run — the pilot's #389, `SKILL.md:935`), it appends that ticket to this run's `Scope:`
+    and works it (H2). "If you
     see it, you own it" still holds: owning means not closing until it's green.
   - **Accepted cost:** a run waiting on another run's fix keeps relaunching CLEANUP, re-running the
     full UI suite each pass. If that bites, add a WAITING-style backoff.
@@ -412,9 +439,12 @@ Each finding below was re-checked against source before recording. Status: all w
     newer run (higher issue number) closes itself with a `⚠ closed — scope overlap with #N` comment
     and refuses to start. Closes the same-moment race. `--run` on such an issue says "closed over a
     scope overlap with #N", not "already complete" (G9).
-  - **Follow-up / fix tickets the run creates itself** (Stage 2d, implement deferrals, C4): no
-    check. Rejected as a risk: they're brand-new, so no other run can own them; duplicate cleanup
-    fixes are covered by D3's dedupe by test name.
+  - **Follow-up / fix tickets the run creates itself** (Stage 2d auto-create, implement deferrals,
+    C4): no check. Rejected as a risk: they're brand-new, so no other run can own them; duplicate
+    cleanup fixes are covered by D3's dedupe by test name.
+  - **Exception — an existing follow-up Stage 2d picks up** ("If a follow-up ticket exists",
+    `SKILL.md:464`, `:466`) wasn't created by this run and could be in another run's scope. It gets
+    the overlap check before being appended to `Scope:` (H3).
 - **F5 — SKIPPED (2026-09-27, operator: overcomplicating it).** D5 stays as decided.
   Original finding: **D5's "runner busy?" check is blind to shared runners.** "The repo's
   in-progress runs" can't see an org-level runner or one busy with another repo's job
@@ -507,17 +537,17 @@ sections named.
 
 ---
 
-## Cold-read findings (round 3, 2026-09-27) — OPEN, for the operator to decide
+## Cold-read findings (round 3, 2026-09-27)
 
 A third fresh subagent read the plan after round 2. ~85 citations checked; one had drifted
 (`project-tracking.md:88-90` → `:89-91`, now fixed). I re-checked each finding below against the
-source; all hold. **Nothing here has been decided** — each has a suggested simple fix. H9 was pure
-bookkeeping and is already fixed.
+source; all hold. Operator accepted every suggested fix (2026-09-27); they're folded into D3, F4,
+§2 and "Planning the split". H9 was pure bookkeeping.
 
 **Summary:** no blockers this round. Five should-fixes, three small nits. Most are edge cases in the
 round-2 CI-fix rules (G1, G5, G6).
 
-- **H1 — SHOULD-FIX — the merge gate can start a second fixer inside the same run.**
+- **H1 — RESOLVED (2026-09-27, suggested fix folded in) — the merge gate can start a second fixer inside the same run.**
   *In plain terms:* the CI watcher starts a fix in the background, and that fix spends a while
   diagnosing and testing before it opens a PR. During that time the merge gate sees "red `main`, no
   fix PR" (G1) and starts a second fix. Both push branches with the same run number, the second push
@@ -527,7 +557,7 @@ round-2 CI-fix rules (G1, G5, G6).
   *Suggested fix:* before starting a fix, the merge gate also checks whether this session already
   has a fix running (`session_metrics.ci_fixes[]`); if so, it waits on that one.
 
-- **H2 — SHOULD-FIX — CLEANUP can wait forever on a fix ticket nobody is working.**
+- **H2 — RESOLVED (2026-09-27, suggested fix folded in) — CLEANUP can wait forever on a fix ticket nobody is working.**
   *In plain terms:* D3 says "if an open fix ticket for this test already exists, don't make
   another, wait for it." But that ticket might not be in any open run — e.g. left over from a
   finished run. Then nobody ever works it and this run never finishes.
@@ -535,7 +565,7 @@ round-2 CI-fix rules (G1, G5, G6).
   *Suggested fix:* only wait if the existing ticket is in another **open run's** `Scope:`;
   otherwise add it to this run's `Scope:` and work it.
 
-- **H3 — SHOULD-FIX — a Stage 2d follow-up might already belong to the other run.**
+- **H3 — RESOLVED (2026-09-27, suggested fix folded in) — a Stage 2d follow-up might already belong to the other run.**
   *In plain terms:* F4 skipped the overlap check for follow-ups because "they're brand new." But
   2d also picks up follow-ups that already existed, which could be in another run's scope. G5 now
   adds those to `Scope:` without a check.
@@ -543,7 +573,7 @@ round-2 CI-fix rules (G1, G5, G6).
   (`SKILL.md:464`, `:466`); only `:465` auto-creates.
   *Suggested fix:* run the overlap check when 2d adds a ticket it didn't create itself.
 
-- **H4 — SHOULD-FIX — `plan-batches-v6` prints v5 launch commands.**
+- **H4 — RESOLVED (2026-09-27, suggested fix folded in) — `plan-batches-v6` prints v5 launch commands.**
   *In plain terms:* the batching skill's output lines say `./scripts/orchestrate.sh`, which is the
   **v5** wrapper (D7). Pasting two of those starts two v5 runs, which close each other's run
   issue — the exact F2 hazard, caused by our own tool.
@@ -552,7 +582,7 @@ round-2 CI-fix rules (G1, G5, G6).
   *Suggested fix:* output `./scripts/orchestrate-v6.sh --tickets "..."`. (One-word change; left
   open only because I said I wouldn't decide anything while you were away.)
 
-- **H5 — SHOULD-FIX — a CI fix merges itself without F1's re-test, and can merge a duplicate.**
+- **H5 — RESOLVED (2026-09-27, suggested fix folded in) — a CI fix merges itself without F1's re-test, and can merge a duplicate.**
   *In plain terms:* ci-fix merges its own PR directly, so F1's "bring up to date and re-test before
   merging" (which lives in the orchestrator's merge gate) doesn't apply to it. And D3's "lower PR
   number wins" doesn't cover the case where the lower one **already merged**: the higher one then
@@ -561,18 +591,18 @@ round-2 CI-fix rules (G1, G5, G6).
   *Suggested fix:* before merging, ci-fix closes its PR if another `fix/ci-*` PR was opened or
   merged since it started; otherwise it applies the same up-to-date-then-re-test step.
 
-- **H6 — NIT — no run number for ci-fix standalone mode.** G6 puts the run number in fix branch
+- **H6 — RESOLVED (2026-09-27, suggested fix folded in) — no run number for ci-fix standalone mode.** G6 puts the run number in fix branch
   names, but standalone ci-fix has no run, and FIX mode isn't given one today
   (`ci-fix-v5/SKILL.md:124-128`, `:269-293`). *Suggested fix:* pass the run number in when the
   orchestrator starts a fix; standalone uses `fix/ci-manual-{description}`.
 
-- **H7 — NIT — G3's "read the newer run" doesn't fit how the watcher looks up runs.** The watcher
+- **H7 — RESOLVED (2026-09-27, suggested fix folded in) — G3's "read the newer run" doesn't fit how the watcher looks up runs.** The watcher
   looks up runs by the merge commit (`ci-fix-v5/SKILL.md:50`, `:71`); after a cancel, the newer run
   is on a different commit (often the other run's merge). Also unstated: what if the latest
   non-cancelled run is still running? *Suggested fix:* follow the latest non-cancelled run of that
   workflow on `main`; still running = wait.
 
-- **H8 — NIT — §2's change list is incomplete.** Merge-gate edits (F1-A, main-first, G1), the
+- **H8 — RESOLVED (2026-09-27, suggested fix folded in) — §2's change list is incomplete.** Merge-gate edits (F1-A, main-first, G1), the
   circuit-breaker edits (`SKILL.md:1139` for D4, `:1140` for D3) and the ci-fix edits (G3, G6, D5,
   F7) appear only in the D/F/G items. Someone building from §2 would miss them. *Suggested fix:*
   add one bullet per item to §2.
@@ -580,8 +610,6 @@ round-2 CI-fix rules (G1, G5, G6).
 - **H9 — NIT — stale bookkeeping. FIXED (2026-09-27).** Header "Last updated" date, round-1
   "Status: all OPEN" line, and the `project-tracking.md` citation corrected.
 
-**If you accept all the suggested fixes,** H1–H8 are each a sentence or two in the plan; I can
-fold them in one pass like round 2.
 
 ---
 
@@ -597,7 +625,7 @@ fold them in one pass like round 2.
 | 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
 | 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). Blocked until a real limit message is captured. | Runs survive the usage limit |
 | 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9, G4); interactive `--run` (D2); full-board removal + 2d follow-ups into `Scope:` (G5); Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10), except the `integration-tests.yml` header rewrite (step 3). | v6 works for **one run at a time** under the new launch rules |
-| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4, G9); re-test before merge + tests on push to `main` + `integration-tests.yml` header rewrite (F1); one CI fixer at a time, incl. merge gate starting the fix and cancelled-run handling (D3, F7, G1, G2, G3, G6); automatic conflict resolve by merging `main` in (D4, G7); queue-aware runner waits (D5). | **Two or more orchestrators on one repo** |
+| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4, G9); re-test before merge + tests on push to `main` + `integration-tests.yml` header rewrite (F1); one CI fixer at a time, incl. merge gate starting the fix, cancelled-run handling and ci-fix pre-merge re-check (D3, F7, G1, G2, G3, G6, H1, H2, H5, H6, H7); overlap check on existing 2d follow-ups (H3); automatic conflict resolve by merging `main` in (D4, G7); queue-aware runner waits (D5). | **Two or more orchestrators on one repo** |
 | 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
 
 Existing projects also need the **v6 migration checklist** (see Versioning) before their first v6
