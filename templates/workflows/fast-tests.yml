@@ -15,6 +15,10 @@ name: fast-tests
 on:
   pull_request:
     branches: [main]
+  # Also run after every merge to main, so a broken main is visible (the "is main red?"
+  # signal the v6 orchestrator and ci-fix watch for).
+  push:
+    branches: [main]
 
 concurrency:
   group: fast-tests-${{ github.ref }}

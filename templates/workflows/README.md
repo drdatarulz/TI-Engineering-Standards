@@ -9,8 +9,8 @@ to provision one.
 
 | Workflow | Tier | Trigger | Gates merge? |
 |----------|------|---------|--------------|
-| `fast-tests.yml` | Unit + Contract (fakes, no Docker) | `pull_request` | **Yes** |
-| `integration-tests.yml` | Integration (Testcontainers, real SQL) | `pull_request` (required pre-merge check) | **Yes** |
+| `fast-tests.yml` | Unit + Contract (fakes, no Docker) | `pull_request` + push to `main` | **Yes** |
+| `integration-tests.yml` | Integration (Testcontainers, real SQL) | `pull_request` (required pre-merge check) + push to `main` | **Yes** |
 | `ui-tests.yml` | UI (Playwright) | `workflow_dispatch` (`ref` + `filter` inputs) | No — orchestration boundary |
 
 ## How they get into a project
@@ -58,8 +58,11 @@ workflow file to parse. The checkout step's `with:` is one of the places the `gi
 merge a red PR. No branch-protection setup is assumed (it isn't available on a private repo's
 Free plan anyway). `ui-tests` is intentionally **not** a required check.
 
-These three workflows are PR/`workflow_dispatch` **test** workflows — none run on push to
-`main`. Keep your project's existing main-push workflow for build, version-stamp, frontend
+These three workflows are **test** workflows. `fast-tests` and `integration-tests` run on PRs
+**and on push to `main`** (so a merge that breaks `main` is visible — the "is `main` red?" signal
+the v6 orchestrator and `ci-fix` watch for); `ui-tests` is `workflow_dispatch` only. Projects
+created before this change keep their local copies (sync is skip-if-exists); add the `push`
+trigger by hand when moving to v6. Keep your project's existing main-push workflow for build, version-stamp, frontend
 build, and deploy; adopting v5 means moving the *tests* out of it into these tiers, not
 deleting it (a `cd.yml` that watches `ci.yml` via `workflow_run` would lose its trigger).
 

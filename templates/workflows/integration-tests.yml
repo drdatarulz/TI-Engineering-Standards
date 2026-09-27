@@ -1,15 +1,20 @@
 # Integration tier — REQUIRED pre-merge check. Real infrastructure via Testcontainers.
 # See standards/testing.md → CI/CD Testing Tiers.
 #
-# This and fast-tests are both required status checks; branch protection additionally
-# requires the branch to be up to date with main before merge (strict) so integration
-# re-runs against the latest main. Configure with developer-tools/setup-branch-protection.sh.
+# This and fast-tests are the checks the orchestrator's merge gate requires. No branch
+# protection is needed: before merging, the v6 orchestrator brings a PR up to date with main
+# and waits for these checks again if main has moved since they ran. Both workflows also run
+# on push to main, which is the "is main red?" signal.
 #
 # FILL IN: {ProjectName} → your solution/project name (see templates/workflows/README.md).
 name: integration-tests
 
 on:
   pull_request:
+    branches: [main]
+  # Also run after every merge to main, so a broken main is visible (the "is main red?"
+  # signal the v6 orchestrator and ci-fix watch for).
+  push:
     branches: [main]
 
 concurrency:
