@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted; F7–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved; F8–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -237,7 +237,7 @@ you launch a batch. You reviewing the batches is the confirm step.
   - **Abandoned fix.** Normally the fixer finishes: the orchestrator drains its FIX agents before
     closing a ticket (`SKILL.md:1129-1131`). But a crashed or timed-out session can leave a fix PR
     open with nobody behind it. Rule: a fix PR with **no activity for ~30 min** (no new commits,
-    comments or check runs) counts as abandoned; the waiter comments on it, closes it, and takes
+    comments or check runs, and no checks queued or running — F7) counts as abandoned; the waiter comments on it, closes it, and takes
     its turn. Closing an automated fix PR is reversible. *The 30-min figure is a starting guess.*
   - **Merge gate checks `main` first.** A PR that's red while `main` is also red isn't at fault: wait
     for `main` to go green, then re-run the PR's checks. Only a PR that's red on a green `main` goes
@@ -400,6 +400,8 @@ Each finding below was re-checked against source before recording. Status: all *
 - **F7 — SHOULD-FIX — the 30-min abandoned-fix rule can close a live fix.** A fix PR whose checks
   are queued behind the other run's UI suite shows no commits/new check runs for 30+ min (D3 + D5).
   Count queued / in-progress checks as activity.
+  **RESOLVED (2026-09-27):** a fix PR with checks queued or running counts as active; it's abandoned
+  only after ~30 min with no new commits **and** no checks queued or running. D3 updated.
 - **F8 — SHOULD-FIX — C1 run-id fix needs a template change.** A run-name input means editing
   `templates/workflows/ui-tests.yml` (no `run-name` today, `:14-33`); existing projects keep their
   local copies (sync is skip-if-exists, `CLAUDE.md` step 6). Matching on dispatch time is weak when
