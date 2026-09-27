@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1 resolved; F2–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F2 resolved; F3–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -360,6 +360,12 @@ Each finding below was re-checked against source before recording. Status: all *
   In Progress ticket on the board (`:229`). The v5 lock is keyed on folder name
   (`orchestrate-loop.sh:108`) and v6 on full path, so both can run together. D7's "switching back is
   equally easy" invites mixing.
+  **RESOLVED (2026-09-27): not a real scenario — operating rule, no mechanism.** The operator
+  doesn't mix generations: moving a repo from v5 to v6 is a one-way cutover between runs, and v5 is
+  then left alone (archived). Rule, stated in the v6 docs and the migration checklist: **a repo runs
+  v5 or v6, never both; finish (or close) any open v5 run before the first v6 launch.** v6 keeps the
+  shared `orchestration-run` label. D7's "switching back" wording is replaced with "one-way
+  cutover".
 - **F3 — SHOULD-FIX — build order stale.** Step 5 says "D3 / D5 guards, once decided" (both now
   resolved); D4 is in no step; the order doesn't say when running two at once becomes safe (needs
   run binding, 0.6 scoping, overlap guard, D3, D4, D5).
@@ -451,7 +457,8 @@ files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these b
 - Re-copy or patch `.github/workflows/fast-tests.yml` and `integration-tests.yml` to add the
   push-to-`main` trigger (F1-B).
 - Patch `.github/workflows/ui-tests.yml` for the C1 run-identification change (F8, once resolved).
-- Launch with `./scripts/orchestrate-v6.sh` (D7).
+- Finish or close any open v5 run first; from then on launch only with
+  `./scripts/orchestrate-v6.sh` (D7, F2). Never run v5 and v6 on the same repo.
 
 **Costs we're accepting:**
 - While both generations are live, the sync protocol (`CLAUDE.md` step 5) copies **both** sets into
@@ -475,10 +482,11 @@ files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these b
   - `developer-tools/orchestrate-loop-v6.sh`, `developer-tools/orchestrate-status-v6.sh`.
   - `templates/scripts/orchestrate-v6.sh`, vendored into projects as `scripts/orchestrate-v6.sh` by
     the existing sync step (`CLAUDE.md` step 7, skip-if-exists).
-  - The v5 files stay where they are, untouched apart from the D6 fix. Existing projects
+  - The v5 files stay where they are, untouched apart from the D6 fix. Existing projects'
     `scripts/orchestrate.sh` keeps running v5.
-  - A project moves to v6 by running `./scripts/orchestrate-v6.sh`; no file edits, and switching
-    back is equally easy. At v5 retirement the v5 scripts move to an archive folder.
+  - A project moves to v6 by running `./scripts/orchestrate-v6.sh`; no file edits. The move is a
+    **one-way cutover** between runs (F2): once a repo is on v6 it stays there. At v5 retirement the
+    v5 scripts move to an archive folder.
   - Rejected: a `developer-tools/v6/` folder (inconsistent with how skills are versioned).
   - Side effect (accepted, same as skills): both wrappers sync into every project while both
     generations are live.
