@@ -165,8 +165,12 @@ A real bug today, independent of parallelism: when a session hits the Claude usa
 `claude -p` exits fast, the loop treats it as a crash and relaunches immediately
 (`orchestrate-loop.sh:251-258`), and burns all `MAX_ITER` relaunches in minutes (`:261-264`). Two
 machines on **one Claude account** hit the limit sooner and together. Fix, in the loop:
-- **Detect** from the session output. **ED-3: capture a real usage-limit message before writing
-  the pattern.** Don't key on exit code alone.
+- **Detect** from the session output: a case-insensitive text match on `429`,
+  `rate_limit_error`, or "usage limit" / "rate limit" (operator-supplied, 2026-09-27). The match
+  lives in bash because the session is already dead when this happens, and asking Claude to
+  classify the error would hit the same limit. Don't key on exit code alone. A message that
+  doesn't match just falls through to today's crash-relaunch behavior; add new wording to the
+  match when it's seen.
 - **Wait** until the reset time if the message gives one (plus jitter), else probe hourly. Waits do
   not count toward `MAX_ITER`.
 - **Surface** `Run state: LIMIT_WAIT (retry ~HH:MM)` in the run issue; clear it on resume.
@@ -623,7 +627,7 @@ round-2 CI-fix rules (G1, G5, G6).
 | Step | What | Safe after this step |
 |---|---|---|
 | 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
-| 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). Blocked until a real limit message is captured. | Runs survive the usage limit |
+| 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). | Runs survive the usage limit |
 | 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9, G4); interactive `--run` (D2); full-board removal + 2d follow-ups into `Scope:` (G5); Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10), except the `integration-tests.yml` header rewrite (step 3). | v6 works for **one run at a time** under the new launch rules |
 | 3 | **Two-at-once safety:** scope-overlap guard (§1, F4, G9); re-test before merge + tests on push to `main` + `integration-tests.yml` header rewrite (F1); one CI fixer at a time, incl. merge gate starting the fix, cancelled-run handling and ci-fix pre-merge re-check (D3, F7, G1, G2, G3, G6, H1, H2, H5, H6, H7); overlap check on existing 2d follow-ups (H3); automatic conflict resolve by merging `main` in (D4, G7); queue-aware runner waits (D5). | **Two or more orchestrators on one repo** |
 | 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
@@ -677,10 +681,8 @@ files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these b
   loop-only, and no behavior change when no limit is hit.
   - **Caution:** every v5 project picks up the loop change on its next run (the wrapper
     self-updates, `templates/scripts/orchestrate.sh:25-27`), so test it carefully before pushing.
-  - **Still blocked on the real message (ED-3).** Checked 2026-09-26: the four local run logs in
-    `/tmp/orchestrate-loop-*.log` contain no usage-limit text. Also, the loop truncates its log at
-    every start (`orchestrate-loop.sh:140`), so evidence from an earlier limit hit is gone. Capture
-    the message the next time a limit is hit (e.g. keep a copy of the log before relaunching).
+  - **No longer blocked (2026-09-27).** The operator supplied the error shape (`429 -
+    rate_limit_error`); detection is a plain text match (§5). No need to capture a sample first.
 - **D7 — v6 script naming and location. RESOLVED (2026-09-26): `-v6` suffix, same as the skills.**
   - `developer-tools/orchestrate-loop-v6.sh`, `developer-tools/orchestrate-status-v6.sh`.
   - `templates/scripts/orchestrate-v6.sh`, vendored into projects as `scripts/orchestrate-v6.sh` by
