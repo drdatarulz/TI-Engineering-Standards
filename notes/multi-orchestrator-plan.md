@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted; F9–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9 resolved; F10–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -415,6 +415,15 @@ Each finding below was re-checked against source before recording. Status: all *
   parses (`:216`); `Scope:` may hold Story IDs (`SF-7`, `:70`), so normalize to issue numbers for
   the overlap check; a `gh` error on "is #N closed?" must not read as closed (today's `*)` case,
   `orchestrate-loop.sh:247-248`).
+  **RESOLVED (2026-09-27), all four as build details:**
+  1. The loop creates the `orchestration-run` label first (ignore "already exists"), as the skill
+     does today (`SKILL.md:175`).
+  2. The minimal body copies the operator-slot heading word for word (`### 📨 Operator message …`)
+     so Step 0.55 finds it (`SKILL.md:216`).
+  3. **`--tickets` takes issue numbers only** (`#7` or `7`); `Scope:` always stores issue numbers.
+     Interactive runs may still take Story IDs; the skill converts them first (Step 0d).
+  4. A `gh` error on "is the run closed?" is never read as closed: keep today's
+     couldn't-read → relaunch behavior (`orchestrate-loop.sh:247-248`).
 - **F10 — SHOULD-FIX — more docs to update.** `standards/project-tracking.md:57` (queue = Up Next;
   crash recovery resets In Progress) and `:88-90` (session start picks up any In Progress item —
   the other machine's ticket); `SKILL.md:166,171` ("loop never touches it", "never a run ID the loop
