@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved; F8–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted; F9–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -111,9 +111,9 @@ Rules:
 - **Mode Selection (`:280-307`) / WORKING (`:313`):** delete the `full board` branches.
 - **Step 0.0 (`:80-86`):** still correct (the loop's own lock is its own run); reword the Step 0.5
   reference.
-- **CLEANUP C1 dispatch (`:946-947`):** today it dispatches `ui-tests.yml` and then takes
-  `gh run list --limit 1` as "my run". With two runs on the repo, that can pick up the **other
-  run's dispatch**. Identify the run by matching the dispatch time (or a run-name input) instead.
+- **CLEANUP C1 dispatch (`:946-947`):** no change (F8). It takes the latest `ui-tests.yml` run on
+  `main` as "my run", which may be the other run's near-simultaneous full-suite dispatch; that
+  result is equally valid (same suite, same `main`, same moment).
 - **C5 close (`:1005`):** reword "the next relaunch finds no open `orchestration-run` issue" to "the
   loop sees `#$ORCHESTRATE_RUN` closed".
 - **Tracking-issue body schema (`:1033`):** `Scope:` loses the `full board` option.
@@ -352,7 +352,7 @@ Each finding below was re-checked against source before recording. Status: all *
     apart) that A can't close.
   - **Costs:** more runner time (a run per merge plus occasional pre-merge re-tests), so more
     queueing on a one-runner repo. Existing projects don't get B automatically (workflows are
-    skip-if-exists), so it goes on the **v6 migration checklist** (see Versioning), with F8.
+    skip-if-exists), so it goes on the **v6 migration checklist** (see Versioning).
   - The stale `setup-branch-protection.sh` reference in `integration-tests.yml:4-6` gets rewritten
     to describe A.
 - **F2 — BLOCKER — v5 and v6 on one repo wreck each other.** Both use the `orchestration-run`
@@ -406,6 +406,10 @@ Each finding below was re-checked against source before recording. Status: all *
   `templates/workflows/ui-tests.yml` (no `run-name` today, `:14-33`); existing projects keep their
   local copies (sync is skip-if-exists, `CLAUDE.md` step 6). Matching on dispatch time is weak when
   both runs dispatch unfiltered on `main`. Add to §4 plus migration notes.
+  **ACCEPTED, no change (2026-09-27).** Only C1 can mix up: per-ticket UI dispatches run on the
+  ticket's own branch (`ui-test-v5/SKILL.md:250-255`). If A picks up B's run, it's a full-suite
+  run on `main` from the same moment, so its result is just as valid for A (red → A still owns it
+  until green). Rare and harmless; not worth a template change and migration step.
 - **F9 — SHOULD-FIX — loop-created issue details.** The label may not exist yet (skill creates it
   today, `SKILL.md:175`); the minimal body must use the exact operator-slot markers Step 0.55
   parses (`:216`); `Scope:` may hold Story IDs (`SF-7`, `:70`), so normalize to issue numbers for
@@ -436,7 +440,7 @@ Each finding below was re-checked against source before recording. Status: all *
 | 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
 | 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). Blocked until a real limit message is captured. | Runs survive the usage limit |
 | 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9); interactive `--run` (D2); full-board removal; Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10). | v6 works for **one run at a time** under the new launch rules |
-| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4); re-test before merge + tests on push to `main` (F1); one CI fixer at a time (D3, F7, F11); automatic conflict resolve (D4); queue-aware runner waits (D5); C1 identifies its own UI run (F8). | **Two or more orchestrators on one repo** |
+| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4); re-test before merge + tests on push to `main` (F1); one CI fixer at a time (D3, F7, F11); automatic conflict resolve (D4); queue-aware runner waits (D5). | **Two or more orchestrators on one repo** |
 | 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
 
 Existing projects also need the **v6 migration checklist** (see Versioning) before their first v6
@@ -471,7 +475,6 @@ keeps running unchanged on existing projects while v6 is built and proven.
 files (`CLAUDE.md` steps 5–7), so moving a project from v5 to v6 needs these by hand:
 - Re-copy or patch `.github/workflows/fast-tests.yml` and `integration-tests.yml` to add the
   push-to-`main` trigger (F1-B).
-- Patch `.github/workflows/ui-tests.yml` for the C1 run-identification change (F8, once resolved).
 - Finish or close any open v5 run first; from then on launch only with
   `./scripts/orchestrate-v6.sh` (D7, F2). Never run v5 and v6 on the same repo.
 
