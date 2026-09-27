@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-27.
-> **Status:** BUILDING (2026-09-27). All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. Round 3 (2026-09-27): H1–H9 resolved (fixes folded
+> **Status:** BUILT (2026-09-27) — merged to `main`; next is first real use. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. Round 3 (2026-09-27): H1–H9 resolved (fixes folded
 > in).
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
