@@ -2,20 +2,9 @@
 
 ## Overview
 
-This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a **mode-switching orchestrator** (`orchestrate-v5`, relaunched by a dumb loop) running a PR-based pipeline with review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code. Every skill works under [engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-5: confirm against source, adversarially self-review, cold-read the saved ticket).
+This document defines the end-to-end workflow for 100% agentic software development using Claude (web interface and Claude Code), GitHub Projects, and a **mode-switching orchestrator** (`orchestrate-v6`, relaunched by a dumb loop) running a PR-based pipeline with review gates. The workflow covers everything from initial brainstorming through deployed, tested, reviewed code. Every skill works under [engineering-discipline.md](../standards/engineering-discipline.md) (ED-1..ED-5: confirm against source, adversarially self-review, cold-read the saved ticket).
 
-The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift, and milestone-based review gates to ensure human validation at meaningful intervals.
-
-### Skill generations: v5 and v6
-
-Two generations of the skills exist side by side:
-
-- **v5 — the default.** One orchestrator per repo at a time. Everything below describes v5 unless a **v6** note says otherwise.
-- **v6 — available, opt-in.** The same pipeline, plus the ability to run **several orchestrators against one repo at once**, each in its own clone, each on its own explicitly named run. See [§4.10](#410-running-several-orchestrators-at-once-v6).
-
-Rules:
-- **The user picks the generation.** Claude never switches a project to a newer generation on its own, and never picks a `-v6` skill or script because it's newer.
-- **A repo runs v5 or v6, never both.** Moving a repo to v6 is a one-way cutover between runs (finish or close any open v5 run first). The per-project steps are the migration checklist in [notes/multi-orchestrator-plan.md](../notes/multi-orchestrator-plan.md).
+The core philosophy: separate concerns between human-driven discovery, AI-assisted specification, and fully orchestrated development — with clean context boundaries at each transition to prevent drift, and milestone-based review gates to ensure human validation at meaningful intervals. Development can run as **several orchestrators at once** against one repo — each in its own clone, each working its own batch of tickets — with no coordination layer between them beyond what GitHub already shows (§4.10).
 
 ---
 
@@ -123,9 +112,9 @@ The project pulls from the shared TI-Engineering-Standards repository. On sessio
 
 This is defined in each project's `CLAUDE.md` using the project template at `templates/CLAUDE-project.md`.
 
-### 3.3 Backlog Generation (prd-to-backlog-v5)
+### 3.3 Backlog Generation (prd-to-backlog-v6)
 
-Use the `prd-to-backlog-v5` skill to decompose the PRD into a milestoned backlog. The skill:
+Use the `prd-to-backlog-v6` skill to decompose the PRD into a milestoned backlog. The skill:
 
 1. Reads the PRD, Screen Inventory, Decisions Log, and ARCHITECTURE.md
 2. Identifies foundation work (kept minimal — only what can't be part of a vertical slice)
@@ -136,7 +125,7 @@ Use the `prd-to-backlog-v5` skill to decompose the PRD into a milestoned backlog
 
 Stories follow the conventions in `standards/story-writing-standards.md`: vertical slices preferred, entity lifecycle grouping (create + list + view + delete = one story), capability-based splitting for larger features.
 
-**v6:** `prd-to-backlog-v6` (and `add-story-v6`, `refine-story-v6`, `triage-v6`, and the follow-up tickets the pipeline creates) write a **`## Dependencies`** section on every ticket — one `- #N — reason` line per blocker, or `None`. It is what `plan-batches-v6` reads to keep dependent tickets in the same batch (§4.10).
+Every ticket gets a **`## Dependencies`** section — written by `prd-to-backlog-v6`, `add-story-v6`, `refine-story-v6`, `triage-v6`, and the pipeline itself for the follow-up tickets it creates. It lists one `- #N — reason` line per blocker, or `None`. It is what `plan-batches-v6` reads to keep dependent tickets in the same batch (§4.10).
 
 ### 3.4 Backlog Review
 
@@ -147,9 +136,9 @@ After the skill generates stories, review them:
 - Are there gaps — PRD requirements with no corresponding story?
 - Are milestone groupings sensible?
 
-### 3.5 Incremental Story Additions (add-story-v5)
+### 3.5 Incremental Story Additions (add-story-v6)
 
-When adding stories mid-project (not during initial PRD decomposition), use `add-story-v5`. The skill:
+When adding stories mid-project (not during initial PRD decomposition), use `add-story-v6`. The skill:
 
 1. Reviews the existing backlog and codebase
 2. Works conversationally to understand what you want to add
@@ -157,16 +146,16 @@ When adding stories mid-project (not during initial PRD decomposition), use `add
 4. Determines milestone placement
 5. Creates issues after human approval
 
-### 3.6 PRD Reconciliation (reconcile-backlog-v5)
+### 3.6 PRD Reconciliation (reconcile-backlog-v6)
 
-When a PRD is revised mid-project (scope changes, new decisions, stakeholder feedback), use `reconcile-backlog-v5` to reconcile the changes against the existing backlog and codebase. The skill:
+When a PRD is revised mid-project (scope changes, new decisions, stakeholder feedback), use `reconcile-backlog-v6` to reconcile the changes against the existing backlog and codebase. The skill:
 
 1. Diffs the old and new PRDs section by section, identifying material changes
 2. Fetches the full backlog (open and closed issues) and scans the codebase to understand what's already built
 3. Classifies each change as: **CREATE** (new ticket), **UPDATE** (modify existing open ticket), **FLAG** (closed ticket needs rework — creates a delta ticket), or **SKIP** (cosmetic/doc-only)
 4. Writes a checklist file to `docs/` for state tracking and recovery
 5. Presents the full reconciliation plan for human approval before touching GitHub
-6. Executes approved actions using `add-story-v5` (for new tickets) and `refine-story-v5` (to re-refine updated tickets)
+6. Executes approved actions using `add-story-v6` (for new tickets) and `refine-story-v6` (to re-refine updated tickets)
 
 This keeps the backlog in sync with the PRD as a living document, rather than requiring a full re-decomposition.
 
@@ -194,40 +183,47 @@ If any tests fail on a fresh clone, stop and fix before proceeding. A clean base
 
 ## Phase 4: Orchestrated Development
 
-**Tool:** Claude Code with orchestrate-v5
+**Tool:** Claude Code with orchestrate-v6
 **Input:** Backlog tickets (refined automatically by the orchestrator as Stage 1)
 **Output:** Implemented, reviewed, tested, merged code
 
 ### 4.1 Architecture: PR-Based Pipeline with Review Gates
 
-The v5 pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift. It is itself **stateless and relaunched** by a dumb loop: on each launch it self-selects **WORKING** (process up to N ready tickets, then checkpoint and exit) or **CLEANUP** (end-of-run oversight) from durable state on a per-run tracking issue — so a crash mid-run just relaunches and recovers state, and no single session accumulates context rot. The test work follows the four-tier model (Unit + Contract = fast tier, no Docker; Integration = real infra; UI = journey-scoped on the self-hosted runner); see [standards/testing.md](../standards/testing.md).
+The pipeline uses pull requests as the unit of work with automated engineering and security review gates. The orchestrator spawns fresh sub-agents for each stage, preventing context drift. It is itself **stateless and relaunched** by a dumb loop: on each launch it self-selects **WORKING** (process up to N ready tickets, then checkpoint and exit) or **CLEANUP** (end-of-run oversight) from durable state on a per-run tracking issue — so a crash mid-run just relaunches and recovers state, and no single session accumulates context rot. The test work follows the four-tier model (Unit + Contract = fast tier, no Docker; Integration = real infra; UI = journey-scoped on the self-hosted runner); see [standards/testing.md](../standards/testing.md).
 
 ```
 Per Ticket:
-1.  REFINE ──────────── refine-story-v5 (enriches issue spec)
-2.  IMPLEMENT ───────── implement-ticket-v5 (creates PR #1)
-3.  ENGINEERING REVIEW ─ engineering-review-v5 (standards check)
+1.  REFINE ──────────── refine-story-v6 (enriches issue spec)
+2.  IMPLEMENT ───────── implement-ticket-v6 (creates PR #1)
+3.  ENGINEERING REVIEW ─ engineering-review-v6 (standards check)
     └─ Loop: reviewer ↔ implementer fix mode (max 3 iterations)
-4.  SECURITY REVIEW ──── security-review-v5 (OWASP Top 10 + infrastructure)
+4.  SECURITY REVIEW ──── security-review-v6 (OWASP Top 10 + infrastructure)
     └─ Loop: reviewer ↔ implementer fix mode (max 2 iterations)
-    └─ On pass → merge PR #1
-    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
-5.  INTEGRATION TESTS ── integration-test-v5 (creates PR #2)
-6.  ENGINEERING REVIEW ─ engineering-review-v5 (integration test quality)
+    └─ On pass → merge gate → merge PR #1
+    └─ ci-fix-v6 WATCH (background) ─── monitors CI/CD for the merge
+5.  INTEGRATION TESTS ── integration-test-v6 (creates PR #2)
+6.  ENGINEERING REVIEW ─ engineering-review-v6 (integration test quality)
     └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
-    └─ On approve → merge PR #2
-    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
-7.  UI TESTS ─── ui-test-v5 (creates PR #3)
-8.  ENGINEERING REVIEW ─ engineering-review-v5 (ui test quality)
+    └─ On approve → merge gate → merge PR #2
+    └─ ci-fix-v6 WATCH (background) ─── monitors CI/CD for the merge
+7.  UI TESTS ─── ui-test-v6 (creates PR #3)
+8.  ENGINEERING REVIEW ─ engineering-review-v6 (ui test quality)
     └─ Loop: reviewer ↔ test-writer fix mode (max 3 iterations)
-    └─ On approve → merge PR #3
-    └─ ci-fix-v5 WATCH (background) ─── monitors CI/CD for the merge
+    └─ On approve → merge gate → merge PR #3
+    └─ ci-fix-v6 WATCH (background) ─── monitors CI/CD for the merge
 9.  CLOSE ───────────── drain CI watchers, check acceptance criteria, close issue
 
     Background CI/CD side-channel:
-    ┌─ ci-fix-v5 WATCH reports failure
-    └─ ci-fix-v5 FIX (background) ─── diagnoses logs, creates fix PR, merges
+    ┌─ ci-fix-v6 WATCH reports failure
+    └─ ci-fix-v6 FIX (background) ─── diagnoses logs, creates fix PR, merges
        └─ If FIX blocked → circuit breaker halts orchestrator
+
+    Merge gate (before every merge):
+    ├─ PR checks green against the CURRENT main — if main moved, bring the PR
+    │  up to date and re-test first
+    ├─ PR red while main is red → not this ticket's fault: wait for the single
+    │  CI fixer, then update and re-test
+    └─ Merge conflict → one automatic resolve attempt, then halt
 ```
 
 ### 4.2 Milestone Gates
@@ -236,57 +232,52 @@ When the orchestrator encounters an issue with the `milestone` label, it stops r
 
 1. Runs the smoke test checklist from the milestone issue body
 2. Reports results and lists stories completed in this milestone
-3. Waits for human approval before continuing
+3. Waits for human approval before continuing — approve through the run's operator-message slot, then resume with `--run`
 
 This ensures the developer can launch the application, interact with it, and verify it matches expectations before more work proceeds. Milestones map to screen inventory groupings — each milestone delivers a coherent set of user-visible functionality.
 
 ### 4.3 Operating Modes and Launching
 
 The orchestrator self-selects a **run mode** from durable state on each relaunch:
-- **WORKING**: tickets are in "Up Next" — process up to N of them, checkpoint to the tracking issue, and exit (the loop relaunches it).
-- **CLEANUP**: nothing left in "Up Next" — run end-of-batch oversight (full UI dispatch, pyramid-ratio + drift check, TR gate-audit, inject fixes), then close the run.
+- **WORKING**: tickets in this run's scope are in "Up Next" — process up to N of them, in scope order, checkpoint to the tracking issue, and exit (the loop relaunches it).
+- **CLEANUP**: none of the run's tickets are left in "Up Next" — run end-of-batch oversight (full UI dispatch, pyramid-ratio + drift check, TR gate-audit, inject fixes), then close the run.
 
 Orthogonally, a **human-oversight mode** controls cadence:
-- **Supervised**: hard stop between each ticket (`orchestrate-v5 supervised #<issue>`). Used when iterating on skills, early in a project, or when close oversight is desired.
+- **Supervised**: hard stop between each ticket (`orchestrate-v6 supervised #<issue>`). Used when iterating on skills, early in a project, or when close oversight is desired.
 - **Autonomous**: the dumb loop relaunches the orchestrator continuously, stopping only at milestones, circuit breakers, or completion. An operator can steer a headless run between loops via the operator-message slot on the tracking issue.
 
-**Launching (v5):** `./scripts/orchestrate.sh` runs the whole board's Up Next; `./scripts/orchestrate.sh --tickets "#7,#8"` scopes the run to those tickets, in that order. There is one open run per repo; a relaunch finds it by the `orchestration-run` label.
-
-**Launching (v6):** a run is always named explicitly — there is no whole-board mode:
+**Launching.** A run is always named explicitly — the orchestrator never goes looking at the board for work:
 - `./scripts/orchestrate-v6.sh --tickets "#7,#8"` **starts a new run** for exactly those tickets (issue numbers, in processing order). The loop creates the run's tracking issue and refuses tickets another open run already owns.
 - `./scripts/orchestrate-v6.sh --run 123` **continues run #123** — also how you resume after Ctrl-C, a crash, a milestone pause, or the relaunch cap.
 - Neither, or both → it refuses and says why.
 - `./scripts/orchestrate-v6.sh --status [123]` lists every open run, or shows one in detail. `monitor-v6 [123]` narrates the same way.
 - Interactively: `orchestrate-v6 supervised #7,#8` (new run) or `orchestrate-v6 supervised --run 123` (continue).
-- **Usage limit:** if a session dies on the Claude usage/rate limit, the v6 loop marks the run `LIMIT_WAIT`, waits for the reset, and carries on — the wait doesn't count toward the relaunch cap.
+- **Usage limit:** if a session dies on the Claude usage/rate limit, the loop marks the run `LIMIT_WAIT`, waits for the reset, and carries on — the wait doesn't count toward the relaunch cap.
 
 ### 4.4 Circuit Breakers
 
 Even in autonomous mode, the orchestrator halts entirely if:
 
 - 3 consecutive tickets are Blocked or Partial — something systemic is wrong
-- A PR merge conflict occurs — needs human judgment
-- Build fails on main after a merge — main is corrupted (rollback tag available)
+- A merge conflict can't be resolved automatically — the orchestrator makes one attempt (merge `main` into the branch, resolve, re-run build and tests, back through the merge gate) before asking for human judgment
 - 3 review iterations exhausted on 2 consecutive tickets — pattern problem
 - A CI/CD fix agent reports Blocked — a pipeline failure that cannot be auto-fixed means main is broken and deployments are stuck
 
-**v6 changes two of these**, because with several runs merging, conflicts and a red `main` are expected events rather than emergencies:
-- **Merge conflict:** the orchestrator makes **one automatic attempt** — merge `main` into the branch, resolve, re-run build and tests, back through the merge gate. It halts only if that fails.
-- **Build fails on main:** no longer a halt on its own. A red `main` goes to a single CI fixer (§4.5) while the run waits to merge; the halt remains if that fix reports Blocked.
+A red `main` is **not** a halt by itself: with several runs merging, it's an expected event. It goes to a single CI fixer (§4.5) while the run waits to merge; the halt only comes if that fix is Blocked. On any halt, fix the cause and resume with `--run`.
 
 ### 4.5 Background CI/CD Health Watching
 
-After every PR merge, the orchestrator spawns **ci-fix-v5** in WATCH mode as a background agent. This runs in parallel with the next pipeline stage — the orchestrator does not block on it.
+After every PR merge, the orchestrator spawns **ci-fix-v6** in WATCH mode as a background agent. This runs in parallel with the next pipeline stage — the orchestrator does not block on it.
 
 - **If CI/CD passes:** The watcher reports success and the orchestrator logs it. No action needed.
-- **If CI/CD fails:** The watcher reports the failure. The orchestrator spawns **ci-fix-v5** in FIX mode — also in the background. The fix agent downloads failure logs, diagnoses the root cause, creates a fix branch, pushes a repair PR, and merges it. All of this happens on its own branch, parallel to whatever ticket is currently in progress.
+- **If CI/CD fails:** The watcher reports the failure. The orchestrator spawns **ci-fix-v6** in FIX mode — also in the background. The fix agent downloads failure logs, diagnoses the root cause, creates a fix branch, pushes a repair PR, and merges it. All of this happens on its own branch, parallel to whatever ticket is currently in progress.
 - **If the fix cannot be applied:** The fix agent reports Blocked, which triggers a circuit breaker — the orchestrator halts after the current stage completes.
 
 This eliminates the blind spot where CI/CD breaks silently and multiple tickets pile up without deploying. The orchestrator discovers failures within minutes of the merge that caused them, and in most cases fixes them automatically without interrupting the current ticket's pipeline.
 
-The ci-fix-v5 skill can also be invoked standalone (`/ci-fix-v5`) to diagnose and repair CI/CD issues outside of the orchestrator pipeline.
+The ci-fix-v6 skill can also be invoked standalone (`/ci-fix-v6`) to diagnose and repair CI/CD issues outside of the orchestrator pipeline.
 
-**v6 — one fixer at a time.** Several runs share one `main`, so they could all notice the same breakage. In v6:
+**One fixer at a time.** Several runs share one `main`, so they could all notice the same breakage:
 - **"Who's fixing" is simply an open `fix/ci-*` PR.** Before starting, and again before pushing, `ci-fix-v6` checks for one; if it exists it waits for it instead of making a second fix. A fix PR idle for ~30 min (no commits, comments, or queued/running checks) counts as abandoned and is taken over.
 - **The merge gate checks `main` first.** A PR that is red while `main` is red isn't at fault — the run waits for `main` to go green instead of patching someone else's breakage inside its ticket. If nobody is fixing `main`, the orchestrator starts the fix itself.
 - **Re-test before merge.** If `main` moved since a PR's checks ran, the orchestrator brings the PR up to date with `main` and waits for the checks again before merging.
@@ -318,13 +309,13 @@ These are reported in the session summary for cost tracking and identifying stor
 
 When developer CONCERNS or integration tester NOTES reveal something that contradicts or is missing from the PRD, the orchestrator captures it in a PRD amendments log. This is reported in the session summary so the PRD remains a living document.
 
-### 4.10 Running Several Orchestrators at Once (v6)
+### 4.10 Running Several Orchestrators at Once
 
-v6 lets several orchestrators work one repo at the same time. There is **no coordination layer** between them: each run owns its own tickets, and they share only GitHub (the repo, `main`, the board, the issues) and the CI runner.
+Several orchestrators can work one repo at the same time. There is **no coordination layer** between them: each run owns its own tickets, and they share only GitHub (the repo, `main`, the board, the issues) and the CI runner.
 
 **Setup:**
 - **One orchestrator per clone.** Each needs its own checkout of the repo — normally one per machine. Several orchestrators for *different* repos on one machine or container is fine, as before.
-- The repo must be on v6 (see [Skill generations](#skill-generations-v5-and-v6)); in particular its `fast-tests.yml` / `integration-tests.yml` need the push-to-`main` trigger.
+- The repo's `fast-tests.yml` / `integration-tests.yml` must run on push to `main` as well as on PRs (the template workflows do), so a broken `main` is visible.
 
 **Steps:**
 1. **Split the tickets into batches.** Run `plan-batches-v6 #1,#2,…,#15 [N]` (N = number of orchestrators, default 2). It reads every ticket, keeps each dependency chain in one batch (a dependency can never cross runs — nothing orders work between machines), places milestones after their stories, groups tickets that touch the same files, balances by rough size, and prints one launch line per batch. It never writes to GitHub; you review the batches.
@@ -335,9 +326,8 @@ v6 lets several orchestrators work one repo at the same time. There is **no coor
 **Rules:**
 - **A ticket belongs to at most one open run.** The loop and the skill refuse overlapping tickets, including tickets added mid-run through the operator slot.
 - **One driver per run** — don't `--run 123` from two places at once.
-- **Never mix v5 and v6 on one repo.**
 
-**What v6 handles for you:** re-testing a PR against the latest `main` before merging, one CI fixer at a time, one automatic merge-conflict attempt, waiting (not halting) when the runner is busy with the other run's jobs, and waiting out the Claude usage limit. **Runners:** one self-hosted runner per repo works — the runs' jobs take turns. Extra runners must be on other machines (the UI tier uses fixed ports); see [self-hosted-runner-setup.md](../developer-tools/self-hosted-runner-setup.md).
+**What the orchestrator handles for you:** re-testing a PR against the latest `main` before merging, one CI fixer at a time, one automatic merge-conflict attempt, waiting (not halting) when the runner is busy with the other run's jobs, and waiting out the Claude usage limit. **Runners:** one self-hosted runner per repo works — the runs' jobs take turns. Extra runners must be on other machines (the UI tier uses fixed ports); see [self-hosted-runner-setup.md](../developer-tools/self-hosted-runner-setup.md).
 
 Design and decisions: [notes/multi-orchestrator-plan.md](../notes/multi-orchestrator-plan.md).
 
@@ -362,14 +352,14 @@ The orchestrator produces a comprehensive summary including:
 
 After testing the running application, issues and bugs will surface. **Triage is the formal re-entry point back into Phase 4** — it is not optional and not informal. Every bug or unexpected behavior that warrants a fix goes through triage before any code is written.
 
-Use **triage-v5** to investigate and formally capture findings:
+Use **triage-v6** to investigate and formally capture findings:
 
 - Triage runs in read-only mode — it never writes code
 - It investigates symptoms, traces root causes, and produces a GitHub issue as output
 - The resulting ticket feeds directly back into the Phase 4 orchestrator on the next development cycle
 - Ad-hoc fixes outside of this loop are prohibited — they bypass review gates and break the audit trail
 
-This creates a closed loop: **Phase 5 → triage-v5 → GitHub issue → Phase 4 → merge → Phase 6 → Phase 5**.
+This creates a closed loop: **Phase 5 → triage-v6 → GitHub issue → Phase 4 → merge → Phase 6 → Phase 5**.
 
 For ad-hoc debugging during investigation (not fixing), Claude Code can be used directly to trace behavior, inspect logs, or reproduce issues. The output of that investigation is always a ticket, never a direct code change.
 
@@ -491,13 +481,13 @@ Periodically review NuGet and npm package versions for security updates. This is
 
 If `main` is ever in a broken state (build fails, tests fail on main):
 
-1. **Try ci-fix-v5 first** — run `/ci-fix-v5` standalone to auto-diagnose and fix. If the orchestrator is running, it will have already attempted this via the background watcher.
-2. If ci-fix-v5 reports Blocked (cannot auto-fix), do not merge anything new until main is green.
+1. **Try ci-fix-v6 first** — run `/ci-fix-v6` standalone to auto-diagnose and fix. If the orchestrator is running, it will have already attempted this via the background watcher.
+2. If ci-fix-v6 reports Blocked (cannot auto-fix), do not merge anything new until main is green.
 3. Check the orchestrator's rollback tag (`pre-{STORY_ID}`) if the break was introduced during a development session.
-4. Create a triage ticket via triage-v5 for the underlying issue.
+4. Create a triage ticket via triage-v6 for the underlying issue.
 5. Fix via a normal branch → PR → review flow, not a direct push to main.
 
-**v6:** if orchestrators are running, check for an open `fix/ci-*` PR first — one of them may already be fixing it. Don't start a second fix alongside it.
+If orchestrators are running, check for an open `fix/ci-*` PR first — one of them may already be fixing it. Don't start a second fix alongside it.
 
 ### 7.5 Returning to a Dormant Project
 
@@ -506,7 +496,7 @@ When picking up a project after significant time away:
 1. Pull latest `main` and re-sync standards
 2. Run unit + integration tests locally — establish a clean baseline before any work
 3. Deploy to Dev if it has gone stale — verify the running application matches expectations
-4. Review open issues on the board for anything that was In Progress or Waiting/Blocked (**v6:** an In Progress ticket in an open run's scope belongs to that run — resume the run with `--run`, don't pick the ticket up by hand)
+4. Review open issues on the board for anything that was In Progress or Waiting/Blocked (an In Progress ticket in an open run's scope belongs to that run — resume the run with `--run`, don't pick the ticket up by hand)
 5. Run a conformance check against `standards/environments.md`
 6. Only then begin new development work
 
@@ -524,7 +514,7 @@ When picking up a project after significant time away:
 
 **Trust but verify.** The orchestrator independently verifies build and tests after each stage. Sub-agent status reports are parsed strictly — non-standard responses are treated as Partial.
 
-**Parallelism by separation, not coordination (v6).** Several orchestrators run side by side by owning disjoint tickets in separate clones, not by talking to each other. The only shared signals are ones GitHub already provides: which tickets a run owns, whether `main` is green, and whether a fix PR is open.
+**Parallelism by separation, not coordination.** Several orchestrators run side by side by owning disjoint tickets in separate clones, not by talking to each other. The only shared signals are ones GitHub already provides: which tickets a run owns, whether `main` is green, and whether a fix PR is open.
 
 **Shared standards, project-specific rules.** The engineering standards repo is the single source of truth across projects. Project-level files (CLAUDE.md, ARCHITECTURE.md) layer on project-specific context. Skills auto-sync from the standards repo.
 
@@ -534,44 +524,36 @@ When picking up a project after significant time away:
 
 ---
 
-## Skills Reference (v5, with v6 notes)
+## Skills Reference
 
 All skills work under `standards/engineering-discipline.md` (ED-1..ED-5); the ticket-producing skills end with an ED-5 cold read — a fresh subagent reads the saved ticket and reports what's missing (interactive mode only).
 
 ### Story Creation & Backlog Maintenance
 | Skill | Purpose |
 |-------|---------|
-| prd-to-backlog-v5 | Bulk PRD decomposition into milestoned backlog; nominates the repo-wide critical-path journeys |
-| add-story-v5 | Incremental story creation for existing projects; non-interactive mode for callers |
-| reconcile-backlog-v5 | Reconcile PRD version changes against an existing backlog and codebase (classifications grounded in source) |
+| prd-to-backlog-v6 | Bulk PRD decomposition into milestoned backlog; nominates the repo-wide critical-path journeys |
+| add-story-v6 | Incremental story creation for existing projects; non-interactive mode for callers |
+| reconcile-backlog-v6 | Reconcile PRD version changes against an existing backlog and codebase (classifications grounded in source) |
 
-### Development Pipeline (per ticket, managed by orchestrate-v5)
+### Development Pipeline (per ticket, managed by orchestrate-v6)
 | Skill | Purpose |
 |-------|---------|
-| refine-story-v5 | Enrich issue into a behavior-first tier table (one tier per behavior); adversarial self-review in all modes |
-| implement-ticket-v5 | Implement code + Unit/Contract tests, create PR. Supports fix mode for review feedback |
-| engineering-review-v5 | Review PR against standards + TR rules (two-way) and ED (ungrounded-claim check). Implementation, integration-test, and ui-test modes |
-| security-review-v5 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
-| ci-fix-v5 | Monitor GitHub Actions and auto-fix CI/CD failures. Background side-channel after each merge; standalone for ad-hoc repair |
-| integration-test-v5 | Write integration tests, create PR. Supports fix mode |
-| ui-test-v5 | Write Playwright UI tests, create PR. Supports fix mode |
-| orchestrate-v5 | Mode-switching pipeline orchestrator (WORKING/CLEANUP), relaunched by the dumb loop; per-run tracking issue, TR gate-audit, observability |
-| monitor-v5 | Read-only live narrator for an orchestration run (stage/PR/CLEANUP events, stall flags); never writes |
-
-### v6 generation (opt-in)
-Every skill above also exists as a `-v6` copy (`orchestrate-v6`, `ci-fix-v6`, …) with the v6 behavior described in §4.3–§4.5 and §4.10, plus one new skill:
-
-| Skill | Purpose |
-|-------|---------|
+| refine-story-v6 | Enrich issue into a behavior-first tier table (one tier per behavior); adversarial self-review in all modes |
+| implement-ticket-v6 | Implement code + Unit/Contract tests, create PR. Supports fix mode for review feedback |
+| engineering-review-v6 | Review PR against standards + TR rules (two-way) and ED (ungrounded-claim check). Implementation, integration-test, and ui-test modes |
+| security-review-v6 | OWASP Top 10 + infrastructure security review (auto-detects Bicep, Docker, GitHub Actions) |
+| ci-fix-v6 | Monitor GitHub Actions and auto-fix CI/CD failures, one fixer at a time across runs. Background side-channel after each merge; standalone for ad-hoc repair |
+| integration-test-v6 | Write integration tests, create PR. Supports fix mode |
+| ui-test-v6 | Write Playwright UI tests, create PR. Supports fix mode |
+| orchestrate-v6 | Mode-switching pipeline orchestrator (WORKING/CLEANUP) bound to one explicit run, relaunched by the dumb loop; merge gate, per-run tracking issue, TR gate-audit, observability. Entrypoint `scripts/orchestrate-v6.sh` |
+| monitor-v6 | Read-only live narrator for orchestration runs — lists all open runs, or narrates one (stage/PR/CLEANUP events, stall flags); never writes |
 | plan-batches-v6 | Split a ticket list into dependency-safe batches for parallel orchestrator runs; read-only, prints one `orchestrate-v6.sh --tickets` line per batch |
-
-The entrypoint is `scripts/orchestrate-v6.sh` (from `templates/scripts/orchestrate-v6.sh`); v5 keeps `scripts/orchestrate.sh`.
 
 ### Investigation, Triage & Conformance
 | Skill | Purpose |
 |-------|---------|
-| triage-v5 | Interactive investigation and bug triage — evidence-first runtime diagnosis (pull the real exception before theorizing); never writes code, output is always a ticket |
-| conformance-v5 | Audit a project against TI Engineering Standards — informational only, produces a gap report |
+| triage-v6 | Interactive investigation and bug triage — evidence-first runtime diagnosis (pull the real exception before theorizing); never writes code, output is always a ticket |
+| conformance-v6 | Audit a project against TI Engineering Standards — informational only, produces a gap report |
 
 ### Standards
 | File | Purpose |
