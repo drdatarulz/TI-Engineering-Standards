@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped; F6–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted; F7–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -389,7 +389,10 @@ Each finding below was re-checked against source before recording. Status: all *
   Original finding: **D5's "runner busy?" check is blind to shared runners.** "The repo's
   in-progress runs" can't see an org-level runner or one busy with another repo's job
   (`SKILL.md:941`; `self-hosted-runner-setup.md:132-133`).
-- **F6 — SHOULD-FIX — a run waiting on another run's fix burns `MAX_ITER`.** D3's CLEANUP dedupe
+- **F6 — ACCEPTED, no change (2026-09-27).** Each waiting pass re-runs the full UI suite, so 50
+  passes take many hours; the other run's fix lands long before. Running out only happens if the
+  owning run is stuck or halted, and then stopping is right (a human is needed; resume with `--run`).
+  Original finding: **a run waiting on another run's fix burns `MAX_ITER`.** D3's CLEANUP dedupe
   re-checks each pass, and each pass is a relaunch counted toward `MAX_ITER=50`
   (`orchestrate-loop.sh:73`, `:261-264`) → circuit breaker. If the owning run is parked or halted,
   the waiter can never finish. Needs a waiting state that doesn't count (like `LIMIT_WAIT`) and a
@@ -431,7 +434,7 @@ Each finding below was re-checked against source before recording. Status: all *
 | 0 | **Create the v6 generation** (see Versioning): 14 skills copied to `-v6` with cross-references renamed; v6 loop, status script, wrapper (D7). | v6 behaves exactly like v5 |
 | 1 | **`LIMIT_WAIT`** (§5) in both v5 and v6 (D6). Blocked until a real limit message is captured. | Runs survive the usage limit |
 | 2 | **One-run changes:** `--tickets` / `--run` and refusals (§1, §2); loop creates the issue (D1, F9); interactive `--run` (D2); full-board removal; Step 0.6 scoped to the run; lock/log keyed on full path; status + monitor (§3); docs (§4, F10). | v6 works for **one run at a time** under the new launch rules |
-| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4); re-test before merge + tests on push to `main` (F1); one CI fixer at a time (D3, F6, F7, F11); automatic conflict resolve (D4); queue-aware runner waits (D5); C1 identifies its own UI run (F8). | **Two or more orchestrators on one repo** |
+| 3 | **Two-at-once safety:** scope-overlap guard (§1, F4); re-test before merge + tests on push to `main` (F1); one CI fixer at a time (D3, F7, F11); automatic conflict resolve (D4); queue-aware runner waits (D5); C1 identifies its own UI run (F8). | **Two or more orchestrators on one repo** |
 | 4 | **`plan-batches-v6`** skill and the **`## Dependencies` section** (D8) in every v6 skill that creates or refines tickets (prd-to-backlog, add-story, refine-story, triage, implement-ticket, orchestrate). | Independent; can be built any time after step 0 |
 
 Existing projects also need the **v6 migration checklist** (see Versioning) before their first v6
