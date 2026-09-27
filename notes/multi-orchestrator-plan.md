@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F3 resolved; F4–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved; F5–F12 OPEN.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -375,6 +375,16 @@ Each finding below was re-checked against source before recording. Status: all *
   at creation. Bypasses: operator slot "add #12,#13" appends to `Scope:` (`SKILL.md:220`);
   interactive runs create their own issue (D1); Stage 2d follow-ups (`:470-476`); two launches
   racing (check-then-create).
+  **RESOLVED (2026-09-27):**
+  - **The skill runs the same overlap check** whenever it creates a run (interactive) or adds
+    tickets to one (operator slot). On an add, overlapping tickets are not added; the
+    `✉ operator message handled` comment says which and which run owns them.
+  - **Re-check right after creating a run** (loop and skill). If another open run now overlaps, the
+    newer run (higher issue number) closes itself and refuses to start. Closes the same-moment
+    race.
+  - **Follow-up / fix tickets the run creates itself** (Stage 2d, implement deferrals, C4): no
+    check. Rejected as a risk: they're brand-new, so no other run can own them; duplicate cleanup
+    fixes are covered by D3's dedupe by test name.
 - **F5 — SHOULD-FIX — D5's "runner busy?" check is blind to shared runners.** "The repo's
   in-progress runs" can't see an org-level runner or one busy with another repo's job
   (`SKILL.md:941`; `self-hosted-runner-setup.md:132-133`).
