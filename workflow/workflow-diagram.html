@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TI Agentic Development Workflow — v5</title>
+<title>TI Agentic Development Workflow — v5 / v6</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
@@ -347,7 +347,7 @@
 
 <div class="header">
   <h1>agentic<span>.</span>workflow</h1>
-  <div class="version">v5 — Mode-Switching Pipeline (WORKING / CLEANUP), relaunched by the dumb loop</div>
+  <div class="version">v5 — Mode-Switching Pipeline (WORKING / CLEANUP), relaunched by the dumb loop · v6 (opt-in) — several runs on one repo at once</div>
   <p>Full lifecycle from brainstorm to reviewed, tested, merged code — orchestrating Claude Web, Claude Code, and GitHub with automated engineering and security review gates.</p>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-discovery)"></div>Discovery</div>
@@ -625,10 +625,32 @@
           <div class="step" style="border-color:rgba(232,99,122,0.2)">
             <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛑</span> Circuit Breakers</div>
             <h3>Orchestrator Halts Entirely</h3>
-            <p>3 consecutive Partial/Blocked tickets. PR merge conflict. Build fails on main (rollback tag available). Review loop exhausted on 2 consecutive tickets.</p>
+            <p>3 consecutive Partial/Blocked tickets. PR merge conflict. Build fails on main (rollback tag available). Review loop exhausted on 2 consecutive tickets. <strong>v6:</strong> a merge conflict gets one automatic resolve attempt first, and a red main goes to a single CI fixer instead of halting — the halt stays if that fix is Blocked.</p>
           </div>
         </div>
 
+      </div>
+
+      <!-- v6 parallel runs -->
+      <div class="orchestrator-box" style="margin-top:16px">
+        <div class="orch-label">▸ v6 (opt-in) — several orchestrators on one repo, each in its own clone, each on its own run</div>
+        <div class="step-row triple" style="margin-top:12px">
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🧩</span> Batch</div>
+            <h3>plan-batches-v6</h3>
+            <p>Split the ticket list into batches (default 2). Dependency chains, milestones and shared-file tickets stay in one batch; prints one launch line per batch. Read-only.</p>
+          </div>
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">▶</span> Launch</div>
+            <h3>orchestrate-v6.sh --tickets / --run</h3>
+            <p><code>--tickets "#1,#4"</code> starts a run (refused if another open run owns a ticket); <code>--run N</code> continues or resumes it; <code>--status</code> lists all runs. One run per clone.</p>
+          </div>
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🤝</span> Shared main</div>
+            <h3>No coordination layer</h3>
+            <p>Re-test a PR against latest main before merging; a red main waits for one CI fixer (an open <code>fix/ci-*</code> PR); one automatic conflict attempt; usage-limit waits don't burn relaunches.</p>
+          </div>
+        </div>
       </div>
 
       <!-- CLEANUP mode -->
