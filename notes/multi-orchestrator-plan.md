@@ -3,8 +3,9 @@
 > **Purpose:** let **several orchestrators run at the same time against one repo, each in its own
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
-> **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes.
+> **Created:** 2026-09-26. **Last updated:** 2026-09-27.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 2 (2026-09-27): G1–G9 recorded with fixes. **Round 3 (2026-09-27): H1–H9 OPEN — awaiting
+> operator decisions** (see Cold-read findings, round 3).
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -135,7 +136,7 @@ Rules:
   label) rewritten for many open runs, each bound by number.
 - `standards/project-tracking.md:57` (queue = all of Up Next; crash recovery resets every In
   Progress) reworded for scoped runs (F10).
-- `standards/project-tracking.md:88-90` session-start protocol ("pick up In Progress items"):
+- `standards/project-tracking.md:89-91` session-start protocol ("pick up In Progress items"):
   an In Progress ticket in an open run's scope belongs to that run — don't pick it up (F10).
 - `orchestrate-v6/SKILL.md` copies of `:166` and `:171` ("the loop never touches it", "never a run
   ID the loop would have to hold") rewritten; both are false in v6 (F10).
@@ -354,7 +355,8 @@ you launch a batch. You reviewing the batches is the confirm step.
 ## Cold-read findings (round 1, 2026-09-26) — work one at a time
 
 A fresh subagent read the plan against the repo (ED-5). ~55 citations checked; one drifted (F12).
-Each finding below was re-checked against source before recording. Status: all **OPEN**.
+Each finding below was re-checked against source before recording. Status: all worked through
+(2026-09-27) — see each item.
 
 - **F1 — BLOCKER — no "`main` is red" signal; PRs merge on stale green.** The test workflows run
   only on `pull_request` (`templates/workflows/fast-tests.yml:15-17`, `integration-tests.yml:11-13`);
@@ -453,7 +455,7 @@ Each finding below was re-checked against source before recording. Status: all *
   4. A `gh` error on "is the run closed?" is never read as closed: keep today's
      couldn't-read → relaunch behavior (`orchestrate-loop.sh:247-248`).
 - **F10 — SHOULD-FIX — more docs to update.** `standards/project-tracking.md:57` (queue = Up Next;
-  crash recovery resets In Progress) and `:88-90` (session start picks up any In Progress item —
+  crash recovery resets In Progress) and `:89-91` (session start picks up any In Progress item —
   the other machine's ticket); `SKILL.md:166,171` ("loop never touches it", "never a run ID the loop
   would have to hold"); the v6 loop's `--status` must exec the v6 status script
   (`orchestrate-loop.sh:100`).
@@ -502,6 +504,84 @@ sections named.
   `integration-tests.yml` header rewrite (describes F1-A) was in step 2. **Fix:** table updated.
 - **G9 — NIT — a run self-closed over an overlap looks "already complete" to `--run`.** **Fix
   (F4):** `⚠ closed — scope overlap with #N` comment; `--run` reports it.
+
+---
+
+## Cold-read findings (round 3, 2026-09-27) — OPEN, for the operator to decide
+
+A third fresh subagent read the plan after round 2. ~85 citations checked; one had drifted
+(`project-tracking.md:88-90` → `:89-91`, now fixed). I re-checked each finding below against the
+source; all hold. **Nothing here has been decided** — each has a suggested simple fix. H9 was pure
+bookkeeping and is already fixed.
+
+**Summary:** no blockers this round. Five should-fixes, three small nits. Most are edge cases in the
+round-2 CI-fix rules (G1, G5, G6).
+
+- **H1 — SHOULD-FIX — the merge gate can start a second fixer inside the same run.**
+  *In plain terms:* the CI watcher starts a fix in the background, and that fix spends a while
+  diagnosing and testing before it opens a PR. During that time the merge gate sees "red `main`, no
+  fix PR" (G1) and starts a second fix. Both push branches with the same run number, the second push
+  can be rejected, and that likely ends as Blocked → run halts.
+  *Evidence:* background FIX spawn `orchestrate-v5/SKILL.md:1099-1106`; FIX diagnoses/tests before
+  pushing `ci-fix-v5/SKILL.md:130-197`; Blocked halts `SKILL.md:1127`.
+  *Suggested fix:* before starting a fix, the merge gate also checks whether this session already
+  has a fix running (`session_metrics.ci_fixes[]`); if so, it waits on that one.
+
+- **H2 — SHOULD-FIX — CLEANUP can wait forever on a fix ticket nobody is working.**
+  *In plain terms:* D3 says "if an open fix ticket for this test already exists, don't make
+  another, wait for it." But that ticket might not be in any open run — e.g. left over from a
+  finished run. Then nobody ever works it and this run never finishes.
+  *Evidence:* the pilot did exactly this — ticket #389 filed and left open (`SKILL.md:935`).
+  *Suggested fix:* only wait if the existing ticket is in another **open run's** `Scope:`;
+  otherwise add it to this run's `Scope:` and work it.
+
+- **H3 — SHOULD-FIX — a Stage 2d follow-up might already belong to the other run.**
+  *In plain terms:* F4 skipped the overlap check for follow-ups because "they're brand new." But
+  2d also picks up follow-ups that already existed, which could be in another run's scope. G5 now
+  adds those to `Scope:` without a check.
+  *Evidence:* "check whether a follow-up ticket was created" / "If a follow-up ticket exists"
+  (`SKILL.md:464`, `:466`); only `:465` auto-creates.
+  *Suggested fix:* run the overlap check when 2d adds a ticket it didn't create itself.
+
+- **H4 — SHOULD-FIX — `plan-batches-v6` prints v5 launch commands.**
+  *In plain terms:* the batching skill's output lines say `./scripts/orchestrate.sh`, which is the
+  **v5** wrapper (D7). Pasting two of those starts two v5 runs, which close each other's run
+  issue — the exact F2 hazard, caused by our own tool.
+  *Evidence:* plan "Planning the split" output line; `templates/scripts/orchestrate.sh:27`;
+  v5 closes older runs `SKILL.md:185`.
+  *Suggested fix:* output `./scripts/orchestrate-v6.sh --tickets "..."`. (One-word change; left
+  open only because I said I wouldn't decide anything while you were away.)
+
+- **H5 — SHOULD-FIX — a CI fix merges itself without F1's re-test, and can merge a duplicate.**
+  *In plain terms:* ci-fix merges its own PR directly, so F1's "bring up to date and re-test before
+  merging" (which lives in the orchestrator's merge gate) doesn't apply to it. And D3's "lower PR
+  number wins" doesn't cover the case where the lower one **already merged**: the higher one then
+  sees no open rival and merges a second fix.
+  *Evidence:* ci-fix merges directly `ci-fix-v5/SKILL.md:237`.
+  *Suggested fix:* before merging, ci-fix closes its PR if another `fix/ci-*` PR was opened or
+  merged since it started; otherwise it applies the same up-to-date-then-re-test step.
+
+- **H6 — NIT — no run number for ci-fix standalone mode.** G6 puts the run number in fix branch
+  names, but standalone ci-fix has no run, and FIX mode isn't given one today
+  (`ci-fix-v5/SKILL.md:124-128`, `:269-293`). *Suggested fix:* pass the run number in when the
+  orchestrator starts a fix; standalone uses `fix/ci-manual-{description}`.
+
+- **H7 — NIT — G3's "read the newer run" doesn't fit how the watcher looks up runs.** The watcher
+  looks up runs by the merge commit (`ci-fix-v5/SKILL.md:50`, `:71`); after a cancel, the newer run
+  is on a different commit (often the other run's merge). Also unstated: what if the latest
+  non-cancelled run is still running? *Suggested fix:* follow the latest non-cancelled run of that
+  workflow on `main`; still running = wait.
+
+- **H8 — NIT — §2's change list is incomplete.** Merge-gate edits (F1-A, main-first, G1), the
+  circuit-breaker edits (`SKILL.md:1139` for D4, `:1140` for D3) and the ci-fix edits (G3, G6, D5,
+  F7) appear only in the D/F/G items. Someone building from §2 would miss them. *Suggested fix:*
+  add one bullet per item to §2.
+
+- **H9 — NIT — stale bookkeeping. FIXED (2026-09-27).** Header "Last updated" date, round-1
+  "Status: all OPEN" line, and the `project-tracking.md` citation corrected.
+
+**If you accept all the suggested fixes,** H1–H8 are each a sentence or two in the plan; I can
+fold them in one pass like round 2.
 
 ---
 
