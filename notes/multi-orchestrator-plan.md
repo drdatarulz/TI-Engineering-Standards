@@ -4,7 +4,7 @@
 > clone** (normally one clone per computer), each driving its own independent run. No shared pool, no claims, no coordination
 > between runs. The operator decides up front which tickets go to which machine.
 > **Created:** 2026-09-26. **Last updated:** 2026-09-26.
-> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved; F11–F12 OPEN.
+> **Status:** DRAFT. All decisions D1–D8 resolved. Cold read round 1 (2026-09-26): F1–F4 resolved, F5 skipped, F6 accepted, F7 resolved, F8 accepted, F9–F10 resolved, F11 accepted, F12 fixed. Round 1 closed.
 > Ships as a **v6 skill generation** (decided 2026-09-26 — see Versioning).
 > **Supersedes:** [parallel-orchestration-plan.md](parallel-orchestration-plan.md) (suspended
 > 2026-09-26). That plan's shared-pool design kept producing new blockers from its own mechanisms
@@ -68,7 +68,7 @@ Rules:
   startup and on exit so it's easy to copy.
 - **Refusals happen in the loop, before any `claude -p` session**, with a non-zero exit code.
 - **Full-board mode is removed.** Today a launch with no ticket list means "all Up Next"
-  (`SKILL.md:70`, `:302`, `:313`). That path goes away. This is a deliberate behavior change.
+  (`SKILL.md:70`, `:76`, `:298`, `:313`). That path goes away. This is a deliberate behavior change.
 
 ---
 
@@ -444,8 +444,12 @@ Each finding below was re-checked against source before recording. Status: all *
 - **F11 — NIT — C5 deploy check with two runs.** `gh run list --workflow deploy.yml -L1` against a
   `main` the other run keeps moving (`SKILL.md:990-993`) is a moving target, and both runs may
   "re-run once" the same red deploy (`:997`). Extend D3's single-fixer rule to the deploy re-run.
+  **ACCEPTED, no change (2026-09-27).** A's check is valid for the `main` it saw; B's own C5 covers
+  B's merges. A double re-run of one deploy just wastes a run. A real red routes to ci-fix FIX,
+  already covered by D3's one-fixer rule.
 - **F12 — NIT — citation drift.** Plan cites `SKILL.md:302` for full-board wording; it's at `:298`
   and `:76`.
+  **FIXED (2026-09-27):** citation corrected in "Launch modes".
 
 ---
 
