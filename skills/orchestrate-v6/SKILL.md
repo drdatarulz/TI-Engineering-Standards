@@ -1211,6 +1211,10 @@ When a background fix agent completes, check its status:
 - Update the fix entry: `status: "fixed"`, `fix_pr: {FIX_PR_NUMBER}`
 - No further action — the fix has already been merged
 
+**If `STATUS: FixedByOther`:**
+- Update the fix entry: `status: "fixed_by_other"`, `other_fix_pr: {OTHER_FIX_PR}`
+- Treat like `Fixed` — another fixer (usually the other run's) got `main` green; nothing to do
+
 **If `STATUS: Blocked`:**
 - Update the fix entry: `status: "blocked"`, `reason: {REASON}`
 - **This is a circuit breaker** — a CI/CD failure that cannot be auto-fixed means main is broken and deployments are stuck. Halt the orchestrator after the current stage completes.
