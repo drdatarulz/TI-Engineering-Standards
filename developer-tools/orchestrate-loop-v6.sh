@@ -151,6 +151,7 @@ overlap_with_open_runs() {
 }
 
 # ── Bind the run ─────────────────────────────────────────────────────────────────────────
+TIMEIT_RUN_URL=""   # the run issue's URL; TimeIt derives its run ID from it (TimeIt D-44)
 if [[ -n "$SCOPE" ]]; then
   gh label create "$LABEL" --color FBCA04 --description "Active orchestration run" >/dev/null 2>&1 || true
 
@@ -172,6 +173,7 @@ none
   url=$(gh issue create --title "Orchestration run — $(date -u +%Y-%m-%dT%H:%MZ)" \
           --label "$LABEL" --body "$BODY") || die "could not create the run issue (gh error)."
   RUN="${url##*/}"
+  TIMEIT_RUN_URL="$url"
   [[ "$RUN" =~ ^[0-9]+$ ]] || die "could not read the new run issue number from '$url'."
   echo "orchestrate-loop-v6: created run #$RUN for $SCOPE"
 
@@ -186,7 +188,7 @@ none
     die "run #$RUN overlaps run #$older created at the same moment — closed #$RUN, not starting."
   fi
 else
-  info=$(gh issue view "$RUN" --json state,labels,comments 2>/dev/null) \
+  info=$(gh issue view "$RUN" --json state,labels,comments,url 2>/dev/null) \
     || die "could not read issue #$RUN (not found, or gh error)."
   jq -e --arg l "$LABEL" '[.labels[].name] | index($l)' <<<"$info" >/dev/null \
     || die "issue #$RUN is not an $LABEL issue."
@@ -196,10 +198,14 @@ else
     fi
     die "run #$RUN is closed (already complete). Start a new run with --tickets."
   fi
+  TIMEIT_RUN_URL=$(jq -r '.url // empty' <<<"$info" 2>/dev/null) || TIMEIT_RUN_URL=""
 fi
 
 export ORCHESTRATE_RUN="$RUN"
 export ORCHESTRATE_N="$N"
+# Tells TimeIt's interactive-session hook that sessions launched here are the loop's, not a person's
+# (TimeIt FR-3.3). Harmless when TimeIt isn't installed.
+export TI_MODE=autonomous
 
 if [[ -z "$PROMPT" ]]; then
   # Read the skill file directly — orchestrate-v6 is `disable-model-invocation: true`, so it
@@ -236,18 +242,141 @@ start_heartbeat() {
   HB_PID=$!
 }
 stop_heartbeat() { [[ -n "$HB_PID" ]] && kill "$HB_PID" 2>/dev/null; HB_PID=""; }
-on_exit() { local rc=$?; stop_heartbeat; (( rc != 0 )) && echo "orchestrate-loop-v6: run #$RUN stopped — resume with: --run $RUN" >&2; }
+TIMEIT_PID=""; TIMEIT_DIR=""   # TimeIt agent-ping timer (below); set before the trap so on_exit can read them
+on_exit() { local rc=$?; stop_heartbeat; stop_timeit_ping; (( rc != 0 )) && echo "orchestrate-loop-v6: run #$RUN stopped — resume with: --run $RUN" >&2; }
 trap on_exit EXIT
+
+# ── TimeIt agent pings (TimeIt FR-3, D-8, D-37, D-42, D-44) ──────────────────────────────
+# Inert unless TimeIt's machine scripts are installed (timeit-agent-ping on the PATH or in
+# ~/.local/bin). Its own timer, never the display heartbeat (which is off at HEARTBEAT_INTERVAL=0
+# and between sessions). Silent, backgrounded, fd 9 closed on everything it starts, never waits
+# on gh, and stops when this loop exits or dies. The timer is a subshell, so the loop hands it
+# the run ID, state (working | waiting during a usage-limit wait), iteration, current ticket and
+# scope through files in a private temp folder. No final ping: a run's end is its last ping.
+TIMEIT_CMD="$(command -v timeit-agent-ping 2>/dev/null)"
+[[ -z "$TIMEIT_CMD" && -n "${HOME:-}" && -x "${HOME:-}/.local/bin/timeit-agent-ping" ]] \
+  && TIMEIT_CMD="${HOME:-}/.local/bin/timeit-agent-ping"
+# TIMEIT_PING_INTERVAL: 1-120 s, else 45 (D-3). Over 180 s every gap would exceed TimeIt's ping-gap
+# allowance and bill nothing. Regex first, so the numeric test never sees a non-number.
+TIMEIT_INTERVAL=45
+if [[ "${TIMEIT_PING_INTERVAL:-}" =~ ^[1-9][0-9]{0,2}$ ]] && [[ "$TIMEIT_PING_INTERVAL" -le 120 ]]; then
+  TIMEIT_INTERVAL="$TIMEIT_PING_INTERVAL"
+fi
+
+# timeit_write <name> <value> / timeit_read <name> — the timer's state files (temp file + mv)
+timeit_write() {
+  [[ -n "$TIMEIT_DIR" ]] || return 0
+  { printf '%s' "$2" > "$TIMEIT_DIR/$1.tmp.$BASHPID" && mv -f "$TIMEIT_DIR/$1.tmp.$BASHPID" "$TIMEIT_DIR/$1"; } 2>/dev/null
+  return 0
+}
+timeit_read() {
+  local v=""
+  [[ -n "$TIMEIT_DIR" && -f "$TIMEIT_DIR/$1" ]] && { v=$(<"$TIMEIT_DIR/$1"); } 2>/dev/null
+  printf '%s' "$v"
+}
+# timeit_run_id — one UUID per run, derived from the run issue URL the loop already holds, so every
+# launch of run #N (--tickets, then each --run N) joins one TimeIt run (D-44). No gh call. Only if
+# the URL is empty: a random UUID for this launch. Prints nothing when neither is possible.
+timeit_run_id() {
+  local h v
+  if [[ -n "$TIMEIT_RUN_URL" ]]; then
+    h=$(printf 'timeit-run:%s' "$TIMEIT_RUN_URL" | sha1sum 2>/dev/null | cut -c1-32)
+    if [[ "$h" =~ ^[0-9a-f]{32}$ ]]; then
+      v=$(printf '%x' $(( (0x${h:16:1} & 3) | 8 )))
+      printf '%s-%s-5%s-%s%s-%s' "${h:0:8}" "${h:8:4}" "${h:13:3}" "$v" "${h:17:3}" "${h:20:12}"
+      return 0
+    fi
+  fi
+  h=$(cat /proc/sys/kernel/random/uuid 2>/dev/null)
+  [[ "$h" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] && printf '%s' "$h"
+  return 0
+}
+# timeit_ping [--bg] [extra options] — one bounded, silent call with the last known values; empty
+# optional values are left out (an empty argument could swallow the next option). --bg reads the
+# values now and backgrounds only the call, so it still goes out if the loop exits right after.
+timeit_ping() {
+  local id st it tk sc bg=0
+  [[ "${1:-}" == --bg ]] && { bg=1; shift; }
+  [[ -n "$TIMEIT_CMD" && -n "$TIMEIT_DIR" ]] || return 0
+  id=$(timeit_read runid); [[ -n "$id" ]] || return 0
+  st=$(timeit_read state); [[ "$st" == waiting ]] || st=working
+  it=$(timeit_read iter); tk=$(timeit_read ticket); sc=$(timeit_read scope)
+  local args=(--run-id "$id" --worker-id 1 --state "$st" --project-dir "$PROJECT_DIR")
+  [[ -n "$sc" ]] && args+=(--ticket-scope "$sc")
+  [[ -n "$tk" ]] && args+=(--current-ticket "$tk")
+  [[ -n "$it" ]] && args+=(--iteration "$it")
+  if (( bg )); then
+    timeout 10 "$TIMEIT_CMD" "${args[@]}" "$@" </dev/null >/dev/null 2>&1 9>&- &
+  else
+    timeout 10 "$TIMEIT_CMD" "${args[@]}" "$@" </dev/null >/dev/null 2>&1 9>&-
+  fi
+  return 0
+}
+# timeit_poll — one bounded read of the run body (the same read as the heartbeat): the current
+# ticket (Story ID before " @"; none/absent → no ticket) and the Scope: field as "#a,#b". A failed
+# or timed-out read keeps the last known values.
+timeit_poll() {
+  local body line t="" sc="" n
+  body=$(timeout 20 gh issue view "$RUN" --json body --jq .body 2>/dev/null) || return 0
+  line=$(printf '%s\n' "$body" | grep -m1 -i 'Current ticket' | tr -d '\r' | sed 's/[*`]//g')
+  if [[ "$line" == *:* ]]; then
+    t="${line#*:}"
+    t="${t%% @*}"
+    t="${t#"${t%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"
+    [[ "${t,,}" == none ]] && t=""
+  fi
+  timeit_write ticket "$t"
+  for n in $(scope_numbers "$body"); do sc="${sc:+$sc,}#$n"; done
+  [[ -n "$sc" ]] && timeit_write scope "$sc"
+  return 0
+}
+# start_timeit_ping — once per launch, after the run is bound. Each tick: stop if the loop is gone
+# (so a kill -9'd loop never bills), ping, start a body read unless one is still running, sleep.
+start_timeit_ping() {
+  local id loop_pid="$$"
+  [[ -n "$TIMEIT_CMD" ]] || return 0
+  id=$(timeit_run_id)
+  [[ -n "$id" ]] || return 0
+  TIMEIT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/timeit-loop.XXXXXX" 2>/dev/null) || TIMEIT_DIR=""
+  [[ -n "$TIMEIT_DIR" && -d "$TIMEIT_DIR" ]] || { TIMEIT_DIR=""; return 0; }
+  timeit_write runid "$id"
+  timeit_write state working
+  timeit_write scope "$SCOPE"
+  (
+    poll_pid=""
+    while kill -0 "$loop_pid" 2>/dev/null; do
+      timeit_ping
+      if [[ -z "$poll_pid" ]] || ! kill -0 "$poll_pid" 2>/dev/null; then
+        timeit_poll </dev/null >/dev/null 2>&1 9>&- &
+        poll_pid=$!
+      fi
+      sleep "$TIMEIT_INTERVAL"
+    done
+  ) 9>&- </dev/null >/dev/null 2>&1 &
+  TIMEIT_PID=$!
+  disown "$TIMEIT_PID" 2>/dev/null
+  return 0
+}
+stop_timeit_ping() {
+  [[ -n "$TIMEIT_PID" ]] && kill "$TIMEIT_PID" 2>/dev/null
+  TIMEIT_PID=""
+  [[ -n "$TIMEIT_DIR" ]] && rm -rf "$TIMEIT_DIR" 2>/dev/null
+  TIMEIT_DIR=""
+  return 0
+}
 
 echo "orchestrate-loop-v6: project=$PROJECT_DIR run=#$RUN N=$N timeout=${TIMEOUT}s max-iter=$MAX_ITER"
 echo "orchestrate-loop-v6: log=$RUNLOG | heartbeat=${HEARTBEAT_INTERVAL}s"
 echo "orchestrate-loop-v6: resume later with: --run $RUN"
 echo "orchestrate-loop-v6: live progress -> tail -f $RUNLOG   |   snapshot -> $SCRIPT_DIR/orchestrate-status-v6.sh $PROJECT_DIR $RUN"
 
+start_timeit_ping
 iter=0
 limit_waits=0
 while (( iter < MAX_ITER )); do
   iter=$(( iter + 1 ))
+  timeit_write iter "$iter"
+  timeit_write state working
   echo "──── orchestrate-loop-v6: run #${RUN} · iteration ${iter}/${MAX_ITER} ────"
   logfile="$(mktemp)"
   echo "── iteration ${iter} · $(date -u '+%H:%M:%SZ') ──" | tee -a "$RUNLOG" 9>&-
@@ -257,6 +386,10 @@ while (( iter < MAX_ITER )); do
   timeout "$TIMEOUT" claude -p "$PROMPT" --dangerously-skip-permissions 9>&- 2>&1 | tee -a "$RUNLOG" "$logfile" 9>&-
   rc=${PIPESTATUS[0]}
   stop_heartbeat
+  # D-6: flag the hang-guard timeout to TimeIt at once (backgrounded; holds neither fd 9 nor stdout).
+  if (( rc == 124 )) && [[ -n "$TIMEIT_PID" ]]; then
+    timeit_ping --bg --timed-out </dev/null >/dev/null 2>&1 9>&-
+  fi
 
   limit_hit=0
   if tail -n 15 "$logfile" | grep -Eiq "$LIMIT_PATTERN"; then limit_hit=1
@@ -302,6 +435,7 @@ while (( iter < MAX_ITER )); do
       fi
     fi
     retry_at=$(date -d "@$(( $(date +%s) + wait_s ))" '+%H:%M' 2>/dev/null || echo "?")
+    timeit_write state waiting   # before set_run_state: its gh calls have no timeout (D-42)
     echo "orchestrate-loop-v6: session hit the Claude usage/rate limit — LIMIT_WAIT ${wait_s}s (retry ~$retry_at), not counted toward MAX_ITER." | tee -a "$RUNLOG"
     set_run_state "LIMIT_WAIT (retry ~$retry_at)" || true
     sleep "$wait_s"
