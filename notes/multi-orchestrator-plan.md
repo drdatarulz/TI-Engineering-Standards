@@ -650,7 +650,9 @@ Built on branch `feat/v6-generation`, reviewed by a fresh subagent against this 
 Settled while building:
 - `reconcile-backlog-v6` gets `## Dependencies` through add-story (which writes any dependencies it
   finds while grounding); no reconcile-specific change.
-- Workflow docs (`workflow/*.md`) are deferred to v5 retirement with the other shared docs (§4).
+- Workflow docs (`workflow/`) were rewritten after the build (2026-09-27, operator request) to
+  describe v6 as the process (no v5/v6 framing — it is what the operator shows people);
+  `standards/` docs stay deferred to v5 retirement (§4).
 - Stage 2d follow-ups are inserted into `Scope:` **right after their parent** (processing order),
   not appended at the end. C4 fix tickets are appended at the end.
 - `orchestrate-v6`'s merge gate always spawns a ci-fix FIX on red `main` unless this session already

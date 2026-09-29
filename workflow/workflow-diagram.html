@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TI Agentic Development Workflow — v5</title>
+<title>TI Agentic Development Workflow — v6</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
 
@@ -347,7 +347,7 @@
 
 <div class="header">
   <h1>agentic<span>.</span>workflow</h1>
-  <div class="version">v5 — Mode-Switching Pipeline (WORKING / CLEANUP), relaunched by the dumb loop</div>
+  <div class="version">v6 — Mode-Switching Pipeline (WORKING / CLEANUP), relaunched by the dumb loop · several runs on one repo at once</div>
   <p>Full lifecycle from brainstorm to reviewed, tested, merged code — orchestrating Claude Web, Claude Code, and GitHub with automated engineering and security review gates.</p>
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--phase-discovery)"></div>Discovery</div>
@@ -470,14 +470,14 @@
         <div class="step">
           <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📚</span> Standards Sync</div>
           <h3>Pull Shared Standards</h3>
-          <p>Clone or pull TI-Engineering-Standards. Sync v5 skills into project. Read all standards files.</p>
+          <p>Clone or pull TI-Engineering-Standards. Sync skills into project. Read all standards files.</p>
           <div class="tools"><span class="tool-tag">Auto-sync protocol</span></div>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--phase-bootstrap)"><span class="icon">📊</span> Backlog Generation</div>
-          <h3>prd-to-backlog-v5</h3>
+          <h3>prd-to-backlog-v6</h3>
           <p>Decompose PRD + Screen Inventory + Decisions Log into vertical-slice stories grouped by milestones. Human approves plan before issues are created.</p>
-          <div class="tools"><span class="tool-tag">prd-to-backlog-v5</span></div>
+          <div class="tools"><span class="tool-tag">prd-to-backlog-v6</span></div>
         </div>
       </div>
 
@@ -500,11 +500,11 @@
     <div class="phase-header">
       <div class="phase-number" style="background:rgba(78,205,196,0.15);color:var(--phase-dev)">04</div>
       <div class="phase-title" style="color:var(--phase-dev)">Orchestrated Development</div>
-      <div class="phase-subtitle">orchestrate-v5 — mode-switching pipeline (WORKING / CLEANUP)</div>
+      <div class="phase-subtitle">orchestrate-v6 — mode-switching pipeline (WORKING / CLEANUP)</div>
     </div>
     <div class="steps">
       <div class="orchestrator-box">
-        <div class="orch-label">▸ orchestrate-v5 — relaunched each loop; reads the tracking issue; self-selects WORKING / CLEANUP</div>
+        <div class="orch-label">▸ orchestrate-v6 — relaunched each loop; reads the tracking issue; self-selects WORKING / CLEANUP</div>
 
         <div class="step-row triple" style="margin-top:12px">
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
@@ -530,7 +530,7 @@
           <div class="pipeline-stage active" data-stage="1">
             <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
               <div class="step-label" style="color:var(--phase-dev)"><span class="icon">📖</span> Refine</div>
-              <h3>refine-story-v5</h3>
+              <h3>refine-story-v6</h3>
               <p>Behavior-first tier table — one tier per behavior (TR-1); critical journeys declared (TR-6); adversarial self-review in all modes (ED-2).</p>
             </div>
           </div>
@@ -538,7 +538,7 @@
           <div class="pipeline-stage active" data-stage="2">
             <div class="step" style="border-color:rgba(78,205,196,0.15);background:rgba(78,205,196,0.02)">
               <div class="step-label" style="color:var(--phase-dev)"><span class="icon">⚡</span> Implement</div>
-              <h3>implement-ticket-v5 → PR #1</h3>
+              <h3>implement-ticket-v6 → PR #1</h3>
               <p>Fresh context. Load all standards. Explore → Plan → Implement → Unit + Contract tests → adversarial self-review (ED-2) → Commit → Push → Create PR. Build order: Domain → Fakes → Infrastructure → Api.</p>
             </div>
           </div>
@@ -546,7 +546,7 @@
           <div class="pipeline-stage review" data-stage="3">
             <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
               <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
-              <h3>engineering-review-v5 (implementation mode)</h3>
+              <h3>engineering-review-v6 (implementation mode)</h3>
               <p>Independent context reviews PR against standards + TR rules (two-way) and the ungrounded-claim check (ED-1). Posts line-level comments. Approves or requests changes.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 3 iterations</div>
             </div>
@@ -555,7 +555,7 @@
           <div class="pipeline-stage security" data-stage="3.5">
             <div class="step" style="border-color:rgba(232,99,122,0.2);background:rgba(232,99,122,0.02)">
               <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛡️</span> Security Review</div>
-              <h3>security-review-v5 (OWASP Top 10 + Infrastructure)</h3>
+              <h3>security-review-v6 (OWASP Top 10 + Infrastructure)</h3>
               <p>Framework-aware OWASP analysis with attack vector requirements. Auto-detects infrastructure files (Bicep, Docker, GitHub Actions) and runs infrastructure security checklist. On pass → merge PR #1.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ implementer fix mode — max 2 iterations</div>
             </div>
@@ -564,7 +564,7 @@
           <div class="pipeline-stage test" data-stage="4">
             <div class="step" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.02)">
               <div class="step-label" style="color:var(--accent-purple)"><span class="icon">🧪</span> Integration Tests</div>
-              <h3>integration-test-v5 → PR #2</h3>
+              <h3>integration-test-v6 → PR #2</h3>
               <p>Independent context writes tests against acceptance criteria (not developer's description). Testcontainers, real database, data isolation. Branches from updated main.</p>
             </div>
           </div>
@@ -572,7 +572,7 @@
           <div class="pipeline-stage review" data-stage="5">
             <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
               <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
-              <h3>engineering-review-v5 (integration-tests mode)</h3>
+              <h3>engineering-review-v6 (integration-tests mode)</h3>
               <p>Reviews integration-test quality — real-infra behavior only, no contract re-assertion (TR-3). On approve → merge PR #2. (Issue closes at stage 8, after all tiers merge.)</p>
               <div class="review-loop">↻ Loop: reviewer ↔ test-writer fix mode — max 3 iterations</div>
             </div>
@@ -581,7 +581,7 @@
           <div class="pipeline-stage test" data-stage="6">
             <div class="step" style="border-color:rgba(167,139,250,0.2);background:rgba(167,139,250,0.02)">
               <div class="step-label" style="color:var(--accent-purple)"><span class="icon">🎭</span> UI Tests</div>
-              <h3>ui-test-v5 → PR #3</h3>
+              <h3>ui-test-v6 → PR #3</h3>
               <p>Journey-scoped Playwright (POM, condition-based waits — TR-4/9). Dispatched on the self-hosted runner via workflow_dispatch — not a blocking per-PR gate. Critical-path journeys tagged (TR-6).</p>
             </div>
           </div>
@@ -589,7 +589,7 @@
           <div class="pipeline-stage review" data-stage="7">
             <div class="step" style="border-color:rgba(240,152,72,0.2);background:rgba(240,152,72,0.02)">
               <div class="step-label" style="color:var(--accent-orange)"><span class="icon">🔎</span> Engineering Review</div>
-              <h3>engineering-review-v5 (ui-tests mode)</h3>
+              <h3>engineering-review-v6 (ui-tests mode)</h3>
               <p>Reviews UI test quality, Page Object Model patterns, semantic selectors, coverage. On approve → merge PR #3.</p>
               <div class="review-loop">↻ Loop: reviewer ↔ test-writer fix mode — max 3 iterations</div>
             </div>
@@ -615,8 +615,8 @@
         <div class="step-row single" style="margin-top:12px">
           <div class="step" style="border-color:rgba(167,139,250,0.2)">
             <div class="step-label" style="color:var(--accent-purple)"><span class="icon">📡</span> Background CI Watcher</div>
-            <h3>ci-fix-v5 WATCH — after every merge</h3>
-            <p>After each PR merge the orchestrator spawns <code>ci-fix-v5</code> in WATCH mode in the background and continues immediately. If CI goes red it spawns <code>ci-fix-v5</code> FIX (fix the code, not the test — TR-7), which repairs on its own branch in parallel; a Blocked fix trips a circuit breaker. <code>monitor-v5</code> narrates the run read-only.</p>
+            <h3>ci-fix-v6 WATCH — after every merge</h3>
+            <p>After each PR merge the orchestrator spawns <code>ci-fix-v6</code> in WATCH mode in the background and continues immediately. If CI goes red it spawns <code>ci-fix-v6</code> FIX (fix the code, not the test — TR-7), which repairs on its own branch in parallel; a Blocked fix trips a circuit breaker. <code>monitor-v6</code> narrates the run read-only.</p>
           </div>
         </div>
 
@@ -625,15 +625,37 @@
           <div class="step" style="border-color:rgba(232,99,122,0.2)">
             <div class="step-label" style="color:var(--accent-rose)"><span class="icon">🛑</span> Circuit Breakers</div>
             <h3>Orchestrator Halts Entirely</h3>
-            <p>3 consecutive Partial/Blocked tickets. PR merge conflict. Build fails on main (rollback tag available). Review loop exhausted on 2 consecutive tickets.</p>
+            <p>3 consecutive Partial/Blocked tickets. Merge conflict the one automatic resolve attempt can't fix. A CI fix reports Blocked (a red main alone goes to a single fixer, not a halt; rollback tag available). Review loop exhausted on 2 consecutive tickets.</p>
           </div>
         </div>
 
       </div>
 
+      <!-- v6 parallel runs -->
+      <div class="orchestrator-box" style="margin-top:16px">
+        <div class="orch-label">▸ Parallel runs — several orchestrators on one repo, each in its own clone, each on its own run</div>
+        <div class="step-row triple" style="margin-top:12px">
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🧩</span> Batch</div>
+            <h3>plan-batches-v6</h3>
+            <p>Split the ticket list into batches (default 2). Dependency chains, milestones and shared-file tickets stay in one batch; prints one launch line per batch. Read-only.</p>
+          </div>
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">▶</span> Launch</div>
+            <h3>orchestrate-v6.sh --tickets / --run</h3>
+            <p><code>--tickets "#1,#4"</code> starts a run (refused if another open run owns a ticket); <code>--run N</code> continues or resumes it; <code>--status</code> lists all runs. One run per clone.</p>
+          </div>
+          <div class="step" style="border-color:rgba(78,205,196,0.2)">
+            <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🤝</span> Shared main</div>
+            <h3>No coordination layer</h3>
+            <p>Re-test a PR against latest main before merging; a red main waits for one CI fixer (an open <code>fix/ci-*</code> PR); one automatic conflict attempt; usage-limit waits don't burn relaunches.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- CLEANUP mode -->
       <div class="orchestrator-box" style="margin-top:16px">
-        <div class="orch-label">▸ orchestrate-v5 — CLEANUP (when "Up Next" is empty)</div>
+        <div class="orch-label">▸ orchestrate-v6 — CLEANUP (when none of the run's tickets are left in "Up Next")</div>
         <div class="step-row single" style="margin-top:12px">
           <div class="step" style="border-color:rgba(78,205,196,0.2)">
             <div class="step-label" style="color:var(--phase-dev)"><span class="icon">🧹</span> End-of-Run Oversight</div>
@@ -727,7 +749,7 @@
     </div>
   </div>
 
-  <div class="phase-divider"><span>Feedback Loop — triage-v5 → new tickets → Phase 4</span></div>
+  <div class="phase-divider"><span>Feedback Loop — triage-v6 → new tickets → Phase 4</span></div>
 
   <!-- PHASE 7 -->
   <div class="phase">
@@ -747,15 +769,15 @@
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--accent-blue)"><span class="icon">📋</span> Conformance Audit</div>
-          <h3>conformance-v5</h3>
+          <h3>conformance-v6</h3>
           <p>Audit the project against all standards — pipeline, environments, code, testing. Produces a gap report with pass/fail per check. No changes made — informational only.</p>
-          <div class="tools"><span class="tool-tag">conformance-v5</span></div>
+          <div class="tools"><span class="tool-tag">conformance-v6</span></div>
         </div>
         <div class="step">
           <div class="step-label" style="color:var(--accent-blue)"><span class="icon">🔧</span> Maintenance</div>
           <h3>Dependencies & Recovery</h3>
           <p>Dependency updates via task tickets (not ad-hoc). Broken main recovery uses rollback tags. Dormant projects: re-sync, test, deploy to Dev, review board, then resume.</p>
-          <div class="tools"><span class="tool-tag">triage-v5</span><span class="tool-tag">Task tickets</span></div>
+          <div class="tools"><span class="tool-tag">triage-v6</span><span class="tool-tag">Task tickets</span></div>
         </div>
       </div>
 

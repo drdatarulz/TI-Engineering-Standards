@@ -120,6 +120,11 @@ Shared skills live in `skills/` and are auto-copied to each project's `.claude/s
 > **one-way cutover** — never run v5 and v6 on the same repo. Design, decisions and the per-project
 > migration checklist: [notes/multi-orchestrator-plan.md](notes/multi-orchestrator-plan.md).
 >
+> **Never auto-switch generations.** When a newer skill generation is available (e.g. v6 next to
+> v5), keep using the one the user asked for. Do not pick a `-v6` skill, script or wrapper on your
+> own because it's newer, and do not migrate a project to it. Only the user decides when a project
+> moves to a new generation.
+>
 > **Note:** v1–v4 skills remain in `skills/archive/` for historical reference but are no longer actively maintained or synced (the auto-sync protocol skips `archive/`).
 >
 > **v4 → v5 transition — COMPLETE (2026-06-27).** v5 is proven on the pilot; all thirteen v4 skills have been moved to `skills/archive/`. v5 is the only synced generation. The round-out (the six authoring/audit skills plus the ED-discipline patches to `refine-story-v5` / `implement-ticket-v5` / `engineering-review-v5`) is tracked in [notes/v5-round-out-plan.md](notes/v5-round-out-plan.md); the full build is in [notes/v5-implementation-plan.md](notes/v5-implementation-plan.md).
