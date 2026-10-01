@@ -253,6 +253,7 @@ Orthogonally, a **human-oversight mode** controls cadence:
 - `./scripts/orchestrate-v6.sh --status [123]` lists every open run, or shows one in detail. `monitor-v6 [123]` narrates the same way.
 - Interactively: `orchestrate-v6 supervised #7,#8` (new run) or `orchestrate-v6 supervised --run 123` (continue).
 - **Usage limit:** if a session dies on the Claude usage/rate limit, the loop marks the run `LIMIT_WAIT`, waits for the reset, and carries on — the wait doesn't count toward the relaunch cap.
+- **Session endings:** after every session the loop records why it ended — `⏱ timed out`, `⏸ hit the usage limit`, `✖ crashed (rc=N)` or `■ ended cleanly` — in its log and as a comment on the run's tracking issue, and tells the next session (`ORCHESTRATE_PREVIOUS_SESSION_END`). So a 90-minute hang-guard timeout is never mistaken for a crash.
 
 ### 4.4 Circuit Breakers
 

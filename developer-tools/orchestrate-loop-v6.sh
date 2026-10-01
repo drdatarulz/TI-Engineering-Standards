@@ -29,6 +29,15 @@
 #                               (if the message gives one) or LIMIT_WAIT_SECS, then relaunches.
 #                               Limit waits don't count toward MAX_ITER.
 #
+# SESSION ENDINGS: right after each session exits, the loop records why it ended — one line in the
+# run log and an event-log comment on the run issue (backgrounded, never waited on):
+#   ⏱ session N timed out after Ts   ⏸ session N hit the usage limit
+#   ✖ session N crashed (rc=R)       ■ session N ended cleanly
+# The same ending (timed-out | limit-wait | crashed:R | clean; `none` before the first session of a
+# launch) is exported to the NEXT session as ORCHESTRATE_PREVIOUS_SESSION_END and sent on that
+# session's TimeIt pings as --previous-session-end. A session retried after a usage-limit wait keeps
+# its number, and its line says so.
+#
 # SINGLE-INSTANCE LOCK: one loop per CLONE. The flock is keyed on the full project path (not the
 # folder name), so two clones of one repo on one machine don't block each other. Never use
 # `pgrep -f` to detect a running loop — the per-iteration heartbeat is a subshell of this file.
@@ -301,10 +310,14 @@ timeit_ping() {
   id=$(timeit_read runid); [[ -n "$id" ]] || return 0
   st=$(timeit_read state); [[ "$st" == waiting ]] || st=working
   it=$(timeit_read iter); tk=$(timeit_read ticket); sc=$(timeit_read scope)
+  local sg pe
+  sg=$(timeit_read stage); pe=$(timeit_read prevend)
   local args=(--run-id "$id" --worker-id 1 --state "$st" --project-dir "$PROJECT_DIR")
   [[ -n "$sc" ]] && args+=(--ticket-scope "$sc")
   [[ -n "$tk" ]] && args+=(--current-ticket "$tk")
   [[ -n "$it" ]] && args+=(--iteration "$it")
+  [[ -n "$sg" ]] && args+=(--stage "$sg")
+  [[ -n "$pe" ]] && args+=(--previous-session-end "$pe")
   if (( bg )); then
     timeout 10 "$TIMEIT_CMD" "${args[@]}" "$@" </dev/null >/dev/null 2>&1 9>&- &
   else
@@ -313,8 +326,8 @@ timeit_ping() {
   return 0
 }
 # timeit_poll — one bounded read of the run body (the same read as the heartbeat): the current
-# ticket (Story ID before " @"; none/absent → no ticket) and the Scope: field as "#a,#b". A failed
-# or timed-out read keeps the last known values.
+# ticket (Story ID before " @"; none/absent → no ticket), the stage, and the Scope: field as
+# "#a,#b". A failed or timed-out read keeps the last known values.
 timeit_poll() {
   local body line t="" sc="" n
   body=$(timeout 20 gh issue view "$RUN" --json body --jq .body 2>/dev/null) || return 0
@@ -326,9 +339,25 @@ timeit_poll() {
     [[ "${t,,}" == none ]] && t=""
   fi
   timeit_write ticket "$t"
+  timeit_write stage "$(timeit_stage "$line")"
   for n in $(scope_numbers "$body"); do sc="${sc:+$sc,}#$n"; done
   [[ -n "$sc" ]] && timeit_write scope "$sc"
   return 0
+}
+# timeit_stage <Current ticket line> — the stage for --stage, built only from these parts of the
+# line: "@ Stage {n} ({name})" → "{n} {name}" (name lowercased), "@ CLEANUP" → "CLEANUP", plus
+# " (waiting on CI)" when the line has "— waiting on CI". Plain ASCII only (TimeIt strips non-ASCII
+# bytes on machines without iconv). Prints nothing when no stage can be read.
+timeit_stage() {
+  local line="$1" sg=""
+  if [[ "$line" =~ @[[:space:]]*Stage[[:space:]]+([0-9]+[0-9a-z.]*)[[:space:]]*\(([A-Za-z][A-Za-z -]*)\) ]]; then
+    sg="${BASH_REMATCH[1]%.} ${BASH_REMATCH[2],,}"
+    sg="${sg%"${sg##*[![:space:]]}"}"
+  elif [[ "$line" =~ @[[:space:]]*CLEANUP ]]; then
+    sg="CLEANUP"
+  fi
+  [[ -n "$sg" && "$line" == *"— waiting on CI"* ]] && sg="$sg (waiting on CI)"
+  printf '%s' "$sg"
 }
 # start_timeit_ping — once per launch, after the run is bound. Each tick: stop if the loop is gone
 # (so a kill -9'd loop never bills), ping, start a body read unless one is still running, sleep.
@@ -342,6 +371,7 @@ start_timeit_ping() {
   timeit_write runid "$id"
   timeit_write state working
   timeit_write scope "$SCOPE"
+  timeit_write prevend none
   (
     poll_pid=""
     while kill -0 "$loop_pid" 2>/dev/null; do
@@ -371,12 +401,25 @@ echo "orchestrate-loop-v6: resume later with: --run $RUN"
 echo "orchestrate-loop-v6: live progress -> tail -f $RUNLOG   |   snapshot -> $SCRIPT_DIR/orchestrate-status-v6.sh $PROJECT_DIR $RUN"
 
 start_timeit_ping
+# record_session_end <line> — the session ending, to the terminal, the run log and (fully detached,
+# never waited on, never failing the loop) an event-log comment on the run issue.
+record_session_end() {
+  echo "$1" | tee -a "$RUNLOG" 9>&-
+  timeout 20 gh issue comment "$RUN" --body "$1" </dev/null >/dev/null 2>&1 9>&- &
+  disown $! 2>/dev/null
+  return 0
+}
+
 iter=0
 limit_waits=0
+prev_end=none     # how the previous session of this launch ended (ORCHESTRATE_PREVIOUS_SESSION_END)
+retry=0           # 1 when this session re-runs the number of one that hit the usage limit
 while (( iter < MAX_ITER )); do
   iter=$(( iter + 1 ))
   timeit_write iter "$iter"
   timeit_write state working
+  timeit_write prevend "$prev_end"
+  export ORCHESTRATE_PREVIOUS_SESSION_END="$prev_end"
   echo "──── orchestrate-loop-v6: run #${RUN} · iteration ${iter}/${MAX_ITER} ────"
   logfile="$(mktemp)"
   echo "── iteration ${iter} · $(date -u '+%H:%M:%SZ') ──" | tee -a "$RUNLOG" 9>&-
@@ -397,6 +440,21 @@ while (( iter < MAX_ITER )); do
   reset_line=$(tail -n 15 "$logfile" | grep -Eio 'reset[s]?( at)? [0-9]{1,2}(:[0-9]{2})? ?([ap]m)?' | tail -1)
   reset_tz=$(tail -n 15 "$logfile" | grep -Eo '\([A-Za-z_]+/[A-Za-z_]+\)' | tail -1 | tr -d '()')
   rm -f "$logfile"
+
+  # Record why the session ended — before the run-state check below, which can exit.
+  if (( limit_hit )); then
+    end="limit-wait"; line="⏸ session ${iter} hit the usage limit"
+  elif (( rc == 124 )); then
+    end="timed-out";  line="⏱ session ${iter} timed out after ${TIMEOUT}s"
+  elif (( rc != 0 )); then
+    end="crashed:$rc"; line="✖ session ${iter} crashed (rc=${rc})"
+  else
+    end="clean";      line="■ session ${iter} ended cleanly"
+  fi
+  (( retry )) && line="$line (retry after a usage-limit wait)"
+  record_session_end "$line"
+  prev_end="$end"
+  retry=$limit_hit
 
   # Stop ONLY when the bound run issue is CLOSED (never on a stdout substring).
   state=$(gh issue view "$RUN" --json state --jq .state 2>/dev/null || echo "?")
