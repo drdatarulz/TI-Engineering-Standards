@@ -48,6 +48,8 @@ This is the per-ticket pipeline WORKING mode runs for each of the up-to-N ticket
 
 v6 requires the **fast tier** (Unit + Contract) and **integration tier** to be green **against current `main`** before a PR merges, and **you enforce it** — merges go through the orchestrator, so this is the gate (no GitHub branch protection involved). Other runs may be merging to the same `main` while you work, so a PR that went green against an older `main` is not yet mergeable, and a red PR on a red `main` is not this ticket's fault. Before any `gh pr merge` in this skill:
 
+While you wait anywhere in this gate, the tracking issue's `Current ticket` line carries ` — waiting on CI` (see the CI-wait sub-state under [WORKING Mode — Per-Ticket Pipeline](#working-mode--per-ticket-pipeline)).
+
 **1. Poll the PR's checks:**
 
 ```bash
@@ -255,7 +257,7 @@ The tracking-issue body carries an **operator message slot** at the very top (se
 
 Why a top-of-body slot is safe here specifically: **each loop is a fresh `claude -p` that fully exits and relaunches**, so there is a quiet window every iteration where no session is writing the body. The operator drops a message into the slot during that gap; you read it first thing on the next session.
 
-On each session, **immediately after Step 0.5 loads the tracking issue — before Step 0.6 crash recovery, before Mode Selection, before any other decision:**
+On each session, **immediately after Step 0.5 loads the tracking issue — before Step 0.6 recovery, before Mode Selection, before any other decision:**
 
 1. **Read the slot.** If empty / `none`, skip to Step 0.6.
 2. **Act on it first — it sets context for this session.** It can tell you to: accept an already-completed green CI/UI run instead of re-dispatching, treat a blocker as resolved, skip/retry a stage, change scope, halt and wait, etc. Treat it as **higher priority than your default control flow** — it exists precisely to override a default that went wrong. Before re-dispatching or re-halting on any external job, this is also where you reconcile: *did the run I was waiting on already finish green?* (The autonomous version of that check belongs in the stage itself; the slot is the human backstop.)
@@ -279,9 +281,19 @@ LIVE=$(gh issue view {TRACKING_ISSUE} --repo {REPO_OWNER}/{REPO_NAME} --json bod
 
 **Guardrail — overrides are explicit, never silent.** If a message directs you past a **hard safety bar** (e.g. "mark done / close despite a red test", overriding *"if you see it, you own it"*), you may comply, but log it as an acknowledged override: `✉ operator OVERRIDE (acknowledged): <what bar, why> per operator message`. The escape hatch stays open; it just never happens invisibly.
 
-## Step 0.6: Crash recovery
+## Step 0.6: Recover tickets left mid-step
 
-A fresh process can't tell which tickets a dead session left mid-flight, so reconcile on startup:
+A fresh process can't tell which tickets the previous session left mid-flight, so reconcile on startup:
+
+- **Clear a leftover CI-wait.** If the body's `Current ticket` line ends in `— waiting on CI`, remove that suffix (a session killed mid-wait leaves it behind). Same read-modify-write as every body update, preserving the operator slot (Step 0.55).
+- **Say why you are resuming — never guess "crash".** When you resume a ticket mid-step, the event-log comment names the real cause from the environment variable **`ORCHESTRATE_PREVIOUS_SESSION_END`**, which the loop exports. Read it from the environment, never from the loop's session-ending comment on the tracking issue (it is posted in the background and may not have landed yet):
+
+  | `ORCHESTRATE_PREVIOUS_SESSION_END` | Event-log comment |
+  |---|---|
+  | `timed-out` | `↻ resumed after timeout` |
+  | `clean` or `limit-wait` | `↻ resumed after relaunch` |
+  | `crashed:{rc}` | `↻ crash recovery (rc={rc})` — the **only** case that says "crash" |
+  | unset or `none` (an older loop, or the first session of a launch) | `↻ resumed mid-step` |
 
 - Find **this run's `Scope:` tickets** left at Status **In Progress**. For each, check whether its PRs exist and are mid-review-loop: if so, **resume** it; if it's orphaned (no usable PR state), move it back to **Up Next** so WORKING mode re-runs it cleanly. **Never touch an In Progress ticket outside this run's scope** — it is most likely another run's live ticket, and resetting it to Up Next would break that run mid-stage.
 - Reconcile the tracking-issue body's "current ticket" field against the board, and log any reset as an event-log comment.
@@ -336,7 +348,7 @@ Write-once is the whole point: a **frozen** baseline means any later genuine re-
 
 ## Mode Selection
 
-After Step 0 (context + board IDs), 0.5 (tracking issue + **run scope**), and 0.6 (crash recovery), **select the mode from durable state** — mode is computed, never passed in.
+After Step 0 (context + board IDs), 0.5 (tracking issue + **run scope**), and 0.6 (recovery), **select the mode from durable state** — mode is computed, never passed in.
 
 **Ready tickets = tickets that are in this run's SCOPE *and* currently Status "Up Next".** Read the scope from the tracking-issue body (Step 0.5), not from launch args — a relaunched process has no memory of the original arguments, so the scope must come from durable state.
 
@@ -371,7 +383,9 @@ WORKING mode processes **up to N** Ready tickets — those **in this run's scope
 
 At the start of each ticket, append an event-log comment to the tracking issue (`▶ started {STORY_ID}`) and set the body's **Current ticket**.
 
-**Keep the tracking issue live — the orchestrator maintains it, every stage.** Update the body's `Current ticket: {STORY_ID} @ Stage {n} ({name})` field **every time you enter a new stage** below (refine → implement → review → security → integration → review → ui → review → checkpoint) with a `gh issue edit {TRACKING_ISSUE} --body`, so the issue always reflects the true current stage. **Each of these body writes is a read-modify-write that re-reads the operator slot first (Step 0.55, step 4) — re-fetch the live body, preserve/act on the slot, then write.** These frequent per-stage overwrites are exactly how an in-flight operator message gets clobbered if you rebuild the body from a stale in-memory copy; never do that — for anyone monitoring the run, and so a relaunched process recovers accurate state — never a stale "Stage 1." Also append a short tracking-issue event-log **comment** at the high-level milestones — PR opened, PR merged, review REQUEST_CHANGES, ticket done — so the comment thread is a skimmable timeline. (The *detailed* per-stage audit still lands on the work ticket as before; the tracking issue carries the run-level summary.)
+**Keep the tracking issue live — the orchestrator maintains it, every stage.** Update the body's `Current ticket: {STORY_ID} @ Stage {n} ({name})` field **every time you enter a new stage** below (refine → implement → review → security → integration → review → ui → review → checkpoint) with a `gh issue edit {TRACKING_ISSUE} --body`, so the issue always reflects the true current stage. **`{name}` is always one of this fixed lowercase list, never anything else (no parenthetical notes, no PR numbers):** `refine` (Stage 1), `implement` (2), `review` (3, 5 and 7), `security` (3.5), `integration` (4), `ui` (6), `checkpoint` (8) — e.g. `Current ticket: HC-21 @ Stage 3.5 (security)`. The loop and TimeIt read this line with a fixed pattern and group by number + name. **Each of these body writes is a read-modify-write that re-reads the operator slot first (Step 0.55, step 4) — re-fetch the live body, preserve/act on the slot, then write.** These frequent per-stage overwrites are exactly how an in-flight operator message gets clobbered if you rebuild the body from a stale in-memory copy; never do that — for anyone monitoring the run, and so a relaunched process recovers accurate state — never a stale "Stage 1." Also append a short tracking-issue event-log **comment** at the high-level milestones — PR opened, PR merged, review REQUEST_CHANGES, ticket done — so the comment thread is a skimmable timeline. (The *detailed* per-stage audit still lands on the work ticket as before; the tracking issue carries the run-level summary.)
+
+**CI-wait sub-state.** Whenever you wait on CI — the [Merge gate](#merge-gate-honor-before-every-gh-pr-merge)'s checks or a red `main`, [Drain Before Close](#drain-before-close-stage-8), or a CI watcher — append ` — waiting on CI` to the line (`Current ticket: HC-21 @ Stage 3.5 (security) — waiting on CI`), and remove it when the wait ends. CLEANUP's CI waits (C1's full UI suite, C5's `deploy.yml` poll) use `Current ticket: none @ CLEANUP — waiting on CI`, back to `none` when done. Each is the same read-modify-write as every other body write.
 
 For EACH ticket, execute these stages:
 
@@ -1003,7 +1017,7 @@ CLEANUP runs when **no scoped Ready tickets remain** (scope ∩ Up Next == 0) �
 
 > **Runner-availability rule — determine "runner down" from job progress, NEVER from the runner roster.** Do not query `actions/runners` to decide whether a self-hosted runner exists, and never park/halt because a roster is empty or shows only offline runners. The roster is an unreliable oracle in two ways: **(a)** an **org-level** runner does not appear in the **repo** roster at all — `repos/{owner}/{repo}/actions/runners` is structurally blind to it, and the org endpoint (`orgs/{org}/actions/runners`) needs `admin:org` most tokens lack — so a repo whose real runner is org-shared reads as `total_count:1, offline` (a dead **repo-level** runner) or `total_count:0` while the org runner quietly runs everything; **(b)** ephemeral/JIT runners read `total_count:0` between jobs (steady state, not "offline"). The authoritative signal is the **dispatched run itself**: dispatch, then poll `gh run view <id> --json status,conclusion,jobs`. If it leaves `queued` and executes, the runner is present — whatever the roster said. Recent history corroborates: if the same `self-hosted` workflow ran green in the last few days, a runner is there. **Escalate to a circuit-breaker halt ONLY when a dispatched run stays `queued` with `runner: null` past normal pickup (~15 min) **and no other self-hosted job in this repo is running** (`gh run list --repo {REPO_OWNER}/{REPO_NAME} --status in_progress --limit 20`)** — that, not an empty or offline roster, is the sole "runner genuinely down" signal. Waiting in line behind other jobs (often another run's, on the same runner) is not "runner down": keep waiting while anything else is running.
 
-Dispatch `ui-tests.yml` **unfiltered** (full suite) on the self-hosted runner and poll to completion:
+Dispatch `ui-tests.yml` **unfiltered** (full suite) on the self-hosted runner and poll to completion (set `Current ticket: none @ CLEANUP — waiting on CI` while it runs, back to `none` after):
 
 ```bash
 gh workflow run ui-tests.yml --ref main -f ref=main -f filter=""
@@ -1074,7 +1088,7 @@ gh issue list --repo {REPO_OWNER}/{REPO_NAME} --state open --limit 100 \
 >    read -r D_SHA D_STATUS D_CONCL < <(gh run list --workflow deploy.yml --branch main -L1 \
 >      --json headSha,status,conclusion --jq '.[0] | "\(.headSha) \(.status) \(.conclusion)"')
 >    ```
-> 2. **Not-yet-at-fixpoint, NOT a red bar:** if the latest `deploy.yml` is `in_progress`/`queued`/`waiting`/`pending` (or no run has appeared yet for `HEAD_SHA`), **poll to a terminal state** — an unfinished deploy means the run has simply not reached fixpoint; wait, do not close, do not treat it as red. Gate on the terminal `conclusion`.
+> 2. **Not-yet-at-fixpoint, NOT a red bar:** if the latest `deploy.yml` is `in_progress`/`queued`/`waiting`/`pending` (or no run has appeared yet for `HEAD_SHA`), **poll to a terminal state** (with `Current ticket: none @ CLEANUP — waiting on CI` meanwhile) — an unfinished deploy means the run has simply not reached fixpoint; wait, do not close, do not treat it as red. Gate on the terminal `conclusion`.
 > 3. **`success` → clear.** Proceed to the fixpoint bullet below.
 > 4. **Terminal `failure` → classify flaky vs real, same discipline as the C1 red-test re-run:** **re-run once** (`gh run rerun <id>` / `gh workflow run deploy.yml --ref main`, then poll to terminal). Green on re-run → **flaky**, proceed. Still red → **real** → **own it**: route to `ci-fix-v6` FIX mode (it already handles deploy failures; pass `{RUN_NUMBER}` = this run's tracking-issue number, as in [Processing Watcher Results](#processing-watcher-results)) to drive it green in-run, or if it genuinely cannot be driven green, **circuit-breaker halt** — leave the issue OPEN and emit `⚠ halted — needs human (deploy red)`. **Never `RUN_COMPLETE` on a red deploy.**
 
@@ -1118,7 +1132,8 @@ none
 **Chunk size N:** 1   **Scope:** <issue numbers in launch order, e.g. #7,#8,#9 — never Story IDs>
 
 ### Progress
-- **Current ticket:** {STORY_ID} @ Stage {n} | none
+- **Current ticket:** {STORY_ID} @ Stage {n} ({name}) | none
+  <!-- While waiting on CI, append " — waiting on CI"; CLEANUP's CI waits use "none @ CLEANUP — waiting on CI". -->
 - **Completed this run:** {STORY_ID} (impl #/integ #/ui #|skipped), …
 - **Injected this run:** {fix/drift ticket #s} | none
 
@@ -1133,7 +1148,9 @@ none
 - Ready (Up Next): N | CLEANUP injected this pass: {yes | no}
 ```
 
-Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `✉ operator message handled`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`, `⚠ halted — needs human`, `⚠ closed — scope overlap with #N`.
+Event-log comments use stable markers: `▶ started {id}`, `✓ completed {id}`, `⚠ blocked {id}`, `✉ operator message handled`, `⟳ chunk done / relaunch`, `⬛ RUN_COMPLETE`, `⚠ halted — needs human`, `⚠ closed — scope overlap with #N`, and on a mid-step resume (Step 0.6) `↻ resumed after timeout`, `↻ resumed after relaunch`, `↻ crash recovery (rc={rc})` or `↻ resumed mid-step`.
+
+The **loop** (not you) also posts one session-ending comment after every session: `⏱ session {n} timed out after {s}s`, `⏸ session {n} hit the usage limit`, `✖ session {n} crashed (rc={rc})` or `■ session {n} ended cleanly`. Never post or edit these yourself.
 
 ---
 
@@ -1220,7 +1237,7 @@ When a background fix agent completes, check its status:
 
 ### Drain Before Close (Stage 8)
 
-Before posting the final observability metrics for a ticket, **drain all pending CI watchers and fix agents** for that ticket. If any are still running, wait for them to complete before closing the ticket. This ensures the ticket's issue comment reflects the full CI/CD outcome.
+Before posting the final observability metrics for a ticket, **drain all pending CI watchers and fix agents** for that ticket. If any are still running, wait for them to complete before closing the ticket (the `Current ticket` line carries ` — waiting on CI` meanwhile). This ensures the ticket's issue comment reflects the full CI/CD outcome.
 
 ---
 
